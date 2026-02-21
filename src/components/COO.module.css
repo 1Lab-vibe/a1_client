@@ -1,0 +1,141 @@
+.coo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.gridBg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.content {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px;
+}
+
+.welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px 20px;
+}
+
+.headWrap {
+  width: 160px;
+  height: 160px;
+}
+
+.welcomeText {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+}
+
+.welcomeHint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.chatArea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.inputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--grid-line);
+}
+
+.micBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 170, 0.1);
+  color: var(--accent);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.micBtn:hover {
+  background: rgba(0, 212, 170, 0.2);
+}
+
+.micBtn.listening {
+  background: var(--accent);
+  color: var(--bg-desk);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.05); }
+}
+
+.input {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.95rem;
+  resize: none;
+  transition: border-color 0.2s;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.sendBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg-desk);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

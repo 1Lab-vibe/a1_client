@@ -1,0 +1,69 @@
+.wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.wrap.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.head {
+  width: 100%;
+  height: 100%;
+  max-width: 160px;
+  max-height: 160px;
+  filter: url(#glow);
+}
+
+.face {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.eye {
+  animation: blink 4s ease-in-out infinite;
+}
+
+.pupil {
+  animation: look 5s ease-in-out infinite;
+}
+
+.mouth {
+  transition: d 0.3s ease, opacity 0.3s ease;
+}
+
+.wrap.listening .face {
+  animation-duration: 1.5s;
+}
+
+.wrap.listening .mouth {
+  stroke-dasharray: 20;
+  animation: speak 0.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scaleY(1); transform-origin: 60px 72px; }
+  50% { transform: scaleY(1.02); transform-origin: 60px 72px; }
+}
+
+@keyframes blink {
+  0%, 45%, 55%, 100% { opacity: 1; }
+  50% { opacity: 0.1; }
+}
+
+@keyframes look {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(1px, -0.5px); }
+  75% { transform: translate(-1px, 0.5px); }
+}
+
+@keyframes speak {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

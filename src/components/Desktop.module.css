@@ -1,0 +1,90 @@
+.desktop {
+  width: 88px;
+  min-width: 88px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--grid-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 8px;
+}
+
+.brand {
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.icons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: color 0.2s, background 0.2s;
+}
+
+.icon:hover {
+  color: var(--text);
+  background: rgba(0, 212, 170, 0.08);
+}
+
+.icon.active {
+  color: var(--accent);
+  background: rgba(0, 212, 170, 0.12);
+}
+
+.iconSymbol {
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.iconLabel {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid var(--grid-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.email {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoutBtn {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.logoutBtn:hover {
+  color: var(--text);
+  background: rgba(224, 108, 117, 0.15);
+}

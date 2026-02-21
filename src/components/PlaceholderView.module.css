@@ -1,0 +1,17 @@
+.wrap {
+  flex: 1;
+  padding: 32px;
+  overflow: auto;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.sub {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}

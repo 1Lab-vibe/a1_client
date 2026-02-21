@@ -1,0 +1,31 @@
+services:
+  a1-client:
+    image: a1-client:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Задайте URL webhook n8n при сборке (или оставьте пустым и настройте через proxy)
+        - VITE_N8N_WEBHOOK_URL=${VITE_N8N_WEBHOOK_URL:-}
+    container_name: a1-client
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      # Роутер HTTP/HTTPS (подставьте свой домен)
+      - "traefik.http.routers.a1-client.rule=Host(`${TRAEFIK_HOST:-a1.localhost}`)"
+      - "traefik.http.routers.a1-client.entrypoints=web"
+      - "traefik.http.routers.a1-client.service=a1-client"
+      # Опционально: HTTPS и Let's Encrypt (раскомментируйте и задайте TRAEFIK_HOST)
+      # - "traefik.http.routers.a1-client-secure.rule=Host(`${TRAEFIK_HOST}`)"
+      # - "traefik.http.routers.a1-client-secure.entrypoints=websecure"
+      # - "traefik.http.routers.a1-client-secure.service=a1-client"
+      # - "traefik.http.routers.a1-client-secure.tls=true"
+      # - "traefik.http.routers.a1-client-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.a1-client.loadbalancer.server.port=80"
+
+networks:
+  traefik-public:
+    external: true
