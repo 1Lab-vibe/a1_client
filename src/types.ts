@@ -75,6 +75,12 @@ export interface ChatUser {
   avatar?: string
 }
 
+export interface ChatAttachment {
+  type: 'file' | 'image' | 'sticker'
+  url: string
+  name?: string
+}
+
 export interface ChatMessage {
   id: string
   chatId: string
@@ -84,4 +90,5 @@ export interface ChatMessage {
   text: string
   timestamp: number
   isOwn?: boolean
+  attachments?: ChatAttachment[]
 }

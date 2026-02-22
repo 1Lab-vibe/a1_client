@@ -23,6 +23,22 @@
   color: #e06c75;
 }
 
+.stub {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.stubIcon {
+  font-size: 3rem;
+  opacity: 0.6;
+}
+
 .kanban {
   flex: 1;
   min-height: 0;

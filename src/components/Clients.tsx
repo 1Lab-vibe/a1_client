@@ -3,13 +3,100 @@ import { fetchClients, updateClient } from '../api/n8n'
 import type { Client } from '../types'
 import styles from './Clients.module.css'
 
-/** Все ключи из списка клиентов, id первым */
-function getAllKeys(list: Client[]): string[] {
-  const set = new Set<string>()
-  list.forEach((c) => Object.keys(c).forEach((k) => set.add(k)))
-  const arr = Array.from(set).sort((a, b) => (a === 'id' ? -1 : b === 'id' ? 1 : a.localeCompare(b)))
-  if (arr[0] !== 'id' && arr.includes('id')) return ['id', ...arr.filter((k) => k !== 'id')]
-  return arr
+/** Русские названия полей клиента */
+const FIELD_LABELS: Record<string, string> = {
+  id: 'ID',
+  name: 'Имя',
+  legal_name: 'Юр. название',
+  website: 'Сайт',
+  industry: 'Отрасль',
+  city: 'Город',
+  country: 'Страна',
+  annual_revenue: 'Годовой доход',
+  employees: 'Сотрудников',
+  is_customer: 'Клиент',
+  customer_stage: 'Стадия клиента',
+  source_channel: 'Канал',
+  primary_email: 'Email',
+  primary_phone: 'Телефон',
+  contacts: 'Контакты',
+  tags: 'Теги',
+  notes: 'Заметки',
+  outreach_status: 'Статус охвата',
+  next_followup_at: 'След. контакт',
+  company_id: 'Компания',
+  created_at: 'Создан',
+  updated_at: 'Обновлён',
+  last_contacted_at: 'Последний контакт',
+  last_email_sent_at: 'Последнее письмо',
+  last_telegram_sent_at: 'Последний Telegram',
+  last_campaign_id: 'Кампания',
+  last_campaign_sent_at: 'Отправка кампании',
+  campaign_sent_count: 'Отправок кампании',
+  primary_email_status: 'Статус email',
+  primary_email_bounced_at: 'Bounce email',
+  primary_email_bounce_reason: 'Причина bounce',
+  primary_email_replacement: 'Замена email',
+  telegram_user_id: 'Telegram user',
+  telegram_chat_id: 'Telegram chat',
+}
+
+function getFieldLabel(key: string): string {
+  return FIELD_LABELS[key] ?? key.replace(/_/g, ' ')
+}
+
+/** Колонки, которые не показываем в таблице (в карточке остаются) */
+const HIDDEN_TABLE_KEYS = new Set([
+  'id',
+  'company_id',
+  'outreach_status',
+  'campaign_sent_count',
+  'is_customer',
+  'contacts',
+  'created_at',
+  'updated_at',
+  'last_contacted_at',
+  'last_email_sent_at',
+  'last_telegram_sent_at',
+  'last_campaign_sent_at',
+  'primary_email_bounced_at',
+  'next_followup_at',
+])
+
+/** Порядок колонок в таблице: сначала основные, остальные по алфавиту */
+const TABLE_COLUMN_ORDER = ['name', 'primary_phone', 'primary_email', 'notes', 'tags']
+
+/** Значение не пустое (для отбора колонок таблицы) */
+function isNotEmpty(v: unknown): boolean {
+  if (v === null || v === undefined) return false
+  if (typeof v === 'string') return v.trim() !== ''
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'object') return Object.keys(v).length > 0
+  return true
+}
+
+/** Колонки для таблицы: только не скрытые ключи с хотя бы одним непустым значением. Порядок: имя, телефон, email, заметки, теги, остальные по алфавиту. */
+function getTableColumns(list: Client[]): string[] {
+  const keyHasValue = new Map<string, boolean>()
+  list.forEach((c) =>
+    Object.keys(c).forEach((k) => {
+      if (!HIDDEN_TABLE_KEYS.has(k) && isNotEmpty(c[k])) keyHasValue.set(k, true)
+    })
+  )
+  const keys = Array.from(keyHasValue.keys())
+  const ordered: string[] = []
+  for (const k of TABLE_COLUMN_ORDER) {
+    if (keys.includes(k)) ordered.push(k)
+  }
+  const rest = keys.filter((k) => !TABLE_COLUMN_ORDER.includes(k)).sort((a, b) => a.localeCompare(b))
+  return [...ordered, ...rest]
+}
+
+/** Все ключи клиента для карточки редактирования (все поля), id первым */
+function getAllKeysForEditor(client: Client): string[] {
+  const keys = Object.keys(client).sort((a, b) => (a === 'id' ? -1 : b === 'id' ? 1 : a.localeCompare(b)))
+  if (keys[0] !== 'id' && keys.includes('id')) return ['id', ...keys.filter((k) => k !== 'id')]
+  return keys
 }
 
 function cellValue(v: unknown): string {
@@ -28,13 +115,19 @@ export function Clients() {
   const [selected, setSelected] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const columns = useMemo(() => getAllKeys(list), [list])
+  const columns = useMemo(() => getTableColumns(list), [list])
 
   const load = () => {
     setLoading(true)
     setError(null)
     fetchClients()
-      .then((data) => setList(data.clients ?? []))
+      .then((data) => {
+        const raw = Array.isArray(data) ? data : (data?.clients ?? [])
+        const list = Array.isArray(raw)
+          ? raw.filter((c): c is Client => c != null && typeof c === 'object' && !Array.isArray(c))
+          : []
+        setList(list)
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'))
       .finally(() => setLoading(false))
   }
@@ -80,7 +173,7 @@ export function Clients() {
           <thead>
             <tr>
               {columns.map((key) => (
-                <th key={key}>{key}</th>
+                <th key={key}>{getFieldLabel(key)}</th>
               ))}
             </tr>
           </thead>
@@ -112,7 +205,7 @@ export function Clients() {
       {selected && (
         <ClientEditor
           client={selected}
-          columns={getAllKeys([selected])}
+          columns={getAllKeysForEditor(selected)}
           onClose={() => setSelected(null)}
           onSave={handleSave}
           saving={saving}
@@ -150,25 +243,24 @@ function ClientEditor({ client, columns, onClose, onSave, saving }: ClientEditor
   }
 
   const handleSave = () => {
-    const out: Client = { id: String(client.id) }
+    const edited: Record<string, unknown> = { ...client }
     columns.forEach((key) => {
       const raw = form[key] ?? ''
       if (key === 'id') {
-        out.id = raw || String(client.id)
+        edited.id = raw || String(client.id)
         return
       }
       if (raw === '') {
-        out[key] = ''
+        edited[key] = null
         return
       }
       try {
-        const parsed = JSON.parse(raw)
-        out[key] = parsed
+        edited[key] = JSON.parse(raw)
       } catch {
-        out[key] = raw
+        edited[key] = raw
       }
     })
-    onSave(out)
+    onSave(edited as Client)
   }
 
   return (
@@ -186,7 +278,7 @@ function ClientEditor({ client, columns, onClose, onSave, saving }: ClientEditor
             const isLong = val.length > 80 || val.includes('\n')
             return (
               <label key={key}>
-                <span>{key}</span>
+                <span>{getFieldLabel(key)}</span>
                 {isLong ? (
                   <textarea
                     value={val}
