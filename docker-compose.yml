@@ -14,12 +14,12 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      # Роутер HTTP/HTTPS (подставьте свой домен)
-      - "traefik.http.routers.a1-client.rule=Host(`a1.1lab.one`)"
+      # Домен из .env (TRAEFIK_HOST)
+      - "traefik.http.routers.a1-client.rule=Host(`${TRAEFIK_HOST:-1lab.one}`)"
       - "traefik.http.routers.a1-client.entrypoints=web"
       - "traefik.http.routers.a1-client.service=a1-client"
-      # Опционально: HTTPS и Let's Encrypt (раскомментируйте и задайте TRAEFIK_HOST)
-      # - "traefik.http.routers.a1-client-secure.rule=Host(`${TRAEFIK_HOST}`)"
+      # Опционально: HTTPS (раскомментируйте, если есть websecure и Let's Encrypt)
+      # - "traefik.http.routers.a1-client-secure.rule=Host(`${TRAEFIK_HOST:-a1.localhost}`)"
       # - "traefik.http.routers.a1-client-secure.entrypoints=websecure"
       # - "traefik.http.routers.a1-client-secure.service=a1-client"
       # - "traefik.http.routers.a1-client-secure.tls=true"
