@@ -17,14 +17,6 @@ function getStoredDialogs(): ChatUser[] {
   }
 }
 
-function saveDialogs(users: ChatUser[]) {
-  try {
-    localStorage.setItem(DIALOGS_KEY, JSON.stringify(users))
-  } catch {
-    // ignore
-  }
-}
-
 function getStoredMessages(chatId: string): ChatMessageType[] {
   try {
     const raw = localStorage.getItem(`${CHAT_STORAGE_KEY}_${chatId}`)
