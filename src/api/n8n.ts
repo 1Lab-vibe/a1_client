@@ -4,7 +4,7 @@
  */
 
 import { getSession } from '../session'
-import type { Task, Client, Lead, LeadStage, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
+import type { Task, Client, Lead, LeadStage, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
 
 const getWebhookUrl = (): string => {
   const env = import.meta.env.VITE_N8N_WEBHOOK_URL
@@ -132,6 +132,34 @@ export async function fetchLeads(): Promise<{ leads: Lead[]; stages: LeadStage[]
 
 export async function updateLead(lead: Lead): Promise<{ lead: Lead }> {
   return request(buildBody('updateLead', lead))
+}
+
+// ——— Сделки ———
+export async function fetchDeals(): Promise<{ deals: Deal[]; stages: { id: string; title: string; order: number }[] }> {
+  return request(buildBody('getDeals'))
+}
+
+export async function updateDeal(deal: Deal): Promise<{ deal: Deal }> {
+  return request(buildBody('updateDeal', deal))
+}
+
+// ——— Счета ———
+export async function fetchInvoices(): Promise<{ invoices: Invoice[]; stages: { id: string; title: string; order: number }[] }> {
+  return request(buildBody('getInvoices'))
+}
+
+export async function updateInvoice(invoice: Invoice): Promise<{ invoice: Invoice }> {
+  return request(buildBody('updateInvoice', invoice))
+}
+
+// ——— Данные по разделу (универсальный webhook для любого блока) ———
+export async function getBlockData(viewId: string): Promise<Record<string, unknown>> {
+  return request(buildBody('getBlockData', { viewId }))
+}
+
+// ——— Дашборд: данные по шаблону ———
+export async function getDashboard(template: string = 'default'): Promise<Record<string, unknown>> {
+  return request(buildBody('getDashboard', { template }))
 }
 
 // ——— Чат ———

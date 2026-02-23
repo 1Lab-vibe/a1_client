@@ -1,5 +1,16 @@
 export type AppView = 'coo' | 'tasks' | 'clients' | 'settings' | 'leads' | 'chat'
 
+/** Идентификатор раздела: главный (coo, crm, ops, chat, settings) или подраздел (crm/dashboard, crm/leads, ...) */
+export type ViewId = string
+
+/** Элемент навигации: раздел с опциональными подразделами */
+export interface NavSection {
+  id: string
+  label: string
+  icon: string
+  children?: { id: string; label: string }[]
+}
+
 // ——— Авторизация и демо ———
 export interface DemoRequest {
   name: string
@@ -60,6 +71,29 @@ export interface LeadStage {
   id: string
   title: string
   order: number
+}
+
+/** Сделка / инвойс — те же поля что лид, для канбана и списка */
+export interface Deal {
+  id: string
+  title: string
+  description?: string
+  stageId: string
+  contactName?: string
+  contactPhone?: string
+  createdAt?: string
+  [key: string]: unknown
+}
+
+export interface Invoice {
+  id: string
+  title: string
+  description?: string
+  stageId: string
+  contactName?: string
+  contactPhone?: string
+  createdAt?: string
+  [key: string]: unknown
 }
 
 // ——— Чат ———

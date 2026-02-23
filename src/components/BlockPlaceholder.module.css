@@ -1,0 +1,58 @@
+.wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.loading,
+.error {
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.error {
+  color: #e06c75;
+}
+
+.stub {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.stubIcon {
+  font-size: 3rem;
+  opacity: 0.6;
+}
+
+.hint {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.json {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
