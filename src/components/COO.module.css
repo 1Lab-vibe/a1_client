@@ -57,8 +57,37 @@
 .chatArea {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   margin-bottom: 16px;
+}
+
+.chatToolbar {
+  flex-shrink: 0;
+  padding: 4px 0 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clearBtn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.clearBtn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.chatScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .inputRow {

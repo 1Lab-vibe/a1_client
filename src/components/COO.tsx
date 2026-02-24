@@ -8,9 +8,30 @@ import styles from './COO.module.css'
 
 const WELCOME_TEXT = 'Чем могу быть полезен?'
 const INCOMING_POLL_INTERVAL_MS = 4000
+const COO_MESSAGES_KEY = 'a1_coo_messages'
+
+function loadStoredMessages(): N8nMessage[] {
+  try {
+    const raw = localStorage.getItem(COO_MESSAGES_KEY)
+    if (!raw) return []
+    const data = JSON.parse(raw) as N8nMessage[]
+    if (!Array.isArray(data)) return []
+    return data.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+  } catch {
+    return []
+  }
+}
+
+function saveMessages(messages: N8nMessage[]) {
+  try {
+    localStorage.setItem(COO_MESSAGES_KEY, JSON.stringify(messages))
+  } catch {
+    // ignore
+  }
+}
 
 export function COO() {
-  const [messages, setMessages] = useState<N8nMessage[]>([])
+  const [messages, setMessages] = useState<N8nMessage[]>(() => loadStoredMessages())
   const [inputValue, setInputValue] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -18,6 +39,15 @@ export function COO() {
   const afterIdRef = useRef<string | undefined>(undefined)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { sendToN8n } = useN8n()
+
+  useEffect(() => {
+    saveMessages(messages)
+  }, [messages])
+
+  const clearDialog = useCallback(() => {
+    setMessages([])
+    localStorage.removeItem(COO_MESSAGES_KEY)
+  }, [])
 
   // Опрос входящих сообщений от n8n (push). Курсор after_id = bigint sequence, не UUID.
   useEffect(() => {
@@ -46,7 +76,7 @@ export function COO() {
           const ids = new Set(prev.map((x) => x.id))
           const toAdd = assistant.filter((a) => !ids.has(a.id))
           if (toAdd.length === 0) return prev
-          const merged = [...prev, ...toAdd].sort((a, b) => a.timestamp - b.timestamp)
+          const merged = [...prev, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
           return merged
         })
       } catch {
@@ -151,7 +181,14 @@ export function COO() {
           </div>
         ) : (
           <div className={styles.chatArea}>
-            <MessageList messages={messages} isLoading={isLoading} />
+            <div className={styles.chatToolbar}>
+              <button type="button" className={styles.clearBtn} onClick={clearDialog} title="Очистить диалог">
+                Очистить диалог
+              </button>
+            </div>
+            <div className={styles.chatScroll}>
+              <MessageList messages={messages} isLoading={isLoading} />
+            </div>
           </div>
         )}
 

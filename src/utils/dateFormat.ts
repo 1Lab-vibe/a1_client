@@ -18,6 +18,24 @@ export function formatDate(value: unknown): string {
   return `${d}-${m}-${y} ${h}:${min}`
 }
 
+/** Для сообщений: если сегодня — только время HH:MM, иначе dd.mm.yyyy HH:MM */
+export function formatMessageTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '—'
+  const today = new Date()
+  const sameDay =
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  const h = date.getHours().toString().padStart(2, '0')
+  const min = date.getMinutes().toString().padStart(2, '0')
+  if (sameDay) return `${h}:${min}`
+  const d = date.getDate().toString().padStart(2, '0')
+  const m = (date.getMonth() + 1).toString().padStart(2, '0')
+  const y = date.getFullYear()
+  return `${d}.${m}.${y} ${h}:${min}`
+}
+
 const DATE_KEYS = new Set([
   'created_at', 'updated_at', 'createdAt', 'updatedAt', 'last_event_at', 'stage_updated_at',
   'closed_at', 'next_follow_up_at', 'last_contacted_at', 'last_email_sent_at', 'last_telegram_sent_at',
