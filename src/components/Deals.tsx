@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { fetchDeals, updateDeal } from '../api/n8n'
+import { useColumnVisibility } from '../hooks/useColumnVisibility'
+import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { formatCellValue } from '../utils/dateFormat'
 import type { Deal } from '../types'
 import styles from './Leads.module.css'
 
@@ -16,6 +20,44 @@ const DEFAULT_STAGES: Stage[] = [
   { id: 'lost', title: 'Проиграна', order: 3 },
 ]
 
+const DEAL_LABELS: Record<string, string> = {
+  id: 'ID',
+  title: 'Название',
+  description: 'Описание',
+  stageId: 'Этап',
+  contactName: 'Контакт',
+  contactPhone: 'Телефон',
+  createdAt: 'Создан',
+  created_at: 'Создан',
+  updated_at: 'Обновлён',
+}
+
+function getDealLabel(k: string): string {
+  return DEAL_LABELS[k] ?? k.replace(/_/g, ' ')
+}
+
+function isNotEmpty(v: unknown): boolean {
+  if (v === null || v === undefined) return false
+  if (typeof v === 'string') return v.trim() !== ''
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'object') return Object.keys(v).length > 0
+  return true
+}
+
+function getDealTableColumns(items: Deal[]): string[] {
+  const keyHasValue = new Map<string, boolean>()
+  items.forEach((d) => {
+    Object.keys(d).forEach((k) => {
+      if (k !== 'events' && isNotEmpty(d[k])) keyHasValue.set(k, true)
+    })
+  })
+  const keys = Array.from(keyHasValue.keys())
+  if (!keys.includes('id')) keys.unshift('id')
+  if (!keys.includes('title')) keys.unshift('title')
+  if (!keys.includes('stageId')) keys.push('stageId')
+  return keys
+}
+
 export function Deals() {
   const [deals, setDeals] = useState<Deal[]>([])
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES)
@@ -24,6 +66,9 @@ export function Deals() {
   const [movingId, setMovingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Deal | null>(null)
+
+  const availableColumns = useMemo(() => getDealTableColumns(deals), [deals])
+  const { visibleColumns, toggle, isVisible } = useColumnVisibility('deals', availableColumns)
 
   const load = () => {
     setLoading(true)
@@ -69,12 +114,7 @@ export function Deals() {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Сделки</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title="Сделки" />
   }
 
   const byStage = stages.map((s) => ({ stage: s, items: deals.filter((d) => d.stageId === s.id) }))
@@ -83,9 +123,12 @@ export function Deals() {
     <div className={styles.wrap}>
       <div className={styles.header}>
         <h1 className={styles.title}>Сделки</h1>
-        <div className={styles.viewToggle}>
-          <button type="button" className={viewMode === 'kanban' ? styles.toggleActive : ''} onClick={() => setViewMode('kanban')}>Канбан</button>
-          <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
+        <div className={styles.headerRight}>
+          <ColumnVisibilityPopover columns={availableColumns} getLabel={getDealLabel} isVisible={isVisible} onToggle={toggle} title="Колонки в списке и канбане" />
+          <div className={styles.viewToggle}>
+            <button type="button" className={viewMode === 'kanban' ? styles.toggleActive : ''} onClick={() => setViewMode('kanban')}>Канбан</button>
+            <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
+          </div>
         </div>
       </div>
       {viewMode === 'kanban' ? (
@@ -99,11 +142,15 @@ export function Deals() {
               <div className={styles.columnBody}>
                 {items.map((deal) => (
                   <div key={deal.id} className={styles.card}>
-                    <div className={styles.cardTitle}>{deal.title}</div>
-                    {deal.description && <div className={styles.cardDesc}>{deal.description}</div>}
-                    {(deal.contactName || deal.contactPhone) && (
-                      <div className={styles.cardContact}>{deal.contactName} {deal.contactPhone}</div>
-                    )}
+                    <div className={styles.cardTitle}>{formatCellValue(deal.title ?? 'Без названия')}</div>
+                    {Object.keys(deal)
+                      .filter((k) => !['id', 'title', 'stageId'].includes(k) && isNotEmpty(deal[k]) && isVisible(k))
+                      .slice(0, 5)
+                      .map((k) => (
+                        <div key={k} className={styles.cardMeta}>
+                          <span className={styles.cardMetaLabel}>{getDealLabel(k)}:</span> {formatCellValue(deal[k], k)}
+                        </div>
+                      ))}
                     <div className={styles.cardActions}>
                       {stages.map((s) => (
                         <button
@@ -129,18 +176,18 @@ export function Deals() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Название</th>
-                <th>Этап</th>
-                <th>Контакт</th>
+                {visibleColumns.map((key) => (
+                  <th key={key}>{getDealLabel(key)}</th>
+                ))}
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {deals.map((deal) => (
                 <tr key={deal.id}>
-                  <td>{deal.title}</td>
-                  <td>{stages.find((s) => s.id === deal.stageId)?.title ?? deal.stageId}</td>
-                  <td>{deal.contactName || deal.contactPhone || '—'}</td>
+                  {visibleColumns.map((key) => (
+                    <td key={key}>{formatCellValue(deal[key], key)}</td>
+                  ))}
                   <td><button type="button" className={styles.rowEdit} onClick={() => setEditing(deal)}>Открыть</button></td>
                 </tr>
               ))}

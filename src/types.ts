@@ -57,14 +57,21 @@ export interface Task {
 export type Client = Record<string, unknown> & { id: string }
 
 // ——— Лиды ———
+export interface LeadEvent {
+  id?: string
+  type?: string
+  message?: string
+  createdAt?: string
+  timestamp?: number
+  [key: string]: unknown
+}
+
 export interface Lead {
   id: string
-  title: string
-  description?: string
   stageId: string
-  contactName?: string
-  contactPhone?: string
-  createdAt?: string
+  title?: string
+  events?: LeadEvent[]
+  [key: string]: unknown
 }
 
 export interface LeadStage {

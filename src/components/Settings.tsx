@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getConfig, updateConfig, type CompanyConfig } from '../api/n8n'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
 import styles from './Settings.module.css'
 
 const MAX_NEST_DEPTH = 3
@@ -164,12 +165,7 @@ export function Settings() {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Настройки</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title="Настройки" />
   }
 
   return (

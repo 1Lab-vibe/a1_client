@@ -45,7 +45,7 @@ async function getCOOResponse(requestId: string): Promise<PollResponse> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`n8n error: ${res.status}`)
+  if (!res.ok) throw new Error('Ошибка связи с сервером')
   const data = (await res.json().catch(() => ({}))) as {
     status?: string
     text?: string
@@ -82,7 +82,7 @@ export function useN8n() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`n8n error: ${res.status}`)
+    if (!res.ok) throw new Error('Ошибка связи с сервером')
     const data = (await res.json().catch(() => ({}))) as {
       status?: string
       request_id?: string

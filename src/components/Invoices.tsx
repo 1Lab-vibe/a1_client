@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { fetchInvoices, updateInvoice } from '../api/n8n'
+import { useColumnVisibility } from '../hooks/useColumnVisibility'
+import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { formatCellValue } from '../utils/dateFormat'
 import type { Invoice } from '../types'
 import styles from './Leads.module.css'
 
@@ -15,6 +19,44 @@ const DEFAULT_STAGES: Stage[] = [
   { id: 'paid', title: 'Оплачен', order: 2 },
 ]
 
+const INVOICE_LABELS: Record<string, string> = {
+  id: 'ID',
+  title: 'Название',
+  description: 'Описание',
+  stageId: 'Этап',
+  contactName: 'Контакт',
+  contactPhone: 'Телефон',
+  createdAt: 'Создан',
+  created_at: 'Создан',
+  updated_at: 'Обновлён',
+}
+
+function getInvoiceLabel(k: string): string {
+  return INVOICE_LABELS[k] ?? k.replace(/_/g, ' ')
+}
+
+function isNotEmpty(v: unknown): boolean {
+  if (v === null || v === undefined) return false
+  if (typeof v === 'string') return v.trim() !== ''
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'object') return Object.keys(v).length > 0
+  return true
+}
+
+function getInvoiceTableColumns(items: Invoice[]): string[] {
+  const keyHasValue = new Map<string, boolean>()
+  items.forEach((i) => {
+    Object.keys(i).forEach((k) => {
+      if (isNotEmpty(i[k])) keyHasValue.set(k, true)
+    })
+  })
+  const keys = Array.from(keyHasValue.keys())
+  if (!keys.includes('id')) keys.unshift('id')
+  if (!keys.includes('title')) keys.unshift('title')
+  if (!keys.includes('stageId')) keys.push('stageId')
+  return keys
+}
+
 export function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES)
@@ -23,6 +65,9 @@ export function Invoices() {
   const [movingId, setMovingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Invoice | null>(null)
+
+  const availableColumns = useMemo(() => getInvoiceTableColumns(invoices), [invoices])
+  const { visibleColumns, toggle, isVisible } = useColumnVisibility('invoices', availableColumns)
 
   const load = () => {
     setLoading(true)
@@ -68,12 +113,7 @@ export function Invoices() {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Счета</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title="Счета" />
   }
 
   const byStage = stages.map((s) => ({ stage: s, items: invoices.filter((i) => i.stageId === s.id) }))
@@ -82,9 +122,12 @@ export function Invoices() {
     <div className={styles.wrap}>
       <div className={styles.header}>
         <h1 className={styles.title}>Счета</h1>
-        <div className={styles.viewToggle}>
-          <button type="button" className={viewMode === 'kanban' ? styles.toggleActive : ''} onClick={() => setViewMode('kanban')}>Канбан</button>
-          <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
+        <div className={styles.headerRight}>
+          <ColumnVisibilityPopover columns={availableColumns} getLabel={getInvoiceLabel} isVisible={isVisible} onToggle={toggle} title="Колонки в списке и канбане" />
+          <div className={styles.viewToggle}>
+            <button type="button" className={viewMode === 'kanban' ? styles.toggleActive : ''} onClick={() => setViewMode('kanban')}>Канбан</button>
+            <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
+          </div>
         </div>
       </div>
       {viewMode === 'kanban' ? (
@@ -98,11 +141,15 @@ export function Invoices() {
               <div className={styles.columnBody}>
                 {items.map((inv) => (
                   <div key={inv.id} className={styles.card}>
-                    <div className={styles.cardTitle}>{inv.title}</div>
-                    {inv.description && <div className={styles.cardDesc}>{inv.description}</div>}
-                    {(inv.contactName || inv.contactPhone) && (
-                      <div className={styles.cardContact}>{inv.contactName} {inv.contactPhone}</div>
-                    )}
+                    <div className={styles.cardTitle}>{formatCellValue(inv.title ?? 'Без названия')}</div>
+                    {visibleColumns
+                      .filter((k) => !['id', 'title', 'stageId'].includes(k) && isNotEmpty(inv[k]) && isVisible(k))
+                      .slice(0, 5)
+                      .map((k) => (
+                        <div key={k} className={styles.cardMeta}>
+                          <span className={styles.cardMetaLabel}>{getInvoiceLabel(k)}:</span> {formatCellValue(inv[k], k)}
+                        </div>
+                      ))}
                     <div className={styles.cardActions}>
                       {stages.map((s) => (
                         <button
@@ -128,18 +175,18 @@ export function Invoices() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Название</th>
-                <th>Этап</th>
-                <th>Контакт</th>
+                {visibleColumns.map((key) => (
+                  <th key={key}>{getInvoiceLabel(key)}</th>
+                ))}
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {invoices.map((inv) => (
                 <tr key={inv.id}>
-                  <td>{inv.title}</td>
-                  <td>{stages.find((s) => s.id === inv.stageId)?.title ?? inv.stageId}</td>
-                  <td>{inv.contactName || inv.contactPhone || '—'}</td>
+                  {visibleColumns.map((key) => (
+                    <td key={key}>{formatCellValue(inv[key], key)}</td>
+                  ))}
                   <td><button type="button" className={styles.rowEdit} onClick={() => setEditing(inv)}>Открыть</button></td>
                 </tr>
               ))}

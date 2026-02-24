@@ -4,7 +4,7 @@
  */
 
 import { getSession } from '../session'
-import type { Task, Client, Lead, LeadStage, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
+import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
 
 const getWebhookUrl = (): string => {
   const env = import.meta.env.VITE_N8N_WEBHOOK_URL
@@ -30,7 +30,7 @@ async function request<T = unknown>(body: object): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`n8n: ${res.status}`)
+  if (!res.ok) throw new Error('Ошибка связи с сервером')
   return res.json().catch(() => ({} as T))
 }
 
@@ -126,8 +126,137 @@ export async function updateClient(client: Client): Promise<{ client: Client }> 
 }
 
 // ——— Лиды ———
+const DEFAULT_LEAD_STAGES: LeadStage[] = [
+  { id: 'new', title: 'Новый', order: 0 },
+  { id: 'in_work', title: 'В работе', order: 1 },
+  { id: 'offer', title: 'Предложение', order: 2 },
+  { id: 'follow_up', title: 'Доработка', order: 3 },
+  { id: 'won', title: 'Успех', order: 4 },
+  { id: 'lost', title: 'Отказ', order: 5 },
+]
+
+function mergeLeadStages(apiStages: LeadStage[]): LeadStage[] {
+  const byId = new Map<string, LeadStage>(DEFAULT_LEAD_STAGES.map((s) => [s.id, s]))
+  for (const s of apiStages) {
+    if (!byId.has(s.id)) byId.set(s.id, { id: s.id, title: s.title, order: byId.size })
+  }
+  return Array.from(byId.values()).sort((a, b) => a.order - b.order)
+}
+
+function isLeadStageLike(x: unknown): x is LeadStage {
+  return isClientRecord(x) && typeof (x as LeadStage).id === 'string' && typeof (x as LeadStage).title === 'string'
+}
+
+function extractLeadEvents(raw: unknown): LeadEvent[] {
+  const arr = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && 'events' in (raw as object) ? (raw as { events: unknown }).events : raw && typeof raw === 'object' && 'evants' in (raw as object) ? (raw as { evants: unknown }).evants : null
+  if (!Array.isArray(arr)) return []
+  const list: LeadEvent[] = arr.map((e) => {
+    if (!e || typeof e !== 'object') return null
+    const o = e as Record<string, unknown>
+    const ts = o.timestamp != null ? Number(o.timestamp) : o.createdAt ? new Date(String(o.createdAt)).getTime() : o.created_at ? new Date(String(o.created_at)).getTime() : 0
+    return {
+      id: o.id != null ? String(o.id) : undefined,
+      type: o.type != null ? String(o.type) : undefined,
+      message: o.message != null ? String(o.message) : o.text != null ? String(o.text) : undefined,
+      createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
+      timestamp: ts || undefined,
+    }
+  }).filter((x): x is LeadEvent => x !== null)
+  list.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
+  return list
+}
+
+function extractLeadsArray(raw: unknown): Lead[] {
+  const mapOne = (x: unknown): Lead | null => {
+    if (!isClientRecord(x)) return null
+    const o = { ...(x as Record<string, unknown>) }
+    const id = o.id
+    if (id == null) return null
+    const title = o.title ?? o.company_name ?? o.contact_name ?? o.contact_email ?? 'Без названия'
+    const stageId = o.stageId != null ? String(o.stageId) : o.stage_id != null ? String(o.stage_id) : o.stage != null ? String(o.stage) : 'new'
+    const events = extractLeadEvents(o)
+    const history = Array.isArray(o.history) ? extractLeadEvents(o.history) : []
+    const allEvents = events.length > 0 ? events : history.length > 0 ? history : undefined
+    delete o.events
+    delete o.history
+    const lead: Lead = {
+      ...o,
+      id: String(id),
+      stageId,
+      title: String(title),
+      events: allEvents,
+    }
+    return lead
+  }
+  if (raw && typeof raw === 'object' && 'leads' in raw) return extractLeadsArray((raw as { leads: unknown }).leads)
+  if (raw && typeof raw === 'object' && 'items' in raw) return extractLeadsArray((raw as { items: unknown }).items)
+  if (raw && typeof raw === 'object' && 'data' in raw) return extractLeadsArray((raw as { data: unknown }).data)
+  if (raw && typeof raw === 'object' && 'body' in raw) return extractLeadsArray((raw as { body: unknown }).body)
+  if (Array.isArray(raw)) {
+    const list = raw.map(mapOne).filter((l): l is Lead => l !== null)
+    if (list.length > 0) return list
+  }
+  return []
+}
+
+function extractStagesArray(raw: unknown): LeadStage[] {
+  if (Array.isArray(raw)) {
+    const list = raw.filter(isLeadStageLike)
+    if (list.length > 0) return list as LeadStage[]
+  }
+  if (raw && typeof raw === 'object' && 'stages' in raw) return extractStagesArray((raw as { stages: unknown }).stages)
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const data = (raw as { data: Record<string, unknown> }).data
+    if (data && typeof data === 'object' && 'stages' in data) return extractStagesArray(data.stages)
+  }
+  if (raw && typeof raw === 'object' && 'body' in raw) return extractStagesArray((raw as { body: unknown }).body)
+  return []
+}
+
 export async function fetchLeads(): Promise<{ leads: Lead[]; stages: LeadStage[] }> {
-  return request(buildBody('getLeads'))
+  const raw = await request<unknown>(buildBody('getLeads'))
+  let leads = extractLeadsArray(raw)
+  let stages = extractStagesArray(raw)
+  if (leads.length === 0 && Array.isArray(raw) && raw.length > 0) {
+    const first = raw[0]
+    if (first && typeof first === 'object') {
+      leads = extractLeadsArray(first)
+      if (stages.length === 0) stages = extractStagesArray(first)
+    }
+  }
+  if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'leads' in (raw as object)) {
+    const obj = raw as Record<string, unknown>
+    if (leads.length === 0 && Array.isArray(obj.leads)) leads = extractLeadsArray(obj.leads)
+    if (stages.length === 0 && Array.isArray(obj.stages)) stages = extractStagesArray(obj.stages)
+  }
+  const leadStageIds = new Set(leads.map((l) => l.stageId))
+  const stageIds = new Set(stages.map((s) => s.id))
+  for (const sid of leadStageIds) {
+    if (!stageIds.has(sid)) {
+      stages.push({ id: sid, title: stageIdToTitle(sid), order: stages.length })
+      stageIds.add(sid)
+    }
+  }
+  stages = mergeLeadStages(stages)
+  if (import.meta.env.DEV) {
+    console.debug('[getLeads] raw keys:', raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw as object) : Array.isArray(raw) ? 'array' : typeof raw)
+    console.debug('[getLeads] extracted leads:', leads.length, 'stages:', stages.length)
+  }
+  return { leads, stages }
+}
+
+function stageIdToTitle(id: string): string {
+  const map: Record<string, string> = {
+    in_work: 'В работе',
+    open: 'Открыт',
+    closed: 'Закрыт',
+    new: 'Новый',
+    offer: 'Предложение',
+    follow_up: 'Доработка',
+    won: 'Успех',
+    lost: 'Отказ',
+  }
+  return map[id] ?? id.replace(/_/g, ' ')
 }
 
 export async function updateLead(lead: Lead): Promise<{ lead: Lead }> {

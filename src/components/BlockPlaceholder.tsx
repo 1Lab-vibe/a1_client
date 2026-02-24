@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getBlockData } from '../api/n8n'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
 import styles from './BlockPlaceholder.module.css'
 
 interface BlockPlaceholderProps {
@@ -31,12 +32,7 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>{title}</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title={title} />
   }
 
   const isEmpty = !data || Object.keys(data).length === 0

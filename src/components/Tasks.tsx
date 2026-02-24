@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchTasks } from '../api/n8n'
 import type { Task } from '../types'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
 import styles from './Tasks.module.css'
 
 const statusLabels: Record<string, string> = {
@@ -64,12 +65,7 @@ export function Tasks() {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Задачи</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title="Задачи" />
   }
 
   return (

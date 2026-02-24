@@ -1,0 +1,35 @@
+.wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px;
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.stub {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.stubIcon {
+  font-size: 3rem;
+  opacity: 0.6;
+}
+
+.hint {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}

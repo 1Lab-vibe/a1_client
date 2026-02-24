@@ -6,11 +6,19 @@
   padding: 24px;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
 .title {
   font-size: 1.35rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 20px;
+  margin: 0;
 }
 
 .loading,

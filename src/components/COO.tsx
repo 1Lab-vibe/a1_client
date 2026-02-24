@@ -89,7 +89,7 @@ export function COO() {
       const errMsg: N8nMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',
-        content: 'Ошибка связи с n8n. Проверьте настройки и webhook.',
+        content: 'Ошибка связи с сервером. Проверьте настройки и webhook.',
         timestamp: Date.now(),
       }
       setMessages((prev) => [...prev, errMsg])

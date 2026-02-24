@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchClients, updateClient } from '../api/n8n'
+import { useColumnVisibility } from '../hooks/useColumnVisibility'
+import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { formatCellValue } from '../utils/dateFormat'
 import type { Client } from '../types'
 import styles from './Clients.module.css'
 
@@ -99,14 +103,6 @@ function getAllKeysForEditor(client: Client): string[] {
   return keys
 }
 
-function cellValue(v: unknown): string {
-  if (v === null || v === undefined) return '—'
-  if (typeof v === 'object') {
-    const s = JSON.stringify(v)
-    return s.length > 60 ? s.slice(0, 57) + '…' : s
-  }
-  return String(v)
-}
 
 export function Clients() {
   const [list, setList] = useState<Client[]>([])
@@ -115,7 +111,8 @@ export function Clients() {
   const [selected, setSelected] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const columns = useMemo(() => getTableColumns(list), [list])
+  const availableColumns = useMemo(() => getTableColumns(list), [list])
+  const { visibleColumns, toggle, isVisible } = useColumnVisibility('clients', availableColumns)
 
   const load = () => {
     setLoading(true)
@@ -157,22 +154,26 @@ export function Clients() {
   }
 
   if (error) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Клиенты</h1>
-        <div className={styles.error}>{error}</div>
-      </div>
-    )
+    return <SectionUnderDevelopment title="Клиенты" />
   }
 
   return (
     <div className={styles.wrap}>
-      <h1 className={styles.title}>Клиенты</h1>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Клиенты</h1>
+        <ColumnVisibilityPopover
+          columns={availableColumns}
+          getLabel={getFieldLabel}
+          isVisible={isVisible}
+          onToggle={toggle}
+          title="Колонки в списке"
+        />
+      </div>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
             <tr>
-              {columns.map((key) => (
+              {visibleColumns.map((key) => (
                 <th key={key}>{getFieldLabel(key)}</th>
               ))}
             </tr>
@@ -180,7 +181,7 @@ export function Clients() {
           <tbody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={columns.length || 1} className={styles.empty}>
+                <td colSpan={visibleColumns.length || 1} className={styles.empty}>
                   Нет клиентов
                 </td>
               </tr>
@@ -191,9 +192,9 @@ export function Clients() {
                   onClick={() => setSelected(c)}
                   className={styles.rowClick}
                 >
-                  {columns.map((key) => (
+                  {visibleColumns.map((key) => (
                     <td key={key} className={key === 'id' ? styles.cellId : undefined}>
-                      {cellValue(c[key])}
+                      {formatCellValue(c[key], key)}
                     </td>
                   ))}
                 </tr>

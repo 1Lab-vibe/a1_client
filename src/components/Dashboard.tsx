@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getDashboard } from '../api/n8n'
+import { SectionUnderDevelopment } from './SectionUnderDevelopment'
 import styles from './Dashboard.module.css'
 
 const TEMPLATES = ['default', 'sales', 'ops', 'custom']
@@ -18,6 +19,10 @@ export function Dashboard() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка'))
       .finally(() => setLoading(false))
   }, [template])
+
+  if (error) {
+    return <SectionUnderDevelopment title="Дашборд" />
+  }
 
   if (loading && !data) {
     return (
@@ -55,7 +60,6 @@ export function Dashboard() {
           ))}
         </select>
       </header>
-      {error && <div className={styles.error}>{error}</div>}
       {data && Object.keys(data).length === 0 && !error && (
         <div className={styles.stub}>Нет данных. Webhook: getDashboard ({template})</div>
       )}
