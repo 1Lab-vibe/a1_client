@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { requestDemo } from '../api/n8n'
+import { formatDate } from '../utils/dateFormat'
 import type { DemoRequest, DemoResult } from '../types'
 import { DemoRequestModal } from './DemoRequestModal'
 import styles from './LoginScreen.module.css'
@@ -8,18 +9,21 @@ import styles from './LoginScreen.module.css'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function LoginScreen() {
-  const { login, error, clearError } = useAuth()
+  const { login, error, clearError, blockedUntil } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [demoOpen, setDemoOpen] = useState(false)
   const [demoResult, setDemoResult] = useState<DemoResult | null>(null)
 
+  const now = Date.now()
+  const isBlocked = blockedUntil != null && now < blockedUntil
   const emailValid = EMAIL_REGEX.test(email.trim())
-  const canSubmit = emailValid && password.length > 0 && !loading
+  const canSubmit = !isBlocked && emailValid && password.length > 0 && !loading
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isBlocked) return
     clearError()
     if (!canSubmit) return
     setLoading(true)
@@ -56,6 +60,7 @@ export function LoginScreen() {
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isBlocked}
               className={email.length > 0 && !emailValid ? styles.inputError : ''}
             />
             {email.length > 0 && !emailValid && (
@@ -70,11 +75,17 @@ export function LoginScreen() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isBlocked}
             />
           </label>
-          {error && <div className={styles.error}>{error}</div>}
+          {isBlocked && (
+            <div className={styles.blocked} role="alert">
+              Вход временно заблокирован из‑за превышения числа неудачных попыток. Повторите попытку после {formatDate(blockedUntil!)}.
+            </div>
+          )}
+          {error && !isBlocked && <div className={styles.error}>{error}</div>}
           <button type="submit" className={styles.submitBtn} disabled={!canSubmit}>
-            {loading ? 'Вход...' : 'Войти'}
+            {loading ? 'Вход...' : isBlocked ? 'Заблокировано' : 'Войти'}
           </button>
         </form>
         <button type="button" className={styles.demoBtn} onClick={() => setDemoOpen(true)}>

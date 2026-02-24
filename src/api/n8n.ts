@@ -15,7 +15,7 @@ const getWebhookUrl = (): string => {
 function buildBody(action: string, payload?: object): object {
   const session = getSession()
   const base: Record<string, unknown> = { action, ...(payload && { payload }) }
-  if (session && action !== 'login' && action !== 'requestDemo') {
+  if (session && action !== 'login' && action !== 'requestDemo' && action !== 'reportFailedLogin') {
     base.company_id = session.company_id
     base.token = session.token
     base.user_id = session.user_id
@@ -329,11 +329,56 @@ export async function sendChatFile(
 }
 
 // ——— Авторизация (company_id и token не добавляются) ———
+export interface LoginResponse {
+  access: boolean
+  token?: string
+  company_id?: string
+  /** Блокировка по IP после превышения лимита неудачных попыток */
+  blocked?: boolean
+  blockedUntil?: number
+}
+
 export async function login(
   email: string,
   password: string
-): Promise<{ access: boolean; token?: string; company_id?: string }> {
+): Promise<LoginResponse> {
   return request({ action: 'login', payload: { email, password } })
+}
+
+/** Данные клиента при неудачном входе (для вебхука block и учёта по IP на бэкенде). Пароль не передаётся. */
+export interface FailedLoginClientData {
+  email: string
+  userAgent: string
+  language: string
+  screenWidth: number
+  screenHeight: number
+  timezoneOffset: number
+  timestamp: number
+}
+
+export interface ReportFailedLoginResponse {
+  blocked: boolean
+  blockedUntil?: number
+}
+
+/** Сообщить бэкенду о неудачной попытке входа. Бэкенд считает попытки по IP, при достижении лимита блокирует и шлёт вебхук block. */
+export async function reportFailedLogin(
+  email: string,
+  clientData: Omit<FailedLoginClientData, 'email' | 'timestamp'>
+): Promise<ReportFailedLoginResponse> {
+  const payload: FailedLoginClientData = {
+    email,
+    timestamp: Date.now(),
+    ...clientData,
+  }
+  const res = await request<ReportFailedLoginResponse>({
+    action: 'reportFailedLogin',
+    payload,
+  })
+  return {
+    blocked: !!res?.blocked,
+    blockedUntil: res?.blockedUntil,
+  }
 }
 
 export async function requestDemo(data: DemoRequest): Promise<{ access: 'access' | 'deny'; message?: string }> {
