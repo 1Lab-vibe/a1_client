@@ -1,10 +1,17 @@
 /**
  * API для работы с n8n. Один webhook URL, маршрутизация по action в теле запроса.
- * В каждый запрос (кроме login и requestDemo) добавляются company_id, token и user_id (email) из сессии.
+ * В каждый запрос (кроме login и requestDemo) добавляются company_id, token и user_id из сессии.
+ * При наличии VITE_A1_WEBHOOK_SECRET запросы и ответы подписываются HMAC (body_b64 + заголовки timestamp, nonce, signature).
  */
 
 import { getSession } from '../session'
+import { signPayload, verifySignedResponse } from '../utils/webhookSignature'
 import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
+
+function getWebhookSecret(): string {
+  const env = import.meta.env.VITE_A1_WEBHOOK_SECRET
+  return typeof env === 'string' ? env.trim() : ''
+}
 
 const getWebhookUrl = (): string => {
   const env = import.meta.env.VITE_N8N_WEBHOOK_URL
@@ -25,13 +32,51 @@ function buildBody(action: string, payload?: object): object {
 
 async function request<T = unknown>(body: object): Promise<T> {
   const url = getWebhookUrl()
+  const secret = getWebhookSecret()
+
+  let reqBody: string
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+
+  if (secret) {
+    const { body_b64, timestamp, nonce, signature } = await signPayload(secret, body)
+    reqBody = JSON.stringify({ body_b64 })
+    headers['X-Timestamp'] = String(timestamp)
+    headers['X-Nonce'] = nonce
+    headers['X-Signature'] = signature
+  } else {
+    reqBody = JSON.stringify(body)
+  }
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    headers,
+    body: reqBody,
   })
   if (!res.ok) throw new Error('Ошибка связи с сервером')
-  return res.json().catch(() => ({} as T))
+
+  const text = await res.text()
+  let data: unknown
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    return {} as T
+  }
+
+  if (secret && data && typeof data === 'object' && 'body_b64' in data && typeof (data as { body_b64?: string }).body_b64 === 'string') {
+    const body_b64 = (data as { body_b64: string }).body_b64
+    const ts = res.headers.get('X-Timestamp') ?? res.headers.get('x-timestamp') ?? ''
+    const nonce = res.headers.get('X-Nonce') ?? res.headers.get('x-nonce') ?? ''
+    const sig = res.headers.get('X-Signature') ?? res.headers.get('x-signature') ?? ''
+    const verified = await verifySignedResponse(secret, body_b64, ts, nonce, sig)
+    if (verified != null) return verified as T
+  }
+
+  return data as T
+}
+
+/** Общий подписанный запрос к webhook (то же шифрование, что и для login и остальных action). Используется в т.ч. useN8n для отправки text. */
+export async function requestWebhook<T = unknown>(body: object): Promise<T> {
+  return request<T>(body)
 }
 
 // ——— Задачи ———

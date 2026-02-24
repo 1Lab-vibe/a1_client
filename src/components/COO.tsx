@@ -140,13 +140,16 @@ export function COO() {
       try {
         const { messages: incoming } = await getCOOIncomingMessages(afterIdRef.current)
         if (cancelled || !incoming?.length) return
-        const assistant: N8nMessage[] = incoming.map((m) => ({
-          id: m.id,
-          role: 'assistant',
-          content: m.text,
-          attachments: m.attachments,
-          timestamp: m.timestamp,
-        }))
+        // Не сохраняем и не показываем сообщения со статусом processing — пусть «печатает» до прихода ответа
+        const assistant: N8nMessage[] = incoming
+          .filter((m) => m.status !== 'processing')
+          .map((m) => ({
+            id: m.id,
+            role: 'assistant',
+            content: m.text,
+            attachments: m.attachments,
+            timestamp: m.timestamp,
+          }))
         // Следующий курсор = max(id) по bigint, чтобы порядок не зависел от времени/UUID
         let maxId: bigint | null = null
         for (const m of incoming) {

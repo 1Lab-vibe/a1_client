@@ -33,13 +33,15 @@ export interface N8nMessage {
   timestamp: number
 }
 
-/** Сообщение, пришедшее из n8n в COO (push), не в ответ на запрос пользователя. id — монотонный bigint (sequence). */
+/** Сообщение, пришедшее из n8n в COO (push). id — монотонный bigint (sequence). Сообщения со status "processing" не сохраняем и не показываем — оставляем индикатор «печатает». */
 export interface COOIncomingMessage {
   /** bigint sequence (в JSON приходит как string для сохранения точности) */
   id: string
   text: string
   attachments?: N8nMessage['attachments']
   timestamp: number
+  /** Если "processing" — не сохраняем в лог, не показываем в чате; ждём финальный ответ */
+  status?: string
 }
 
 // ——— Задачи (поля из n8n: task_type, domain, status, step_index, created_at, params) ———
