@@ -25,6 +25,15 @@
   border: 1px solid var(--grid-line);
 }
 
+/* Блок «печатает» — без времени, компактный; исчезает, когда придёт следующее сообщение */
+.bubbleTyping {
+  padding-top: 12px;
+}
+
+.bubbleTyping .messageTime {
+  display: none;
+}
+
 .messageTime {
   position: absolute;
   top: 4px;

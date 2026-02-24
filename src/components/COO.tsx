@@ -1,14 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { AnimatedHead } from './AnimatedHead'
 import { MessageList } from './MessageList'
 import { useN8n } from '../hooks/useN8n'
 import { getCOOIncomingMessages } from '../api/n8n'
+import { playIncomingMessageSound } from '../utils/playIncomingSound'
 import type { N8nMessage } from '../types'
 import styles from './COO.module.css'
 
 const WELCOME_TEXT = 'Чем могу быть полезен?'
 const INCOMING_POLL_INTERVAL_MS = 4000
 const COO_MESSAGES_KEY = 'a1_coo_messages'
+const COO_CLEARED_KEY = 'a1_coo_cleared'
+const COO_CLEAR_TIMESTAMP_KEY = 'a1_coo_clear_timestamp'
 
 function loadStoredMessages(): N8nMessage[] {
   try {
@@ -22,6 +25,17 @@ function loadStoredMessages(): N8nMessage[] {
   }
 }
 
+function loadClearedState(): { cleared: boolean; clearTimestamp: number | null } {
+  try {
+    const cleared = localStorage.getItem(COO_CLEARED_KEY) === '1'
+    const rawTs = localStorage.getItem(COO_CLEAR_TIMESTAMP_KEY)
+    const clearTimestamp = rawTs != null && rawTs !== '' ? Number(rawTs) : null
+    return { cleared, clearTimestamp: Number.isFinite(clearTimestamp) ? clearTimestamp : null }
+  } catch {
+    return { cleared: false, clearTimestamp: null }
+  }
+}
+
 function saveMessages(messages: N8nMessage[]) {
   try {
     localStorage.setItem(COO_MESSAGES_KEY, JSON.stringify(messages))
@@ -30,26 +44,95 @@ function saveMessages(messages: N8nMessage[]) {
   }
 }
 
+function setClearedInStorage(cleared: boolean, clearTimestamp: number | null) {
+  try {
+    if (cleared && clearTimestamp != null) {
+      localStorage.setItem(COO_CLEARED_KEY, '1')
+      localStorage.setItem(COO_CLEAR_TIMESTAMP_KEY, String(clearTimestamp))
+    } else {
+      localStorage.removeItem(COO_CLEARED_KEY)
+      localStorage.removeItem(COO_CLEAR_TIMESTAMP_KEY)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/** Начало дня в UTC-ms для даты YYYY-MM-DD */
+function dayStart(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.getTime()
+}
+
+/** Конец дня (23:59:59.999) в UTC-ms */
+function dayEnd(dateStr: string): number {
+  const d = new Date(dateStr + 'T23:59:59.999')
+  return d.getTime()
+}
+
 export function COO() {
-  const [messages, setMessages] = useState<N8nMessage[]>(() => loadStoredMessages())
+  const [fullHistory, setFullHistory] = useState<N8nMessage[]>(() => loadStoredMessages())
+  const [cleared, setCleared] = useState(() => loadClearedState().cleared)
+  const [clearTimestamp, setClearTimestamp] = useState<number | null>(() => loadClearedState().clearTimestamp)
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
   const [inputValue, setInputValue] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  /** Монотонный курсор: max bigint id из последней выборки. after_id передаётся в опрос — дубли невозможны. */
   const afterIdRef = useRef<string | undefined>(undefined)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const { sendToN8n } = useN8n()
 
+  const displayedMessages = useMemo(() => {
+    let list = fullHistory
+    if (cleared && clearTimestamp != null) {
+      list = list.filter((m) => (m.timestamp ?? 0) >= clearTimestamp)
+    }
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? dayStart(dateFrom) : 0
+      const to = dateTo ? dayEnd(dateTo) : Number.POSITIVE_INFINITY
+      list = list.filter((m) => {
+        const t = m.timestamp ?? 0
+        return t >= from && t <= to
+      })
+    }
+    return list.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+  }, [fullHistory, cleared, clearTimestamp, dateFrom, dateTo])
+
   useEffect(() => {
-    saveMessages(messages)
-  }, [messages])
+    saveMessages(fullHistory)
+  }, [fullHistory])
+
+  // Автоскролл вниз и возврат фокуса в поле ввода при новом сообщении/обновлении
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      })
+    }
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+    })
+  }, [displayedMessages, isLoading])
 
   const clearDialog = useCallback(() => {
-    setMessages([])
-    localStorage.removeItem(COO_MESSAGES_KEY)
+    const ts = Date.now()
+    setCleared(true)
+    setClearTimestamp(ts)
+    setClearedInStorage(true, ts)
   }, [])
 
-  // Опрос входящих сообщений от n8n (push). Курсор after_id = bigint sequence, не UUID.
+  const showAllMessages = useCallback(() => {
+    setCleared(false)
+    setClearTimestamp(null)
+    setClearedInStorage(false, null)
+    setDateFrom('')
+    setDateTo('')
+  }, [])
+
+  // Опрос входящих сообщений от n8n (push).
   useEffect(() => {
     let cancelled = false
     const poll = async () => {
@@ -72,12 +155,12 @@ export function COO() {
           if (maxId === null || curr > maxId) maxId = curr
         }
         if (maxId !== null) afterIdRef.current = String(maxId)
-        setMessages((prev) => {
+        setFullHistory((prev) => {
           const ids = new Set(prev.map((x) => x.id))
           const toAdd = assistant.filter((a) => !ids.has(a.id))
           if (toAdd.length === 0) return prev
-          const merged = [...prev, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-          return merged
+          playIncomingMessageSound()
+          return [...prev, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
         })
       } catch {
         // ignore
@@ -101,7 +184,7 @@ export function COO() {
       content: trimmed,
       timestamp: Date.now(),
     }
-    setMessages((prev) => [...prev, userMsg])
+    setFullHistory((prev) => [...prev, userMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))
     setInputValue('')
     setIsLoading(true)
 
@@ -114,7 +197,8 @@ export function COO() {
         attachments: response.attachments,
         timestamp: Date.now(),
       }
-      setMessages((prev) => [...prev, assistantMsg])
+      setFullHistory((prev) => [...prev, assistantMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))
+      playIncomingMessageSound()
     } catch (e) {
       const errMsg: N8nMessage = {
         id: `err-${Date.now()}`,
@@ -122,7 +206,7 @@ export function COO() {
         content: 'Ошибка связи с сервером. Проверьте настройки и webhook.',
         timestamp: Date.now(),
       }
-      setMessages((prev) => [...prev, errMsg])
+      setFullHistory((prev) => [...prev, errMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))
     } finally {
       setIsLoading(false)
     }
@@ -165,7 +249,7 @@ export function COO() {
     setIsListening(true)
   }
 
-  const showWelcome = messages.length === 0
+  const showWelcome = fullHistory.length === 0
 
   return (
     <div className={styles.coo}>
@@ -185,9 +269,28 @@ export function COO() {
               <button type="button" className={styles.clearBtn} onClick={clearDialog} title="Очистить диалог">
                 Очистить диалог
               </button>
+              <button type="button" className={styles.showAllBtn} onClick={showAllMessages} title="Показать все сообщения">
+                Показать все сообщения
+              </button>
+              <span className={styles.filterLabel}>Период:</span>
+              <input
+                type="date"
+                className={styles.dateInput}
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                title="Дата с"
+              />
+              <span className={styles.filterSep}>—</span>
+              <input
+                type="date"
+                className={styles.dateInput}
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                title="Дата по"
+              />
             </div>
-            <div className={styles.chatScroll}>
-              <MessageList messages={messages} isLoading={isLoading} />
+            <div className={styles.chatScroll} ref={chatScrollRef}>
+              <MessageList messages={displayedMessages} isLoading={isLoading} />
             </div>
           </div>
         )}

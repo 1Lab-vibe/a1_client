@@ -66,10 +66,13 @@
   flex-shrink: 0;
   padding: 4px 0 8px;
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.clearBtn {
+.clearBtn,
+.showAllBtn {
   padding: 6px 12px;
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -79,9 +82,41 @@
   cursor: pointer;
 }
 
-.clearBtn:hover {
+.clearBtn:hover,
+.showAllBtn:hover {
   color: var(--text);
   border-color: var(--text-muted);
+}
+
+.showAllBtn {
+  color: var(--accent);
+  border-color: rgba(0, 212, 170, 0.4);
+}
+
+.showAllBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0, 212, 170, 0.08);
+}
+
+.filterLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.filterSep {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.dateInput {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
 }
 
 .chatScroll {

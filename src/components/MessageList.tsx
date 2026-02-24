@@ -40,7 +40,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         </div>
       ))}
       {isLoading && (
-        <div className={`${styles.bubble} ${styles.assistant}`}>
+        <div className={`${styles.bubble} ${styles.bubbleTyping} ${styles.assistant}`}>
           <div className={styles.typing}>
             <span /><span /><span />
           </div>
