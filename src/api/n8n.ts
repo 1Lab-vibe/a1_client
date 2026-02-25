@@ -8,14 +8,27 @@ import { getSession } from '../session'
 import { signPayload, verifySignedResponse } from '../utils/webhookSignature'
 import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
 
+/** Runtime-конфиг из /config.js (в Docker подставляется при старте контейнера из env) */
+function getRuntimeConfig(): { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } | undefined {
+  if (typeof window === 'undefined') return undefined
+  const w = window as unknown as { __A1_CONFIG__?: { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } }
+  return w.__A1_CONFIG__
+}
+
 function getWebhookSecret(): string {
+  const cfg = getRuntimeConfig()
+  const fromConfig = cfg?.VITE_A1_WEBHOOK_SECRET
+  if (typeof fromConfig === 'string' && fromConfig.trim()) return fromConfig.trim()
   const env = import.meta.env.VITE_A1_WEBHOOK_SECRET
   return typeof env === 'string' ? env.trim() : ''
 }
 
 const getWebhookUrl = (): string => {
+  const cfg = getRuntimeConfig()
+  const fromConfig = cfg?.VITE_N8N_WEBHOOK_URL
+  if (typeof fromConfig === 'string' && fromConfig.trim()) return fromConfig.trim().replace(/\/$/, '')
   const env = import.meta.env.VITE_N8N_WEBHOOK_URL
-  if (env) return env.replace(/\/$/, '')
+  if (env) return (env as string).replace(/\/$/, '')
   return '/api'
 }
 

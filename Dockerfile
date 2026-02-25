@@ -19,9 +19,16 @@ RUN npm run build
 # Отдача статики через nginx
 FROM nginx:alpine
 
+RUN apk add --no-cache gettext
+
 RUN rm -rf /usr/share/nginx/html/*
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/public/config.template.js /etc/nginx/config.template.js
+
+# При старте контейнера генерируем config.js из env (VITE_A1_WEBHOOK_SECRET, VITE_N8N_WEBHOOK_URL)
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # SPA: все пути ведут на index.html
 RUN echo 'server { \
@@ -34,4 +41,4 @@ RUN echo 'server { \
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
