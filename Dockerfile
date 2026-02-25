@@ -36,6 +36,7 @@ RUN echo 'server { \
   root /usr/share/nginx/html; \
   index index.html; \
   location = /config.js { add_header Cache-Control "no-store, no-cache"; try_files /config.js =404; } \
+  location = /config.json { add_header Cache-Control "no-store, no-cache"; try_files /config.json =404; } \
   location = /config-status.json { add_header Cache-Control "no-store"; try_files /config-status.json =404; } \
   location / { try_files $uri $uri/ /index.html; } \
   location /health { return 200 "ok"; add_header Content-Type text/plain; } \

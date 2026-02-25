@@ -37,8 +37,10 @@ __A1_DEBUG
 ```
 
 - `signing: false` — приложение не видит секрет. Часто это кэш: сделайте жёсткое обновление (Ctrl+Shift+R) или откройте сайт в режиме инкогнито.
-- `configSource: "none"` — не загрузился `/config.js` (404 или ошибка). Проверьте, что при старте контейнера выполняется entrypoint и создаётся `config.js` (см. п. 1).
-- `configSource: "runtime (config.js, secret empty)"` — config.js загрузился, но в нём пустой секрет: в контейнер не попал `VITE_A1_WEBHOOK_SECRET` (вернитесь к п. 1).
+- `configSource: "none"` — не загрузились ни `config.js`, ни `config.json` (404 или ошибка). Откройте вкладку Network: запрос к `/config.json` должен быть 200 и вернуть JSON с полями в base64. Проверьте, что при старте контейнера entrypoint создаёт `config.json` (см. п. 1).
+- `configSource: "runtime (secret empty)"` — config загрузился, но секрет пустой: в контейнер не попал `VITE_A1_WEBHOOK_SECRET` (вернитесь к п. 1).
+
+Приложение сначала подгружает **/config.json** по fetch (с `cache: 'no-store'`), затем при необходимости использует config.js. Так обходится кэш браузера и порядок загрузки скриптов.
 
 ## 3. Проверка .env на сервере
 

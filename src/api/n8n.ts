@@ -8,11 +8,49 @@ import { getSession } from '../session'
 import { signPayload, verifySignedResponse } from '../utils/webhookSignature'
 import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
 
-/** Runtime-конфиг из /config.js (в Docker подставляется при старте контейнера из env) */
+/** Runtime-конфиг: из window.__A1_CONFIG__ (config.js) или подгружен по fetch из /config.json */
 function getRuntimeConfig(): { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } | undefined {
   if (typeof window === 'undefined') return undefined
   const w = window as unknown as { __A1_CONFIG__?: { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } }
   return w.__A1_CONFIG__
+}
+
+let configFetchPromise: Promise<void> | null = null
+
+/** Один раз подгружаем /config.json (Docker), декодируем base64 и пишем в __A1_CONFIG__. Обход кэша и порядка скриптов. */
+async function ensureConfigLoaded(): Promise<void> {
+  if (typeof window === 'undefined') return
+  const w = window as unknown as { __A1_CONFIG__?: { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } }
+  if (w.__A1_CONFIG__?.VITE_A1_WEBHOOK_SECRET || w.__A1_CONFIG__?.VITE_N8N_WEBHOOK_URL) return
+  if (configFetchPromise) return configFetchPromise
+  configFetchPromise = (async () => {
+    try {
+      const r = await fetch(`${window.location.origin}/config.json`, { cache: 'no-store' })
+      if (!r.ok) return
+      const data = (await r.json()) as { VITE_A1_WEBHOOK_SECRET_B64?: string; VITE_N8N_WEBHOOK_URL_B64?: string; VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string }
+      let secret = data.VITE_A1_WEBHOOK_SECRET
+      let url = data.VITE_N8N_WEBHOOK_URL
+      if (data.VITE_A1_WEBHOOK_SECRET_B64) {
+        try {
+          secret = atob(data.VITE_A1_WEBHOOK_SECRET_B64)
+        } catch {
+          secret = ''
+        }
+      }
+      if (data.VITE_N8N_WEBHOOK_URL_B64) {
+        try {
+          url = atob(data.VITE_N8N_WEBHOOK_URL_B64)
+        } catch {
+          url = ''
+        }
+      }
+      w.__A1_CONFIG__ = { ...w.__A1_CONFIG__, VITE_A1_WEBHOOK_SECRET: secret ?? '', VITE_N8N_WEBHOOK_URL: url ?? '' }
+      setSigningDiagnostics()
+    } catch {
+      // ignore
+    }
+  })()
+  return configFetchPromise
 }
 
 function getWebhookSecret(): string {
@@ -40,11 +78,14 @@ function setSigningDiagnostics(): void {
   const url = getWebhookUrl()
   ;(window as unknown as { __A1_DEBUG?: Record<string, unknown> }).__A1_DEBUG = {
     signing: secret.length > 0,
-    configSource: cfg ? (cfg.VITE_A1_WEBHOOK_SECRET ? 'runtime (config.js)' : 'runtime (config.js, secret empty)') : (import.meta.env.VITE_A1_WEBHOOK_SECRET ? 'build (env)' : 'none'),
+    configSource: cfg ? (cfg.VITE_A1_WEBHOOK_SECRET ? 'runtime (config.js or config.json)' : 'runtime (secret empty)') : (import.meta.env.VITE_A1_WEBHOOK_SECRET ? 'build (env)' : 'none'),
     webhookUrl: url ? `${url.slice(0, 30)}${url.length > 30 ? '…' : ''}` : '(default /api)',
   }
 }
 setSigningDiagnostics()
+
+// Сразу начинаем подгрузку config.json (к моменту первого запроса конфиг уже будет)
+if (typeof window !== 'undefined') void ensureConfigLoaded()
 
 function buildBody(action: string, payload?: object): object {
   const session = getSession()
@@ -58,6 +99,7 @@ function buildBody(action: string, payload?: object): object {
 }
 
 async function request<T = unknown>(body: object): Promise<T> {
+  await ensureConfigLoaded()
   const url = getWebhookUrl()
   const secret = getWebhookSecret()
 
