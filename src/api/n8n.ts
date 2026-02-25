@@ -32,6 +32,20 @@ const getWebhookUrl = (): string => {
   return '/api'
 }
 
+/** Диагностика HMAC: в консоли браузера введите __A1_DEBUG — покажет, включена ли подпись и откуда конфиг */
+function setSigningDiagnostics(): void {
+  if (typeof window === 'undefined') return
+  const cfg = getRuntimeConfig()
+  const secret = getWebhookSecret()
+  const url = getWebhookUrl()
+  ;(window as unknown as { __A1_DEBUG?: Record<string, unknown> }).__A1_DEBUG = {
+    signing: secret.length > 0,
+    configSource: cfg ? (cfg.VITE_A1_WEBHOOK_SECRET ? 'runtime (config.js)' : 'runtime (config.js, secret empty)') : (import.meta.env.VITE_A1_WEBHOOK_SECRET ? 'build (env)' : 'none'),
+    webhookUrl: url ? `${url.slice(0, 30)}${url.length > 30 ? '…' : ''}` : '(default /api)',
+  }
+}
+setSigningDiagnostics()
+
 function buildBody(action: string, payload?: object): object {
   const session = getSession()
   const base: Record<string, unknown> = { action, ...(payload && { payload }) }
