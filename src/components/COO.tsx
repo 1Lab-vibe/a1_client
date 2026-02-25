@@ -140,9 +140,14 @@ export function COO() {
       try {
         const { messages: incoming } = await getCOOIncomingMessages(afterIdRef.current)
         if (cancelled || !incoming?.length) return
-        // Не сохраняем и не показываем сообщения со статусом processing — пусть «печатает» до прихода ответа
+        // Не сохраняем и не показываем сообщения processing и пустые — пусть «печатает» до прихода ответа
         const assistant: N8nMessage[] = incoming
-          .filter((m) => m.status !== 'processing')
+          .filter((m) => {
+            if (m.status === 'processing') return false
+            const hasContent = typeof m.text === 'string' && m.text.trim() !== ''
+            const hasAttachments = (m.attachments?.length ?? 0) > 0
+            return hasContent || hasAttachments
+          })
           .map((m) => ({
             id: m.id,
             role: 'assistant',
