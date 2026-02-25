@@ -8,9 +8,11 @@ RUN npm ci
 
 COPY . .
 
-# Опционально: URL webhook n8n (задать при сборке: --build-arg VITE_N8N_WEBHOOK_URL=...)
+# Переменные Vite встраиваются в бандл при сборке — передать через --build-arg или docker-compose args
 ARG VITE_N8N_WEBHOOK_URL=
+ARG VITE_A1_WEBHOOK_SECRET=
 ENV VITE_N8N_WEBHOOK_URL=$VITE_N8N_WEBHOOK_URL
+ENV VITE_A1_WEBHOOK_SECRET=$VITE_A1_WEBHOOK_SECRET
 
 RUN npm run build
 

@@ -5,8 +5,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Задайте URL webhook n8n при сборке (или оставьте пустым и настройте через proxy)
+        # Задайте при сборке (из .env или при docker compose build --build-arg ...)
         - VITE_N8N_WEBHOOK_URL=${VITE_N8N_WEBHOOK_URL:-}
+        - VITE_A1_WEBHOOK_SECRET=${VITE_A1_WEBHOOK_SECRET:-}
     container_name: a1-client
     restart: unless-stopped
     networks:
