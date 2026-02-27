@@ -38,51 +38,115 @@
   color: var(--text-muted);
 }
 
-.error {
-  padding: 12px;
-  color: #e06c75;
-  margin-bottom: 12px;
-}
-
 .content {
   flex: 1;
   min-height: 0;
   overflow: auto;
 }
 
-.structure {
-  display: flex;
-  flex-direction: column;
+/* Плитка: несколько виджетов в ряд, прямоугольные, без длинной колбасы */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
   gap: 16px;
+  align-content: start;
 }
 
-.block {
+.widget {
   background: var(--bg-card);
   border: 1px solid var(--grid-line);
   border-radius: var(--radius);
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
 }
 
-.blockTitle {
-  padding: 10px 14px;
+.widgetTitle {
+  padding: 10px 12px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--grid-line);
   font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text);
-}
-
-.blockBody {
-  padding: 14px;
   font-size: 0.9rem;
   color: var(--text);
+  flex-shrink: 0;
 }
 
-.list {
-  margin: 0;
-  padding-left: 20px;
+.widgetBody {
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.35;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
-.list li {
-  margin-bottom: 6px;
+.placeholder,
+.singleValue {
+  color: var(--text-muted);
+}
+
+.singleValue {
+  font-weight: 500;
+}
+
+/* Таблица ключ-значение внутри виджета (один объект) */
+.kvTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: inherit;
+}
+
+.kvTable th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 4px 8px 4px 0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.kvTable td {
+  padding: 4px 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.kvTable tr + tr th,
+.kvTable tr + tr td {
+  border-top: 1px solid var(--grid-line);
+}
+
+/* Таблица с массивом объектов */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--grid-line);
+  vertical-align: top;
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  white-space: nowrap;
+}
+
+.table td {
+  color: var(--text);
+  word-break: break-word;
+}
+
+.table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.03);
 }

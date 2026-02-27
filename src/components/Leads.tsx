@@ -186,7 +186,14 @@ export function Leads() {
               </div>
               <div className={styles.columnBody}>
                 {items.map((lead) => (
-                  <div key={lead.id} className={styles.card}>
+                  <div
+                    key={lead.id}
+                    className={styles.card}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setEditing(lead)}
+                    onKeyDown={(e) => e.key === 'Enter' && setEditing(lead)}
+                  >
                     <div className={styles.cardTitle}>{formatCellValue(lead.title ?? 'Без названия')}</div>
                     {getLeadFormKeys(lead)
                       .filter((k) => !['id', 'title', 'stageId'].includes(k) && isNotEmpty(lead[k]) && isVisible(k))
@@ -197,25 +204,6 @@ export function Leads() {
                           {formatCellValue(lead[k], k)}
                         </div>
                       ))}
-                    <div className={styles.cardActions}>
-                      {stages.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className={s.id === lead.stageId ? styles.stageBtnActive : styles.stageBtn}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            moveToStage(lead, s.id)
-                          }}
-                          disabled={movingId === lead.id}
-                        >
-                          {s.title}
-                        </button>
-                      ))}
-                    </div>
-                    <button type="button" className={styles.cardEdit} onClick={() => setEditing(lead)}>
-                      Редактировать
-                    </button>
                   </div>
                 ))}
               </div>
@@ -284,7 +272,17 @@ function LeadEditModal({
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modalLead} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.modalTitle}>Карточка лида</h2>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>Карточка лида</h2>
+          <button
+            type="button"
+            className={styles.modalClose}
+            onClick={onClose}
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
+        </div>
         <div className={styles.modalLeadGrid}>
           <div className={styles.modalBody}>
             {formKeys.map((key) => (
