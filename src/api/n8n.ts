@@ -258,13 +258,15 @@ function mergeLeadStages(apiStages: LeadStage[]): LeadStage[] {
 }
 
 function isLeadStageLike(x: unknown): x is LeadStage {
-  return isClientRecord(x) && typeof (x as LeadStage).id === 'string' && typeof (x as LeadStage).title === 'string'
+  if (!isClientRecord(x)) return false
+  const r = x as Record<string, unknown>
+  return typeof r.id === 'string' && typeof r.title === 'string'
 }
 
 function extractLeadEvents(raw: unknown): LeadEvent[] {
   const arr = Array.isArray(raw) ? raw : raw && typeof raw === 'object' && 'events' in (raw as object) ? (raw as { events: unknown }).events : raw && typeof raw === 'object' && 'evants' in (raw as object) ? (raw as { evants: unknown }).evants : null
   if (!Array.isArray(arr)) return []
-  const list: LeadEvent[] = arr.map((e) => {
+  const mapped = arr.map((e): LeadEvent | null => {
     if (!e || typeof e !== 'object') return null
     const o = e as Record<string, unknown>
     const ts = o.timestamp != null ? Number(o.timestamp) : o.createdAt ? new Date(String(o.createdAt)).getTime() : o.created_at ? new Date(String(o.created_at)).getTime() : 0
@@ -275,7 +277,8 @@ function extractLeadEvents(raw: unknown): LeadEvent[] {
       createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
       timestamp: ts || undefined,
     }
-  }).filter((x): x is LeadEvent => x !== null)
+  })
+  const list = mapped.filter((x): x is LeadEvent => x !== null)
   list.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
   return list
 }

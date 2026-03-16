@@ -90,7 +90,6 @@ export function Leads() {
   const [stages, setStages] = useState<LeadStage[]>(DEFAULT_STAGES)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [movingId, setMovingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Lead | null>(null)
 
@@ -112,15 +111,6 @@ export function Leads() {
   useEffect(() => {
     load()
   }, [])
-
-  const moveToStage = (lead: Lead, stageId: string) => {
-    if (lead.stageId === stageId) return
-    setMovingId(lead.id)
-    updateLead({ ...lead, stageId })
-      .then((data) => setLeads((prev) => prev.map((l) => (l.id === data.lead.id ? data.lead : l))))
-      .catch((e) => alert(e instanceof Error ? e.message : 'Ошибка связи с сервером'))
-      .finally(() => setMovingId(null))
-  }
 
   const handleSaveEdit = (lead: Lead) => {
     updateLead(lead)
