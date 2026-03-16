@@ -22,6 +22,7 @@ services:
       - "traefik.http.routers.a1-client.rule=Host(`${TRAEFIK_HOST:-1lab.one}`)"
       - "traefik.http.routers.a1-client.entrypoints=websecure"
       - "traefik.http.routers.a1-client.service=a1-client"
+      - "traefik.http.routers.a1-client.tls=true"
       - "traefik.http.routers.a1-client.tls.certresolver=letsencrypt"
       - "traefik.http.services.a1-client.loadbalancer.server.port=80"
 
