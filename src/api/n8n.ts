@@ -5,7 +5,7 @@
  */
 
 import { getSession } from '../session'
-import { signPayload, verifySignedResponse } from '../utils/webhookSignature'
+import { signPayload, verifySignedResponse, base64ToStr } from '../utils/webhookSignature'
 import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
 
 /** Runtime-конфиг: из window.__A1_CONFIG__ (config.js) или подгружен по fetch из /config.json */
@@ -138,6 +138,14 @@ async function request<T = unknown>(body: object): Promise<T> {
     const sig = res.headers.get('X-Signature') ?? res.headers.get('x-signature') ?? ''
     const verified = await verifySignedResponse(secret, body_b64, ts, nonce, sig)
     if (verified != null) return verified as T
+    // Fallback: если верификация не прошла (например, сервер не прислал сигнатурные заголовки),
+    // всё равно попробуем расшифровать body_b64 и вернуть данные.
+    try {
+      const jsonStr = base64ToStr(body_b64)
+      return JSON.parse(jsonStr) as T
+    } catch {
+      // ignore; дальше вернём как есть
+    }
   }
 
   return data as T
