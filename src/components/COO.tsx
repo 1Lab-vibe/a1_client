@@ -161,8 +161,15 @@ export function COO() {
         let maxId: bigint | null = null
         for (const m of incoming) {
           if (m.id == null || m.id === '') continue
-          const curr = typeof m.id === 'string' ? BigInt(m.id) : BigInt(Number(m.id))
-          if (maxId === null || curr > maxId) maxId = curr
+          // id иногда может приходить не числовым (например UUID/служебный формат).
+          // Тогда BigInt(...) выбрасывает исключение и мы бы потеряли целый батч.
+          try {
+            const curr = typeof m.id === 'string' ? BigInt(m.id) : BigInt(Number(m.id))
+            if (maxId === null || curr > maxId) maxId = curr
+          } catch {
+            // пропускаем непарсибельные id, но сами сообщения всё равно должны отрисоваться
+            continue
+          }
         }
         if (maxId !== null) afterIdRef.current = String(maxId)
         setFullHistory((prev) => {
