@@ -79,6 +79,7 @@ export function COO() {
   const [inputValue, setInputValue] = useState('')
   const [isListening, setIsListening] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isDateEditing, setIsDateEditing] = useState(false)
   const afterIdRef = useRef<string | undefined>(undefined)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatScrollRef = useRef<HTMLDivElement>(null)
@@ -113,9 +114,10 @@ export function COO() {
       })
     }
     requestAnimationFrame(() => {
-      inputRef.current?.focus()
+      // Не уводим фокус из поля выбора даты, иначе дата-пикер/ввод постоянно прерывается.
+      if (!isDateEditing) inputRef.current?.focus()
     })
-  }, [displayedMessages, isLoading])
+  }, [displayedMessages, isLoading, isDateEditing])
 
   const clearDialog = useCallback(() => {
     const ts = Date.now()
@@ -286,6 +288,8 @@ export function COO() {
                 className={styles.dateInput}
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
+                onFocus={() => setIsDateEditing(true)}
+                onBlur={() => setIsDateEditing(false)}
                 title="Дата с"
               />
               <span className={styles.filterSep}>—</span>
@@ -294,6 +298,8 @@ export function COO() {
                 className={styles.dateInput}
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
+                onFocus={() => setIsDateEditing(true)}
+                onBlur={() => setIsDateEditing(false)}
                 title="Дата по"
               />
             </div>
