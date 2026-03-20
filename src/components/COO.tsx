@@ -146,17 +146,33 @@ export function COO() {
         const assistant: N8nMessage[] = incoming
           .filter((m) => {
             if (m.status === 'processing') return false
-            const hasContent = typeof m.text === 'string' && m.text.trim() !== ''
+            // n8n иногда возвращает текст под разными ключами
+            const textLike =
+              typeof m.text === 'string'
+                ? m.text
+                : typeof (m as unknown as { message?: unknown }).message === 'string'
+                  ? (m as unknown as { message?: string }).message ?? ''
+                  : ''
+            const hasContent = textLike.trim() !== ''
             const hasAttachments = (m.attachments?.length ?? 0) > 0
             return hasContent || hasAttachments
           })
           .map((m) => ({
             id: m.id,
             role: 'assistant',
-            content: m.text,
+            content:
+              typeof m.text === 'string'
+                ? m.text
+                : typeof (m as unknown as { message?: unknown }).message === 'string'
+                  ? (m as unknown as { message?: string }).message ?? ''
+                  : '',
             attachments: m.attachments,
             timestamp: m.timestamp,
           }))
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.debug('[COO poll] after_id:', afterIdRef.current, 'incoming:', incoming.slice(0, 5).map((x) => x.id), 'assistantCount:', assistant.length)
+        }
         // Следующий курсор = max(id) по bigint, чтобы порядок не зависел от времени/UUID
         let maxId: bigint | null = null
         for (const m of incoming) {
@@ -176,6 +192,10 @@ export function COO() {
           const ids = new Set(prev.map((x) => x.id))
           const toAdd = assistant.filter((a) => !ids.has(a.id))
           if (toAdd.length === 0) return prev
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug('[COO poll] adding ids:', toAdd.map((x) => x.id).slice(0, 10))
+          }
           playIncomingMessageSound()
           return [...prev, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
         })

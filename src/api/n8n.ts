@@ -105,6 +105,7 @@ async function request<T = unknown>(body: object): Promise<T> {
 
   let reqBody: string
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const unsignedReqBody = JSON.stringify(body)
 
   if (secret) {
     const { body_b64, timestamp, nonce, signature } = await signPayload(secret, body)
@@ -116,12 +117,47 @@ async function request<T = unknown>(body: object): Promise<T> {
     reqBody = JSON.stringify(body)
   }
 
-  const res = await fetch(url, {
+  const signedHeaders = secret ? { ...headers } : headers
+  const signedRes = await fetch(url, {
     method: 'POST',
-    headers,
+    headers: signedHeaders,
     body: reqBody,
   })
-  if (!res.ok) throw new Error('Ошибка связи с сервером')
+
+  // Если сервер 5xx на signed-запросах, часто это следствие несовпадения формата/подписи.
+  // Чтобы не “ронять” UI, повторяем один раз без подписи (plain JSON).
+  // Это диагностический/UX fallback; в идеале сервер должен корректно обрабатывать signed-запросы.
+  if (!signedRes.ok && secret && signedRes.status >= 500) {
+    const fallbackRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: unsignedReqBody,
+    })
+    if (fallbackRes.ok) {
+      return await (async () => {
+        const text = await fallbackRes.text()
+        let data: unknown
+        try {
+          data = text ? JSON.parse(text) : {}
+        } catch {
+          return {} as T
+        }
+        return data as T
+      })()
+    }
+  }
+
+  const res = signedRes
+  if (!res.ok) {
+    // Попробуем добавить хвост ответа, чтобы понять причину 4xx/5xx в консоли
+    let extra = ''
+    try {
+      extra = (await res.text())?.slice(0, 300) ?? ''
+    } catch {
+      // ignore
+    }
+    throw new Error(`Ошибка связи с сервером (${res.status}). ${extra}`)
+  }
 
   const text = await res.text()
   let data: unknown
