@@ -3,6 +3,8 @@ dist
 .env
 .env.local
 .env.*.local
+secrets/*.env
+!secrets/*.enc.env
 *.log
 .DS_Store
 *.tsbuildinfo

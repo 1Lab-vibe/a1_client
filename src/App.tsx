@@ -40,7 +40,7 @@ function getViewTitle(viewId: ViewId): string {
 }
 
 function App() {
-  const { isLoggedIn } = useAuth()
+  const { isLoggedIn, company_id } = useAuth()
   const [viewId, setViewId] = useState<ViewId>('coo')
 
   if (!isLoggedIn) {
@@ -104,7 +104,7 @@ function App() {
   return (
     <div className="app">
       <Desktop currentViewId={viewId} onSelectView={setViewId} />
-      <main className="main-window">
+      <main className="main-window" key={company_id ?? 'no-company'}>
         {content}
       </main>
     </div>

@@ -21,6 +21,14 @@ export interface DemoRequest {
 
 export type DemoResult = 'access' | 'deny'
 
+export interface AuthCompany {
+  company_id: string
+  name: string
+  role?: string
+  token?: string
+  is_default?: boolean
+}
+
 export interface N8nMessage {
   id: string
   role: 'user' | 'assistant'

@@ -11,7 +11,7 @@ interface DesktopProps {
 }
 
 export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
-  const { email, logout } = useAuth()
+  const { email, companies, selectedCompany, selectCompany, logout } = useAuth()
   const [sections, setSections] = useState<NavSection[]>(loadSectionsOrder)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['crm', 'ops', 'settings']))
   const [dragId, setDragId] = useState<string | null>(null)
@@ -65,7 +65,23 @@ export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
 
   return (
     <aside className={styles.desktop}>
-      <div className={styles.brand}>A1</div>
+      <div className={styles.brandBlock}>
+        <div className={styles.brand}>A1</div>
+        {selectedCompany && (
+          <select
+            className={styles.companySelect}
+            value={selectedCompany.company_id}
+            onChange={(event) => selectCompany(event.target.value)}
+            title="Компания"
+          >
+            {(companies.length ? companies : [selectedCompany]).map((company) => (
+              <option key={company.company_id} value={company.company_id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
       <nav className={styles.navScroll}>
         {sections.map((section, index) => {
           const hasChildren = section.children && section.children.length > 0

@@ -73,12 +73,80 @@
   color: #e06c75;
 }
 
+.secondaryActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.linkBtn {
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  font-size: 0.85rem;
+}
+
+.linkBtn:hover:not(:disabled) {
+  color: var(--accent-dim);
+}
+
+.linkBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .error {
   padding: 10px 12px;
   background: rgba(224, 108, 117, 0.15);
   border-radius: var(--radius-sm);
   color: #e06c75;
   font-size: 0.9rem;
+}
+
+.success {
+  padding: 10px 12px;
+  background: rgba(0, 212, 170, 0.12);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.companyList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.companyBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-align: left;
+}
+
+.companyBtn:hover {
+  border-color: var(--accent);
+  background: rgba(0, 212, 170, 0.08);
+}
+
+.companyBtn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.companyBtn small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .blocked {

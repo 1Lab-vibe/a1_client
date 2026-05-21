@@ -1,12 +1,12 @@
 /**
  * API для работы с n8n. Один webhook URL, маршрутизация по action в теле запроса.
- * В каждый запрос (кроме login и requestDemo) добавляются company_id, token и user_id из сессии.
+ * В каждый запрос (кроме login, requestDemo, requestPasswordReset) добавляются company_id, token и user_id из сессии.
  * При наличии VITE_A1_WEBHOOK_SECRET запросы и ответы подписываются HMAC (body_b64 + заголовки timestamp, nonce, signature).
  */
 
 import { getSession } from '../session'
 import { signPayload, verifySignedResponse, base64ToStr } from '../utils/webhookSignature'
-import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage } from '../types'
+import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage, AuthCompany } from '../types'
 
 /** Runtime-конфиг: из window.__A1_CONFIG__ (config.js) или подгружен по fetch из /config.json */
 function getRuntimeConfig(): { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } | undefined {
@@ -90,7 +90,7 @@ if (typeof window !== 'undefined') void ensureConfigLoaded()
 function buildBody(action: string, payload?: object): object {
   const session = getSession()
   const base: Record<string, unknown> = { action, ...(payload && { payload }) }
-  if (session && action !== 'login' && action !== 'requestDemo' && action !== 'reportFailedLogin') {
+  if (session && action !== 'login' && action !== 'requestDemo' && action !== 'requestPasswordReset' && action !== 'reportFailedLogin') {
     base.company_id = session.company_id
     base.token = session.token
     base.user_id = session.user_id
@@ -494,6 +494,7 @@ export interface LoginResponse {
   access: boolean
   token?: string
   company_id?: string
+  companies?: AuthCompany[]
   /** Блокировка по IP после превышения лимита неудачных попыток */
   blocked?: boolean
   blockedUntil?: number
@@ -503,10 +504,81 @@ export async function login(
   email: string,
   password: string
 ): Promise<LoginResponse> {
-  return request({ action: 'login', payload: { email, password } })
+  const raw = await request<unknown>({ action: 'login', payload: { email, password } })
+
+  // n8n иногда возвращает login как массив [{ access, token, ... }] или объект { access, token, ... }.
+  // Клиент ожидает LoginResponse: { access: boolean, token?, company_id?, blocked?, blockedUntil? }.
+  const first = Array.isArray(raw) ? raw[0] : raw
+  if (!first || typeof first !== 'object') {
+    return { access: false }
+  }
+
+  const obj = first as Record<string, unknown>
+  const wf3 = (obj as { _wf3?: { access?: Record<string, unknown> } })._wf3?.access
+
+  const accessVal = obj.access ?? wf3?.access ?? wf3?.allowed
+  const access = Boolean(accessVal)
+
+  const token = typeof obj.token === 'string' ? obj.token : undefined
+  const company_id =
+    typeof obj.company_id === 'string'
+      ? obj.company_id
+      : typeof wf3?.company_id === 'string'
+        ? wf3.company_id
+        : typeof wf3?.user_id === 'string'
+          ? wf3.user_id
+          : undefined
+
+  const blocked = obj.blocked != null ? Boolean(obj.blocked) : undefined
+  const blockedUntilRaw = obj.blockedUntil ?? obj.blocked_until ?? (wf3?.blockedUntil as unknown)
+  const blockedUntil = typeof blockedUntilRaw === 'number' ? blockedUntilRaw : undefined
+  const companiesRaw = Array.isArray(obj.companies)
+    ? obj.companies
+    : Array.isArray(wf3?.companies)
+      ? wf3.companies
+      : []
+  const companies = companiesRaw
+    .map((company): AuthCompany | null => {
+      if (!company || typeof company !== 'object') return null
+      const c = company as Record<string, unknown>
+      const id = typeof c.company_id === 'string' ? c.company_id : typeof c.id === 'string' ? c.id : ''
+      if (!id) return null
+      return {
+        company_id: id,
+        name: typeof c.name === 'string' && c.name.trim() ? c.name : `Компания ${id.slice(0, 8)}`,
+        role: typeof c.role === 'string' ? c.role : undefined,
+        token: typeof c.token === 'string' ? c.token : undefined,
+        is_default: c.is_default != null ? Boolean(c.is_default) : undefined,
+      }
+    })
+    .filter((company): company is AuthCompany => company !== null)
+
+  return { access, token, company_id, companies, blocked, blockedUntil }
 }
 
 /** Данные клиента при неудачном входе (для вебхука block и учёта по IP на бэкенде). Пароль не передаётся. */
+export async function getAuthCompanies(): Promise<{ companies: AuthCompany[] }> {
+  const res = await request<{ companies?: unknown[] }>(buildBody('getAuthCompanies'))
+  const companies = Array.isArray(res.companies)
+    ? res.companies
+        .map((company): AuthCompany | null => {
+          if (!company || typeof company !== 'object') return null
+          const c = company as Record<string, unknown>
+          const company_id = typeof c.company_id === 'string' ? c.company_id : typeof c.id === 'string' ? c.id : ''
+          if (!company_id) return null
+          return {
+            company_id,
+            name: typeof c.name === 'string' && c.name.trim() ? c.name : `Компания ${company_id.slice(0, 8)}`,
+            role: typeof c.role === 'string' ? c.role : undefined,
+            token: typeof c.token === 'string' ? c.token : undefined,
+            is_default: c.is_default != null ? Boolean(c.is_default) : undefined,
+          }
+        })
+        .filter((company): company is AuthCompany => company !== null)
+    : []
+  return { companies }
+}
+
 export interface FailedLoginClientData {
   email: string
   userAgent: string
@@ -550,11 +622,30 @@ export async function requestDemo(data: DemoRequest): Promise<{ access: 'access'
   return { access, message: res.message }
 }
 
+export async function requestPasswordReset(email: string): Promise<{ sent: boolean; message?: string }> {
+  const res = await request<{ sent?: boolean; ok?: boolean; message?: string }>({
+    action: 'requestPasswordReset',
+    payload: { email },
+  })
+  return {
+    sent: res.sent ?? res.ok ?? true,
+    message: res.message,
+  }
+}
+
 // ——— COO: входящие сообщения от n8n (push). Нормализуем ответ: n8n может вернуть { messages } или [{ messages }]. ———
 export async function getCOOIncomingMessages(afterId?: string): Promise<{ messages: COOIncomingMessage[] }> {
-  const raw = await request<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>(
-    buildBody('getCOOIncomingMessages', afterId != null ? { after_id: afterId } : undefined)
-  )
+  let raw: { messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>
+  try {
+    raw = await request<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>(
+      buildBody('getCOOIncomingMessages', afterId != null ? { after_id: afterId } : undefined)
+    )
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('No item to return was found')) {
+      return { messages: [] }
+    }
+    throw error
+  }
   if (Array.isArray(raw) && raw.length > 0 && raw[0]?.messages) {
     return { messages: raw[0].messages }
   }

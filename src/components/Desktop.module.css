@@ -9,13 +9,35 @@
   gap: 0;
 }
 
+.brandBlock {
+  flex-shrink: 0;
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .brand {
   font-weight: 600;
   font-size: 1.25rem;
   color: var(--accent);
   letter-spacing: 0.05em;
-  padding: 0 16px 12px;
-  flex-shrink: 0;
+}
+
+.companySelect {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  background: var(--bg-desk);
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.companySelect:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .navScroll {
