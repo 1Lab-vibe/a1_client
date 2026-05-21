@@ -29,15 +29,22 @@ export interface AuthCompany {
   is_default?: boolean
 }
 
+export interface N8nAttachment {
+  type?: 'image' | 'file' | 'chart'
+  url?: string
+  name?: string
+  path?: string
+  filename?: string
+  content_type?: string
+  contentType?: string
+  mimeType?: string
+}
+
 export interface N8nMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  attachments?: Array<{
-    type: 'image' | 'file' | 'chart'
-    url: string
-    name?: string
-  }>
+  attachments?: N8nAttachment[]
   timestamp: number
 }
 

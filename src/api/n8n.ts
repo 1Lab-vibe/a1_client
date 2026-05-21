@@ -6,7 +6,7 @@
 
 import { getSession } from '../session'
 import { signPayload, verifySignedResponse, base64ToStr } from '../utils/webhookSignature'
-import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage, AuthCompany } from '../types'
+import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage, AuthCompany, N8nAttachment } from '../types'
 
 /** Runtime-конфиг: из window.__A1_CONFIG__ (config.js) или подгружен по fetch из /config.json */
 function getRuntimeConfig(): { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } | undefined {
@@ -629,6 +629,18 @@ export async function getCOOIncomingMessages(afterId?: string): Promise<{ messag
     return { messages: (raw as { messages: COOIncomingMessage[] }).messages }
   }
   return { messages: [] }
+}
+
+export async function downloadCOOAttachment(attachment: N8nAttachment): Promise<{
+  fileName: string
+  mimeType: string
+  contentBase64: string
+}> {
+  return request(buildBody('downloadCOOAttachment', {
+    path: attachment.path ?? attachment.url,
+    filename: attachment.filename ?? attachment.name,
+    content_type: attachment.content_type ?? attachment.contentType ?? attachment.mimeType,
+  }))
 }
 
 // ——— Настройки (конфиг компании) ———

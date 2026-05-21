@@ -80,6 +80,23 @@
   text-decoration: underline;
 }
 
+.attFileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.attFileButton:hover {
+  text-decoration: underline;
+}
+
 .typing {
   display: flex;
   gap: 6px;
