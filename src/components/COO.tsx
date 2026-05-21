@@ -81,6 +81,7 @@ export function COO() {
   const [isLoading, setIsLoading] = useState(false)
   const [isDateEditing, setIsDateEditing] = useState(false)
   const afterIdRef = useRef<string | undefined>(undefined)
+  const didResetCursorRef = useRef(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const { sendToN8n } = useN8n()
@@ -189,18 +190,47 @@ export function COO() {
         }
         if (maxId !== null) afterIdRef.current = String(maxId)
         setFullHistory((prev) => {
-          const ids = new Set(prev.map((x) => x.id))
-          const toAdd = assistant.filter((a) => !ids.has(a.id))
-          if (toAdd.length === 0) return prev
+          const incomingById = new Map(assistant.map((a) => [a.id, a]))
+          let changed = false
+          const merged = prev.map((message) => {
+            const incomingMessage = incomingById.get(message.id)
+            if (!incomingMessage) return message
+            incomingById.delete(message.id)
+            const nextAttachments = incomingMessage.attachments ?? message.attachments
+            const shouldUpdateAttachments =
+              (incomingMessage.attachments?.length ?? 0) > 0 &&
+              JSON.stringify(incomingMessage.attachments) !== JSON.stringify(message.attachments ?? [])
+            const shouldUpdateContent = incomingMessage.content && incomingMessage.content !== message.content
+            if (!shouldUpdateAttachments && !shouldUpdateContent) return message
+            changed = true
+            return {
+              ...message,
+              content: shouldUpdateContent ? incomingMessage.content : message.content,
+              attachments: nextAttachments,
+              timestamp: incomingMessage.timestamp ?? message.timestamp,
+            }
+          })
+          const toAdd = Array.from(incomingById.values())
+          if (toAdd.length === 0 && !changed) return prev
           if (import.meta.env.DEV) {
             // eslint-disable-next-line no-console
-            console.debug('[COO poll] adding ids:', toAdd.map((x) => x.id).slice(0, 10))
+            console.debug('[COO poll] adding/updating ids:', toAdd.map((x) => x.id).slice(0, 10))
           }
-          playIncomingMessageSound()
-          return [...prev, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+          if (toAdd.length > 0) playIncomingMessageSound()
+          return [...merged, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
         })
-      } catch {
-        // ignore
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('[COO poll] failed:', e)
+        }
+        // Если backend падает при текущем cursor (after_id),
+        // часто помогает сбросить cursor и начать заново без after_id.
+        // Иначе workflow с пустым результатом может падать с "No item to return was found".
+        if (!didResetCursorRef.current && afterIdRef.current != null) {
+          didResetCursorRef.current = true
+          afterIdRef.current = undefined
+        }
       }
     }
     const t = setInterval(poll, INCOMING_POLL_INTERVAL_MS)
