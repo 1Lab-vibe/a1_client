@@ -105,7 +105,6 @@ async function request<T = unknown>(body: object): Promise<T> {
 
   let reqBody: string
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const unsignedReqBody = JSON.stringify(body)
 
   if (secret) {
     const { body_b64, timestamp, nonce, signature } = await signPayload(secret, body)
@@ -123,29 +122,6 @@ async function request<T = unknown>(body: object): Promise<T> {
     headers: signedHeaders,
     body: reqBody,
   })
-
-  // Если сервер 5xx на signed-запросах, часто это следствие несовпадения формата/подписи.
-  // Чтобы не “ронять” UI, повторяем один раз без подписи (plain JSON).
-  // Это диагностический/UX fallback; в идеале сервер должен корректно обрабатывать signed-запросы.
-  if (!signedRes.ok && secret && signedRes.status >= 500) {
-    const fallbackRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: unsignedReqBody,
-    })
-    if (fallbackRes.ok) {
-      return await (async () => {
-        const text = await fallbackRes.text()
-        let data: unknown
-        try {
-          data = text ? JSON.parse(text) : {}
-        } catch {
-          return {} as T
-        }
-        return data as T
-      })()
-    }
-  }
 
   const res = signedRes
   if (!res.ok) {
