@@ -424,8 +424,99 @@ export async function getBlockData(viewId: string): Promise<Record<string, unkno
 }
 
 // ——— Дашборд: данные по шаблону ———
-export async function getDashboard(template: string = 'default'): Promise<Record<string, unknown>> {
-  return request(buildBody('getDashboard', { template }))
+export type PeriodPreset = 'today' | '7d' | '30d' | 'month' | 'quarter' | 'custom'
+
+export interface PeriodFilter {
+  preset: PeriodPreset
+  from?: string
+  to?: string
+}
+
+type ApiEnvelope<T> = T | { ok?: boolean; data?: T; error?: string; meta?: Record<string, unknown> }
+
+function unwrapData<T>(data: ApiEnvelope<T>): T {
+  if (data && typeof data === 'object' && !Array.isArray(data) && 'data' in data) {
+    return (data as { data?: T }).data as T
+  }
+  return data as T
+}
+
+export async function getDashboard(template: string = 'default', period?: PeriodFilter): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getDashboard', { template, period }))
+  return unwrapData(data) || {}
+}
+
+export async function getUiBootstrap(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getUiBootstrap'))
+  return unwrapData(data) || {}
+}
+
+export async function getReport(reportId: string, period?: PeriodFilter, filters?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getReport', { report_id: reportId, period, filters }))
+  return unwrapData(data) || {}
+}
+
+export async function getSettingsSchema(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getSettingsSchema'))
+  return unwrapData(data) || {}
+}
+
+export async function getSettings(): Promise<CompanyConfig> {
+  const data = await request<ApiEnvelope<{ config?: CompanyConfig } & CompanyConfig>>(buildBody('getSettings'))
+  const unwrapped = unwrapData(data)
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped) && (unwrapped as { config?: CompanyConfig }).config != null) {
+    return (unwrapped as { config: CompanyConfig }).config
+  }
+  return (unwrapped as CompanyConfig) || {}
+}
+
+export async function updateSettingsSection(section: string, patch: Record<string, unknown>): Promise<CompanyConfig> {
+  const data = await request<ApiEnvelope<{ config?: CompanyConfig } & CompanyConfig>>(buildBody('updateSettingsSection', { section, patch }))
+  const unwrapped = unwrapData(data)
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped) && (unwrapped as { config?: CompanyConfig }).config != null) {
+    return (unwrapped as { config: CompanyConfig }).config
+  }
+  return (unwrapped as CompanyConfig) || {}
+}
+
+export async function getOnboardingState(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getOnboardingState'))
+  return unwrapData(data) || {}
+}
+
+export async function saveOnboardingStep(stepId: string, values: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('saveOnboardingStep', { step_id: stepId, values }))
+  return unwrapData(data) || {}
+}
+
+export async function completeOnboarding(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('completeOnboarding'))
+  return unwrapData(data) || {}
+}
+
+export async function getIntegrations(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getIntegrations'))
+  return unwrapData(data) || {}
+}
+
+export async function startIntegrationConnect(provider: string): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('startIntegrationConnect', { provider }))
+  return unwrapData(data) || {}
+}
+
+export async function testIntegration(provider: string): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('testIntegration', { provider }))
+  return unwrapData(data) || {}
+}
+
+export async function getUsersAndPermissions(): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getUsersAndPermissions'))
+  return unwrapData(data) || {}
+}
+
+export async function updateUserRole(userId: string, role: string, companyId?: string): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('updateUserRole', { user_id: userId, role, company_id: companyId }))
+  return unwrapData(data) || {}
 }
 
 // ——— Чат ———

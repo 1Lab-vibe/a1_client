@@ -1,7 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState, type ComponentType, type SVGProps } from 'react'
+import {
+  BarChart3,
+  Bot,
+  BriefcaseBusiness,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  GripVertical,
+  MessageCircle,
+  Settings,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import type { ViewId } from '../types'
-import type { NavSection } from '../types'
+import type { NavSection, ViewId } from '../types'
 import { loadSectionsOrder, saveSectionsOrder, toViewId } from '../config/sections'
 import styles from './Desktop.module.css'
 
@@ -10,8 +20,17 @@ interface DesktopProps {
   onSelectView: (id: ViewId) => void
 }
 
+const ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  bot: Bot,
+  chart: BarChart3,
+  reports: ClipboardList,
+  ops: BriefcaseBusiness,
+  chat: MessageCircle,
+  settings: Settings,
+}
+
 export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
-  const { email, companies, selectedCompany, selectCompany, logout } = useAuth()
+  const { email, logout } = useAuth()
   const [sections, setSections] = useState<NavSection[]>(loadSectionsOrder)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['crm', 'ops', 'settings']))
   const [dragId, setDragId] = useState<string | null>(null)
@@ -66,27 +85,21 @@ export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
   return (
     <aside className={styles.desktop}>
       <div className={styles.brandBlock}>
-        <div className={styles.brand}>A1</div>
-        {selectedCompany && (
-          <select
-            className={styles.companySelect}
-            value={selectedCompany.company_id}
-            onChange={(event) => selectCompany(event.target.value)}
-            title="Компания"
-          >
-            {(companies.length ? companies : [selectedCompany]).map((company) => (
-              <option key={company.company_id} value={company.company_id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className={styles.brandMark}>
+          <img className={styles.brandLogo} src="/brand/1lab-logo.png" alt="1Lab" />
+          <span>
+            <strong>A1 COO OS</strong>
+            <small>1Lab control room</small>
+          </span>
+        </div>
       </div>
-      <nav className={styles.navScroll}>
+
+      <nav className={styles.navScroll} aria-label="Основная навигация">
         {sections.map((section, index) => {
           const hasChildren = section.children && section.children.length > 0
           const isExpanded = expanded.has(section.id)
           const isMainSelected = !hasChildren && isSelected(section.id)
+          const Icon = ICONS[section.icon] ?? ClipboardList
           return (
             <div key={section.id} className={styles.sectionWrap}>
               {dropIndex === index && <div className={styles.dropLine} aria-hidden />}
@@ -105,10 +118,12 @@ export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
                     className={styles.sectionBtn}
                     onClick={() => toggleExpand(section.id)}
                     title={section.label}
+                    aria-expanded={isExpanded}
                   >
-                    <span className={styles.sectionIcon}>{section.icon}</span>
+                    <GripVertical className={styles.dragHandle} aria-hidden />
+                    <Icon className={styles.sectionIcon} aria-hidden />
                     <span className={styles.sectionLabel}>{section.label}</span>
-                    <span className={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</span>
+                    {isExpanded ? <ChevronDown className={styles.expandIcon} /> : <ChevronRight className={styles.expandIcon} />}
                   </button>
                 ) : (
                   <button
@@ -117,7 +132,8 @@ export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
                     onClick={() => onSelectView(section.id)}
                     title={section.label}
                   >
-                    <span className={styles.sectionIcon}>{section.icon}</span>
+                    <GripVertical className={styles.dragHandle} aria-hidden />
+                    <Icon className={styles.sectionIcon} aria-hidden />
                     <span className={styles.sectionLabel}>{section.label}</span>
                   </button>
                 )}
@@ -144,6 +160,7 @@ export function Desktop({ currentViewId, onSelectView }: DesktopProps) {
           )
         })}
       </nav>
+
       <div className={styles.footer}>
         {email && <span className={styles.email} title={email}>{email}</span>}
         <button type="button" className={styles.logoutBtn} onClick={logout} title="Выйти">

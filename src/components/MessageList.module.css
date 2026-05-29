@@ -16,8 +16,8 @@
 
 .bubble.user {
   align-self: flex-end;
-  background: rgba(0, 212, 170, 0.15);
-  border: 1px solid rgba(0, 212, 170, 0.25);
+  background: rgba(53, 213, 255, 0.14);
+  border: 1px solid rgba(243, 200, 93, 0.25);
 }
 
 .bubble.assistant {

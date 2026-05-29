@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from './context/AuthContext'
 import { LoginScreen } from './components/LoginScreen'
 import { Desktop } from './components/Desktop'
+import { AppHeader, getViewTitle } from './components/AppHeader'
 import { COO } from './components/COO'
 import { Tasks } from './components/Tasks'
 import { Clients } from './components/Clients'
@@ -11,33 +12,10 @@ import { Deals } from './components/Deals'
 import { Invoices } from './components/Invoices'
 import { Chat } from './components/Chat'
 import { Dashboard } from './components/Dashboard'
+import { Reports } from './components/Reports'
+import { Onboarding } from './components/Onboarding'
 import { BlockPlaceholder } from './components/BlockPlaceholder'
 import type { ViewId } from './types'
-
-const VIEW_TITLES: Record<string, string> = {
-  'ops/finances': 'Финансы',
-  'ops/marketing': 'Маркетинг',
-  'ops/accounting': 'Бухгалтерия',
-  'ops/hr': 'HR',
-  'ops/legal': 'Юр. служба',
-  'ops/supply': 'Снабжение',
-  'ops/logistics': 'Логистика',
-  'ops/it': 'IT',
-  'settings/configuration': 'Конфигурация',
-  'settings/crm': 'CRM',
-  'settings/policies': 'Политики',
-  'settings/prompts': 'Промты',
-  'settings/handlers': 'Хендлеры',
-  'settings/integrations': 'Интеграции',
-  'settings/users': 'Пользователи',
-  'settings/permissions': 'Права доступа',
-  'settings/action_templates': 'Шаблоны действий',
-  'settings/letter_templates': 'Шаблоны писем',
-}
-
-function getViewTitle(viewId: ViewId): string {
-  return VIEW_TITLES[viewId] ?? viewId
-}
 
 function App() {
   const { isLoggedIn, company_id } = useAuth()
@@ -67,18 +45,11 @@ function App() {
     case 'crm/invoices':
       content = <Invoices />
       break
+    case 'reports':
+      content = <Reports />
+      break
     case 'ops/tasks':
       content = <Tasks />
-      break
-    case 'ops/finances':
-    case 'ops/marketing':
-    case 'ops/accounting':
-    case 'ops/hr':
-    case 'ops/legal':
-    case 'ops/supply':
-    case 'ops/logistics':
-    case 'ops/it':
-      content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
       break
     case 'chat':
       content = <Chat />
@@ -86,16 +57,8 @@ function App() {
     case 'settings/configuration':
       content = <Settings />
       break
-    case 'settings/crm':
-    case 'settings/policies':
-    case 'settings/prompts':
-    case 'settings/handlers':
-    case 'settings/integrations':
-    case 'settings/users':
-    case 'settings/permissions':
-    case 'settings/action_templates':
-    case 'settings/letter_templates':
-      content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
+    case 'settings/onboarding':
+      content = <Onboarding />
       break
     default:
       content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
@@ -104,9 +67,12 @@ function App() {
   return (
     <div className="app">
       <Desktop currentViewId={viewId} onSelectView={setViewId} />
-      <main className="main-window" key={company_id ?? 'no-company'}>
-        {content}
-      </main>
+      <section className="shell-main" key={company_id ?? 'no-company'}>
+        <AppHeader viewId={viewId} />
+        <main className="main-window">
+          {content}
+        </main>
+      </section>
     </div>
   )
 }

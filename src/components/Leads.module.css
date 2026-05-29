@@ -46,7 +46,7 @@
 .toggleActive {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(0, 212, 170, 0.08);
+  background: rgba(243, 200, 93, 0.09);
 }
 
 .rowEdit {
@@ -268,7 +268,7 @@
 }
 
 .error {
-  color: #e06c75;
+  color: var(--danger);
 }
 
 .stub {
@@ -349,7 +349,7 @@
 }
 
 .card:hover {
-  border-color: rgba(0, 212, 170, 0.3);
+  border-color: rgba(243, 200, 93, 0.3);
 }
 
 .cardTitle {

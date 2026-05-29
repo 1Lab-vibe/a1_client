@@ -28,7 +28,7 @@
 }
 
 .error {
-  color: #e06c75;
+  color: var(--danger);
 }
 
 .tableWrap {
@@ -65,7 +65,7 @@
 }
 
 .rowClick:hover {
-  background: rgba(0, 212, 170, 0.08);
+  background: rgba(243, 200, 93, 0.09);
 }
 
 .cellId {

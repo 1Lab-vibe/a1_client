@@ -1,12 +1,11 @@
 import type { NavSection } from '../types'
 
-/** Разделы по умолчанию (порядок и подразделы). Порядок главных можно менять перетаскиванием. */
 export const DEFAULT_SECTIONS: NavSection[] = [
-  { id: 'coo', label: 'COO', icon: '◉' },
+  { id: 'coo', label: 'COO', icon: 'bot' },
   {
     id: 'crm',
     label: 'CRM',
-    icon: '📊',
+    icon: 'chart',
     children: [
       { id: 'dashboard', label: 'Дашборд' },
       { id: 'leads', label: 'Лиды' },
@@ -15,10 +14,11 @@ export const DEFAULT_SECTIONS: NavSection[] = [
       { id: 'invoices', label: 'Счета' },
     ],
   },
+  { id: 'reports', label: 'Отчеты', icon: 'reports' },
   {
     id: 'ops',
     label: 'OPS',
-    icon: '☑',
+    icon: 'ops',
     children: [
       { id: 'tasks', label: 'Задачи' },
       { id: 'finances', label: 'Финансы' },
@@ -31,16 +31,17 @@ export const DEFAULT_SECTIONS: NavSection[] = [
       { id: 'it', label: 'IT' },
     ],
   },
-  { id: 'chat', label: 'Чат', icon: '💬' },
+  { id: 'chat', label: 'Чат', icon: 'chat' },
   {
     id: 'settings',
     label: 'Настройки',
-    icon: '⚙',
+    icon: 'settings',
     children: [
-      { id: 'configuration', label: 'Конфигурация' },
+      { id: 'configuration', label: 'Конфиг' },
+      { id: 'onboarding', label: 'Онбординг' },
       { id: 'crm', label: 'CRM' },
       { id: 'policies', label: 'Политики' },
-      { id: 'prompts', label: 'Промты' },
+      { id: 'prompts', label: 'Промпты' },
       { id: 'handlers', label: 'Хендлеры' },
       { id: 'integrations', label: 'Интеграции' },
       { id: 'users', label: 'Пользователи' },
@@ -65,8 +66,8 @@ export function loadSectionsOrder(): NavSection[] {
       const section = byId.get(id)
       if (section) result.push(section)
     }
-    for (const s of DEFAULT_SECTIONS) {
-      if (!byId.get(s.id)) result.push(s)
+    for (const section of DEFAULT_SECTIONS) {
+      if (!result.some((item) => item.id === section.id)) result.push(section)
     }
     return result.length ? result : DEFAULT_SECTIONS
   } catch {
@@ -82,7 +83,6 @@ export function saveSectionsOrder(sections: NavSection[]) {
   }
 }
 
-/** Полный ViewId для подраздела: crm/dashboard, settings/configuration */
 export function toViewId(sectionId: string, childId?: string): string {
   return childId ? `${sectionId}/${childId}` : sectionId
 }

@@ -90,13 +90,13 @@
 
 .showAllBtn {
   color: var(--accent);
-  border-color: rgba(0, 212, 170, 0.4);
+  border-color: rgba(243, 200, 93, 0.4);
 }
 
 .showAllBtn:hover {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(0, 212, 170, 0.08);
+  background: rgba(243, 200, 93, 0.09);
 }
 
 .filterLabel {
@@ -139,7 +139,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 212, 170, 0.1);
+  background: rgba(243, 200, 93, 0.11);
   color: var(--accent);
   font-size: 1.2rem;
   flex-shrink: 0;
@@ -147,7 +147,7 @@
 }
 
 .micBtn:hover {
-  background: rgba(0, 212, 170, 0.2);
+  background: rgba(243, 200, 93, 0.18);
 }
 
 .micBtn.listening {

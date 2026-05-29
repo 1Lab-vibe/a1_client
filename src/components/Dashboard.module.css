@@ -1,152 +1,244 @@
 .wrap {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-height: 0;
+  overflow: auto;
   padding: 24px;
 }
 
-.header {
+.toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
 }
 
-.title {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-}
-
-.select {
-  padding: 8px 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--grid-line);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.9rem;
-}
-
-.loading,
-.stub {
-  flex: 1;
+.segmented,
+.periods,
+.dateRange {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.segmented button,
+.periods button {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.segmented button:hover,
+.periods button:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.segmented .active,
+.periods .activePeriod {
+  color: #080c14;
+  background: linear-gradient(135deg, #f8e2a4, var(--accent));
+}
+
+.dateRange input {
+  height: 32px;
+  min-width: 136px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 123, 123, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 123, 123, 0.08);
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+.error svg {
+  width: 16px;
+  height: 16px;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kpiCard {
+  min-height: 126px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    var(--bg-panel);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
+.kpiIcon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(243, 200, 93, 0.11);
+  color: var(--accent);
+}
+
+.kpiIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.kpiCard[data-tone="cyan"] .kpiIcon,
+.kpiCard[data-tone="blue"] .kpiIcon {
+  background: rgba(53, 213, 255, 0.1);
+  color: var(--accent-2);
+}
+
+.kpiCard[data-tone="green"] .kpiIcon {
+  background: rgba(125, 255, 188, 0.1);
+  color: var(--success);
+}
+
+.kpiCard span {
+  display: block;
   color: var(--text-muted);
-}
-
-.content {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* Плитка: несколько виджетов в ряд, прямоугольные, без длинной колбасы */
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
-  gap: 16px;
-  align-content: start;
-}
-
-.widget {
-  background: var(--bg-card);
-  border: 1px solid var(--grid-line);
-  border-radius: var(--radius);
-  overflow: hidden;
-  min-width: 0;
-  max-width: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 120px;
-}
-
-.widgetTitle {
-  padding: 10px 12px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--grid-line);
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text);
-  flex-shrink: 0;
-}
-
-.widgetBody {
-  padding: 10px 12px;
   font-size: 0.82rem;
+}
+
+.kpiCard strong {
+  display: block;
+  margin-top: 8px;
   color: var(--text);
-  line-height: 1.35;
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
+  font-size: 1.9rem;
+  line-height: 1;
 }
 
-.placeholder,
-.singleValue {
-  color: var(--text-muted);
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 16px;
 }
 
-.singleValue {
-  font-weight: 500;
+.chartPanel {
+  min-height: 380px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
 }
 
-/* Таблица ключ-значение внутри виджета (один объект) */
-.kvTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: inherit;
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.kvTable th {
-  text-align: left;
-  font-weight: 500;
-  color: var(--text-muted);
-  padding: 4px 8px 4px 0;
-  vertical-align: top;
-  white-space: nowrap;
-}
-
-.kvTable td {
-  padding: 4px 0;
+.panelHead h2 {
+  margin: 0;
+  font-size: 1rem;
   color: var(--text);
-  word-break: break-word;
 }
 
-.kvTable tr + tr th,
-.kvTable tr + tr td {
-  border-top: 1px solid var(--grid-line);
-}
-
-/* Таблица с массивом объектов */
-.table {
-  width: 100%;
-  border-collapse: collapse;
+.panelHead p {
+  margin-top: 4px;
+  color: var(--text-soft);
   font-size: 0.8rem;
 }
 
-.table th,
-.table td {
-  padding: 6px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--grid-line);
-  vertical-align: top;
-}
-
-.table th {
-  font-weight: 600;
+.panelHead button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
-  background: var(--bg-panel);
-  white-space: nowrap;
 }
 
-.table td {
-  color: var(--text);
-  word-break: break-word;
+.panelHead button:hover {
+  color: var(--accent);
+  border-color: var(--line-strong);
 }
 
-.table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.03);
+.panelHead svg {
+  width: 16px;
+  height: 16px;
+}
+
+.emptyChart {
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(216, 183, 92, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 24px;
+}
+
+.debugPanel {
+  margin-top: 16px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid rgba(216, 183, 92, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  .panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    padding: 16px;
+  }
+
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented,
+  .periods {
+    width: 100%;
+    overflow-x: auto;
+  }
 }
