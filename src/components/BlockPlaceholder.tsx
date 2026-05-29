@@ -28,7 +28,7 @@ function displayValue(value: unknown): string {
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (message.includes('No item to return') || message.includes('(500)')) {
-    return 'n8n не вернул данные для этого раздела.'
+    return 'Данные раздела пока недоступны. Повторите обновление или проверьте workflow сервиса.'
   }
   return 'Не удалось загрузить данные раздела.'
 }
@@ -61,7 +61,7 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
       <div className={styles.header}>
         <div>
           <h2>{title}</h2>
-          <p>Данные приходят через единый signed webhook `getBlockData` для выбранной компании.</p>
+          <p>Рабочий раздел с данными выбранной компании, периодами и операционными строками.</p>
         </div>
         <button type="button" onClick={load} disabled={loading} title="Обновить">
           <RefreshCw aria-hidden />
@@ -93,8 +93,8 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
       ) : (
         <div className={styles.empty}>
           <Database aria-hidden />
-          <strong>Данных пока нет</strong>
-          <span>Раздел подключен к webhook-контракту. Когда n8n вернет массив `rows`, `items` или `data`, таблица появится автоматически.</span>
+          <strong>По выбранной компании пока нет строк</strong>
+          <span>Можно продолжать работу: раздел готов к данным из n8n, а пустое состояние означает отсутствие записей в текущем контуре или периоде.</span>
         </div>
       )}
     </div>

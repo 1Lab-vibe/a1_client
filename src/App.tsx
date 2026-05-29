@@ -17,6 +17,19 @@ import { Onboarding } from './components/Onboarding'
 import { BlockPlaceholder } from './components/BlockPlaceholder'
 import type { ViewId } from './types'
 
+const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
+  'settings/configuration': 'company',
+  'settings/crm': 'crm',
+  'settings/policies': 'policies',
+  'settings/prompts': 'prompts',
+  'settings/handlers': 'handlers',
+  'settings/integrations': 'integrations',
+  'settings/users': 'access',
+  'settings/permissions': 'access',
+  'settings/action_templates': 'action_templates',
+  'settings/letter_templates': 'letter_templates',
+}
+
 function App() {
   const { isLoggedIn, company_id } = useAuth()
   const [viewId, setViewId] = useState<ViewId>('coo')
@@ -55,13 +68,17 @@ function App() {
       content = <Chat />
       break
     case 'settings/configuration':
-      content = <Settings />
+      content = <Settings initialSection={SETTINGS_VIEW_SECTIONS[viewId]} />
       break
     case 'settings/onboarding':
       content = <Onboarding />
       break
     default:
-      content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
+      if (viewId.startsWith('settings/')) {
+        content = <Settings initialSection={SETTINGS_VIEW_SECTIONS[viewId]} />
+      } else {
+        content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
+      }
   }
 
   return (

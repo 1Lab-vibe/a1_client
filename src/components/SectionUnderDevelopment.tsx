@@ -4,15 +4,15 @@ interface SectionUnderDevelopmentProps {
   title: string
 }
 
-/** Заглушка при ошибке сервера: показываем, что раздел в разработке */
+/** Empty state when the backend did not return section data. */
 export function SectionUnderDevelopment({ title }: SectionUnderDevelopmentProps) {
   return (
     <div className={styles.wrap}>
       <h1 className={styles.title}>{title}</h1>
       <div className={styles.stub}>
-        <span className={styles.stubIcon}>🔧</span>
-        <p>Раздел находится в разработке</p>
-        <p className={styles.hint}>Временная ошибка связи с сервером.</p>
+        <span className={styles.stubIcon}>!</span>
+        <p>Данные раздела сейчас недоступны</p>
+        <p className={styles.hint}>Обновите экран или проверьте выбранную компанию и backend workflow.</p>
       </div>
     </div>
   )

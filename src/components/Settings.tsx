@@ -121,6 +121,70 @@ const SECTIONS: SettingsSection[] = [
     ],
   },
   {
+    id: 'policies',
+    title: 'Политики',
+    description: 'Правила согласования, эскалации, хранения данных и риск-контроля COO.',
+    icon: ShieldCheck,
+    fields: [
+      { path: 'policies.approval_required', label: 'Согласование важных действий', type: 'toggle' },
+      { path: 'policies.human_handoff_required', label: 'Handoff при риске', type: 'toggle' },
+      { path: 'policies.risk_level', label: 'Уровень риска', type: 'select', options: ['low', 'medium', 'high'] },
+      { path: 'policies.data_retention_days', label: 'Хранение данных, дней', type: 'slider', min: 30, max: 1095, step: 30 },
+      { path: 'policies.escalation_rules', label: 'Правила эскалации', type: 'textarea' },
+    ],
+  },
+  {
+    id: 'prompts',
+    title: 'Промпты',
+    description: 'Рабочие инструкции для COO, продаж, квалификации лидов и отчетов.',
+    icon: Bot,
+    fields: [
+      { path: 'prompts.coo_system', label: 'COO system prompt', type: 'textarea' },
+      { path: 'prompts.lead_qualification', label: 'Квалификация лидов', type: 'textarea' },
+      { path: 'prompts.sales_reply', label: 'Ответы продаж', type: 'textarea' },
+      { path: 'prompts.report_summary', label: 'Сводки и отчеты', type: 'textarea' },
+    ],
+  },
+  {
+    id: 'handlers',
+    title: 'Хендлеры',
+    description: 'Включение доменов обработки и маршрутизация задач по внутренним workflow.',
+    icon: CheckCircle2,
+    fields: [
+      { path: 'handlers.sales.enabled', label: 'Sales handler', type: 'toggle' },
+      { path: 'handlers.marketing.enabled', label: 'Marketing handler', type: 'toggle' },
+      { path: 'handlers.finance.enabled', label: 'Finance handler', type: 'toggle' },
+      { path: 'handlers.legal.enabled', label: 'Legal handler', type: 'toggle' },
+      { path: 'handlers.default_owner', label: 'Ответственный по умолчанию', type: 'text' },
+      { path: 'handlers.route_map', label: 'Карта маршрутизации', type: 'textarea' },
+    ],
+  },
+  {
+    id: 'action_templates',
+    title: 'Шаблоны действий',
+    description: 'Готовые команды и сценарии: approval, follow-up, task, report, escalation.',
+    icon: KeyRound,
+    fields: [
+      { path: 'action_templates.approval', label: 'Approval template', type: 'textarea' },
+      { path: 'action_templates.follow_up', label: 'Follow-up template', type: 'textarea' },
+      { path: 'action_templates.task', label: 'Task template', type: 'textarea' },
+      { path: 'action_templates.report', label: 'Report template', type: 'textarea' },
+    ],
+  },
+  {
+    id: 'letter_templates',
+    title: 'Шаблоны писем',
+    description: 'Письма для демо-доступа, сброса пароля, лидогенерации и follow-up.',
+    icon: Bell,
+    fields: [
+      { path: 'letter_templates.demo_access_subject', label: 'Тема демо-доступа', type: 'text' },
+      { path: 'letter_templates.demo_access_body', label: 'Тело демо-доступа', type: 'textarea' },
+      { path: 'letter_templates.password_reset_subject', label: 'Тема временного пароля', type: 'text' },
+      { path: 'letter_templates.password_reset_body', label: 'Тело временного пароля', type: 'textarea' },
+      { path: 'letter_templates.outreach_body', label: 'Лидогенерация', type: 'textarea' },
+    ],
+  },
+  {
     id: 'notifications',
     title: 'Уведомления',
     description: 'События, quiet hours и каналы доставки.',
@@ -168,6 +232,15 @@ const SECTIONS: SettingsSection[] = [
     ],
   },
 ]
+
+interface SettingsProps {
+  initialSection?: string
+}
+
+function normalizeSectionId(sectionId?: string): string {
+  if (sectionId && SECTIONS.some((section) => section.id === sectionId)) return sectionId
+  return SECTIONS[0].id
+}
 
 function getPath(obj: CompanyConfig, path: string): unknown {
   return path.split('.').reduce<unknown>((acc, key) => {
@@ -219,8 +292,8 @@ function sectionValue(config: CompanyConfig, sectionId: string): Record<string, 
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
-export function Settings() {
-  const [activeSection, setActiveSection] = useState(SECTIONS[0].id)
+export function Settings({ initialSection }: SettingsProps = {}) {
+  const [activeSection, setActiveSection] = useState(() => normalizeSectionId(initialSection))
   const [config, setConfig] = useState<CompanyConfig>({})
   const [draft, setDraft] = useState<CompanyConfig>({})
   const [loading, setLoading] = useState(true)
@@ -240,6 +313,10 @@ export function Settings() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка загрузки настроек'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    setActiveSection(normalizeSectionId(initialSection))
+  }, [initialSection])
 
   const section = useMemo(() => SECTIONS.find((item) => item.id === activeSection) ?? SECTIONS[0], [activeSection])
   const dirty = useMemo(
