@@ -5,11 +5,13 @@ import {
   getIntegrations,
   getSettings,
   getUsersAndPermissions,
+  inviteUser,
   startIntegrationConnect,
   testIntegration,
   updateConfig,
   updateSettingsSection,
   updateUserRole,
+  updateUserStatus,
   type CompanyConfig,
 } from '../api/n8n'
 import styles from './Settings.module.css'
@@ -45,6 +47,70 @@ interface IntegrationRow {
   health: string
   lastSync: string
   error: string
+}
+
+interface ManagedFieldDef {
+  key: string
+  label: string
+  type?: 'text' | 'textarea' | 'select'
+  options?: string[]
+}
+
+interface ManagedCollectionDef {
+  section: string
+  path: string
+  title: string
+  description: string
+  addLabel: string
+  fields: ManagedFieldDef[]
+  emptyItem: Record<string, string>
+}
+
+const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef> = {
+  marketing: {
+    section: 'marketing',
+    path: 'marketing.channels',
+    title: 'Каналы привлечения',
+    description: 'Каналы, бюджет, SLA и правила квалификации сохраняются в конфиг компании и читаются backend-воркфлоу.',
+    addLabel: 'Добавить канал',
+    fields: [
+      { key: 'name', label: 'Канал' },
+      { key: 'type', label: 'Тип', type: 'select', options: ['direct', 'telegram', 'email', 'partner', 'seo', 'event', 'other'] },
+      { key: 'budget', label: 'Бюджет' },
+      { key: 'goal', label: 'Цель' },
+      { key: 'status', label: 'Статус', type: 'select', options: ['active', 'paused', 'testing'] },
+    ],
+    emptyItem: { name: '', type: 'direct', budget: '', goal: '', status: 'active' },
+  },
+  products: {
+    section: 'products',
+    path: 'products.catalog',
+    title: 'Продуктовая матрица',
+    description: 'Продукты, офферы и приоритеты используются в продажах, отчетах и квалификации лидов.',
+    addLabel: 'Добавить продукт',
+    fields: [
+      { key: 'name', label: 'Продукт' },
+      { key: 'offer', label: 'Оффер', type: 'textarea' },
+      { key: 'price', label: 'Цена / диапазон' },
+      { key: 'priority', label: 'Приоритет', type: 'select', options: ['high', 'medium', 'low'] },
+    ],
+    emptyItem: { name: '', offer: '', price: '', priority: 'medium' },
+  },
+  icp: {
+    section: 'icp',
+    path: 'icp.segments_detail',
+    title: 'ICP-сегменты',
+    description: 'Сегменты ICP нужны для скоринга, маркетинга и правил handoff.',
+    addLabel: 'Добавить сегмент',
+    fields: [
+      { key: 'name', label: 'Сегмент' },
+      { key: 'industry', label: 'Отрасль' },
+      { key: 'decision_maker', label: 'ЛПР' },
+      { key: 'pain', label: 'Ключевая боль', type: 'textarea' },
+      { key: 'fit_score', label: 'Fit score' },
+    ],
+    emptyItem: { name: '', industry: '', decision_maker: '', pain: '', fit_score: '70' },
+  },
 }
 
 const SECTIONS: SettingsSection[] = [
@@ -388,6 +454,21 @@ function rowCompanyId(row: DataRow): string | undefined {
   return value == null ? undefined : String(value)
 }
 
+function rowIsActive(row: DataRow): boolean {
+  if (typeof row.is_active === 'boolean') return row.is_active
+  if (typeof row.active === 'boolean') return row.active
+  const status = String(row.status ?? '').toLowerCase()
+  return !['blocked', 'disabled', 'inactive', 'deactivated', 'archived'].includes(status)
+}
+
+function collectionItems(config: CompanyConfig, def: ManagedCollectionDef): DataRow[] {
+  const value = getPath(config, def.path)
+  if (Array.isArray(value)) {
+    return value.map((item) => item && typeof item === 'object' && !Array.isArray(item) ? item as DataRow : { name: String(item) })
+  }
+  return []
+}
+
 export function Settings({ initialSection }: SettingsProps = {}) {
   const [activeSection, setActiveSection] = useState(() => normalizeSectionId(initialSection))
   const [config, setConfig] = useState<CompanyConfig>({})
@@ -404,6 +485,9 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const [usersLoading, setUsersLoading] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
   const [roleAction, setRoleAction] = useState<string | null>(null)
+  const [statusAction, setStatusAction] = useState<string | null>(null)
+  const [inviteAction, setInviteAction] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ email: '', fullName: '', role: 'member' })
 
   useEffect(() => {
     setLoading(true)
@@ -497,8 +581,61 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       .finally(() => setRoleAction(null))
   }
 
+  const inviteAccessUser = () => {
+    const email = inviteForm.email.trim()
+    if (!email) {
+      setUsersError('Укажите email пользователя')
+      return
+    }
+    setInviteAction(true)
+    setUsersError(null)
+    inviteUser(email, inviteForm.role, inviteForm.fullName.trim() || undefined)
+      .then(() => {
+        setInviteForm({ email: '', fullName: '', role: 'member' })
+        loadUsers()
+      })
+      .catch((e) => setUsersError(e instanceof Error ? e.message : 'Ошибка приглашения пользователя'))
+      .finally(() => setInviteAction(false))
+  }
+
+  const toggleUserStatus = (row: DataRow) => {
+    const userId = rowId(row)
+    if (!userId || userId === '-') return
+    const nextActive = !rowIsActive(row)
+    setStatusAction(userId)
+    setUsersError(null)
+    updateUserStatus(userId, nextActive, rowCompanyId(row))
+      .then(() => loadUsers())
+      .catch((e) => setUsersError(e instanceof Error ? e.message : 'Ошибка изменения статуса пользователя'))
+      .finally(() => setStatusAction(null))
+  }
+
+  const updateCollectionItem = (def: ManagedCollectionDef, index: number, key: string, value: string) => {
+    setDraft((current) => {
+      const rows = collectionItems(current, def).map((item) => ({ ...item }))
+      rows[index] = { ...(rows[index] ?? {}), [key]: value }
+      return setPath(current, def.path, rows)
+    })
+  }
+
+  const addCollectionItem = (def: ManagedCollectionDef) => {
+    setDraft((current) => {
+      const rows = collectionItems(current, def)
+      return setPath(current, def.path, [...rows, { ...def.emptyItem }])
+    })
+  }
+
+  const removeCollectionItem = (def: ManagedCollectionDef, index: number) => {
+    setDraft((current) => {
+      const rows = collectionItems(current, def).filter((_, rowIndex) => rowIndex !== index)
+      return setPath(current, def.path, rows)
+    })
+  }
+
   const integrationRows = useMemo(() => normalizeIntegrations(integrationsData, draft), [integrationsData, draft])
   const userRows = useMemo(() => normalizeUsers(usersData), [usersData])
+  const collectionDef = MANAGED_COLLECTIONS[section.id]
+  const managedRows = useMemo(() => collectionDef ? collectionItems(draft, collectionDef) : [], [collectionDef, draft])
 
   return (
     <div className={styles.wrap}>
@@ -598,6 +735,30 @@ export function Settings({ initialSection }: SettingsProps = {}) {
               </button>
             </div>
             {usersError && <div className={styles.error}>{usersError}</div>}
+            <div className={styles.inviteForm}>
+              <input
+                value={inviteForm.email}
+                onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
+                placeholder="email@company.ru"
+                type="email"
+              />
+              <input
+                value={inviteForm.fullName}
+                onChange={(event) => setInviteForm((current) => ({ ...current, fullName: event.target.value }))}
+                placeholder="Имя пользователя"
+              />
+              <select
+                value={inviteForm.role}
+                onChange={(event) => setInviteForm((current) => ({ ...current, role: event.target.value }))}
+              >
+                <option value="owner">owner</option>
+                <option value="admin">admin</option>
+                <option value="member">member</option>
+              </select>
+              <button type="button" onClick={inviteAccessUser} disabled={inviteAction}>
+                {inviteAction ? 'Добавляем...' : 'Добавить доступ'}
+              </button>
+            </div>
             <div className={styles.accessTable}>
               <table>
                 <thead>
@@ -607,6 +768,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
                     <th>Компания</th>
                     <th>Роль</th>
                     <th>Статус</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -625,17 +787,77 @@ export function Settings({ initialSection }: SettingsProps = {}) {
                             <option value="member">member</option>
                           </select>
                         </td>
-                        <td>{cell(row.status ?? row.active ?? row.is_default)}</td>
+                        <td>{rowIsActive(row) ? 'Активен' : 'Отключен'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.tableAction}
+                            onClick={() => toggleUserStatus(row)}
+                            disabled={statusAction === id}
+                          >
+                            {rowIsActive(row) ? 'Отключить' : 'Активировать'}
+                          </button>
+                        </td>
                       </tr>
                     )
                   }) : (
                     <tr>
-                      <td colSpan={5}>Пока нет записей доступа для выбранной компании.</td>
+                      <td colSpan={6}>Пока нет записей доступа для выбранной компании.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {!loading && collectionDef && (
+          <div className={styles.managedPanel}>
+            <div className={styles.runtimeHead}>
+              <div>
+                <h3>{collectionDef.title}</h3>
+                <p>{collectionDef.description}</p>
+              </div>
+              <button type="button" onClick={() => addCollectionItem(collectionDef)}>
+                {collectionDef.addLabel}
+              </button>
+            </div>
+            {managedRows.length > 0 ? (
+              <div className={styles.managedGrid}>
+                {managedRows.map((row, rowIndex) => (
+                  <article key={`${collectionDef.path}-${rowIndex}`} className={styles.managedCard}>
+                    <div className={styles.managedCardHead}>
+                      <strong>{cell(row.name ?? row.title ?? `${collectionDef.title} ${rowIndex + 1}`)}</strong>
+                      <button type="button" onClick={() => removeCollectionItem(collectionDef, rowIndex)}>Удалить</button>
+                    </div>
+                    <div className={styles.managedFields}>
+                      {collectionDef.fields.map((field) => {
+                        const value = String(row[field.key] ?? '')
+                        return (
+                          <label key={field.key} className={field.type === 'textarea' ? styles.managedWide : ''}>
+                            <span>{field.label}</span>
+                            {field.type === 'select' ? (
+                              <select value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)}>
+                                {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
+                              </select>
+                            ) : field.type === 'textarea' ? (
+                              <textarea value={value} rows={4} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
+                            ) : (
+                              <input value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
+                            )}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyManaged}>
+                <span>Пока нет записей.</span>
+                <button type="button" onClick={() => addCollectionItem(collectionDef)}>{collectionDef.addLabel}</button>
+              </div>
+            )}
           </div>
         )}
 

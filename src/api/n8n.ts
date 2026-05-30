@@ -609,6 +609,16 @@ export async function updateUserRole(userId: string, role: string, companyId?: s
   return unwrapData(data) || {}
 }
 
+export async function inviteUser(email: string, role: string, fullName?: string): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('inviteUser', { email, role, full_name: fullName }))
+  return unwrapData(data) || {}
+}
+
+export async function updateUserStatus(userId: string, isActive: boolean, companyId?: string): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('updateUserStatus', { user_id: userId, is_active: isActive, company_id: companyId }))
+  return unwrapData(data) || {}
+}
+
 // ——— Чат ———
 export async function fetchChatData(): Promise<{ channels: ChatChannel[]; users: ChatUser[] }> {
   const raw = await request<ApiEnvelope<{ channels?: ChatChannel[]; users?: ChatUser[] }>>(buildBody('getChatData'))

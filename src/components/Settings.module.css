@@ -300,6 +300,132 @@
   color: var(--text);
 }
 
+.inviteForm {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(170px, 1fr) 120px auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.inviteForm input,
+.inviteForm select,
+.inviteForm button,
+.tableAction,
+.managedPanel button {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.inviteForm button,
+.tableAction,
+.managedPanel button {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.inviteForm button:disabled,
+.tableAction:disabled {
+  opacity: 0.55;
+}
+
+.managedPanel {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(216, 183, 92, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.managedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.managedCard {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.managedCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.managedCardHead strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.managedCardHead button {
+  min-height: 30px;
+  color: var(--danger);
+}
+
+.managedFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.managedFields label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.managedFields input,
+.managedFields select,
+.managedFields textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.managedFields textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.managedWide {
+  grid-column: 1 / -1;
+}
+
+.emptyManaged {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed rgba(216, 183, 92, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
 .field,
 .fullField {
   min-width: 0;
@@ -451,6 +577,11 @@
   .formGrid {
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .inviteForm,
+  .managedFields {
+    grid-template-columns: 1fr;
   }
 
   .nav {
