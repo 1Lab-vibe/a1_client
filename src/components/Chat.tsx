@@ -1,159 +1,125 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Paperclip, RefreshCw, Send, Smile, Wifi, WifiOff } from 'lucide-react'
+import { fetchChatData, fetchChatMessages, sendChatFile, sendChatMessage } from '../api/n8n'
 import { useAuth } from '../context/AuthContext'
-import type { ChatUser, ChatMessage as ChatMessageType } from '../types'
+import type { ChatChannel, ChatMessage as ChatMessageType, ChatUser } from '../types'
 import styles from './Chat.module.css'
 
-const CHAT_STORAGE_KEY = 'a1_chat'
-const DIALOGS_KEY = 'a1_chat_dialogs'
+type ChatTarget = (ChatChannel & { kind: 'channel' }) | (ChatUser & { kind: 'user' })
 
-function getStoredDialogs(): ChatUser[] {
-  try {
-    const raw = localStorage.getItem(DIALOGS_KEY)
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr : []
-  } catch {
-    return []
-  }
+const STICKERS = ['OK', '+1', 'Done', 'Wait', 'Call', 'Check']
+
+function targetId(target: ChatTarget | null): string {
+  return target?.id ?? ''
 }
 
-function getStoredMessages(chatId: string): ChatMessageType[] {
-  try {
-    const raw = localStorage.getItem(`${CHAT_STORAGE_KEY}_${chatId}`)
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr : []
-  } catch {
-    return []
-  }
+function targetType(target: ChatTarget | null): 'channel' | 'user' {
+  return target?.kind === 'user' ? 'user' : 'channel'
 }
 
-function saveMessages(chatId: string, messages: ChatMessageType[]) {
-  try {
-    localStorage.setItem(`${CHAT_STORAGE_KEY}_${chatId}`, JSON.stringify(messages))
-  } catch {
-    // ignore
-  }
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-const EMOJI_LIST = '😀 😃 😄 😁 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🥱 😏 😴 😪 😮‍💨 🤤 😒 🙄 😬 🤥 😌 😔 😕 🙃 🤑 😲 ☹️ 🙁 😖 😞 😟 😤 😢 😭 😦 😧 😨 😩 🤯 😬 😰 😱 🥵 🥶 😳 🤗 🤔 🤭 🤫 🤥 😶 😶‍🌫️ 😏 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 🩺 🤒 🤕 🤠 🥳 🥸 😎 🤓 🧐'.split(' ')
-const STICKER_EMOJI = ['👍', '❤️', '🔥', '😂', '😢', '😍', '🤔', '👋', '🎉', '✅', '⭐', '🙏', '💪', '👏', '😎', '🚀']
-
-const FALLBACK_USER: ChatUser = { id: 'local', name: 'Локальный чат' }
+function normalizeTargets(channels: ChatChannel[], users: ChatUser[]): ChatTarget[] {
+  const channelTargets = channels
+    .filter((channel) => channel.id && channel.name)
+    .map((channel) => ({ ...channel, kind: 'channel' as const }))
+  const userTargets = users
+    .filter((user) => user.id && user.name)
+    .map((user) => ({ ...user, kind: 'user' as const }))
+  return [...channelTargets, ...userTargets]
+}
 
 export function Chat() {
   const { email } = useAuth()
-  const [users, setUsers] = useState<ChatUser[]>(() => getStoredDialogs())
+  const [targets, setTargets] = useState<ChatTarget[]>([])
+  const [current, setCurrent] = useState<ChatTarget | null>(null)
   const [messages, setMessages] = useState<ChatMessageType[]>([])
-  const [current, setCurrent] = useState<ChatUser | null>(null)
   const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [messagesLoading, setMessagesLoading] = useState(false)
   const [sending, setSending] = useState(false)
-  const [emojiOpen, setEmojiOpen] = useState(false)
-  const [stickerOpen, setStickerOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // При первом открытии: если диалогов нет — показываем один локальный
-  useEffect(() => {
-    const dialogs = getStoredDialogs()
-    if (dialogs.length > 0) {
-      setUsers(dialogs)
-      if (!current) setCurrent(dialogs[0])
-    } else {
-      setUsers([FALLBACK_USER])
-      setCurrent(FALLBACK_USER)
-    }
-  }, [])
+  const loadData = () => {
+    setLoading(true)
+    setError(null)
+    fetchChatData()
+      .then((data) => {
+        const nextTargets = normalizeTargets(data.channels, data.users)
+        setTargets(nextTargets)
+        setCurrent((selected) => {
+          if (selected && nextTargets.some((item) => item.kind === selected.kind && item.id === selected.id)) return selected
+          return nextTargets[0] ?? null
+        })
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить чаты'))
+      .finally(() => setLoading(false))
+  }
 
-  // При смене диалога — грузим сообщения из localStorage
-  useEffect(() => {
-    if (!current) {
+  const loadMessages = (target: ChatTarget | null = current) => {
+    if (!target) {
       setMessages([])
       return
     }
-    setMessages(getStoredMessages(current.id))
-  }, [current?.id])
+    setMessagesLoading(true)
+    setError(null)
+    fetchChatMessages(target.id, targetType(target))
+      .then((data) => setMessages(data.messages))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения'))
+      .finally(() => setMessagesLoading(false))
+  }
+
+  useEffect(loadData, [])
+
+  useEffect(() => {
+    loadMessages(current)
+  }, [current?.id, current?.kind])
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
-  }, [messages])
+  }, [messages, messagesLoading])
 
-  const appendAndSave = (msg: ChatMessageType) => {
-    if (!current) return
-    setMessages((prev) => {
-      const next = [...prev, msg]
-      saveMessages(current.id, next)
-      return next
-    })
-  }
+  const activeTitle = current?.name ?? 'Чат'
+  const statusText = loading ? 'Загрузка' : error ? 'Ошибка' : 'Онлайн'
+  const online = !loading && !error
+  const sortedMessages = useMemo(() => [...messages].sort((a, b) => a.timestamp - b.timestamp), [messages])
 
-  const sendText = (text: string) => {
-    if (!text.trim() || !current || sending) return
+  const submitText = async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || !current || sending) return
     setSending(true)
     setInput('')
-    setEmojiOpen(false)
-    setStickerOpen(false)
-    const msg: ChatMessageType = {
-      id: `msg-${Date.now()}`,
-      chatId: current.id,
-      chatType: 'user',
-      senderId: email ?? '',
-      senderName: email ?? 'Я',
-      text: text.trim(),
-      timestamp: Date.now(),
-      isOwn: true,
+    setPickerOpen(false)
+    try {
+      const { message } = await sendChatMessage(targetId(current), targetType(current), trimmed)
+      setMessages((prev) => [...prev, message])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение')
+    } finally {
+      setSending(false)
     }
-    appendAndSave(msg)
-    setSending(false)
   }
 
-  const sendSticker = (sticker: string) => {
-    if (!current || sending) return
-    setStickerOpen(false)
-    setSending(true)
-    const msg: ChatMessageType = {
-      id: `msg-${Date.now()}`,
-      chatId: current.id,
-      chatType: 'user',
-      senderId: email ?? '',
-      senderName: email ?? 'Я',
-      text: sticker,
-      timestamp: Date.now(),
-      isOwn: true,
-    }
-    appendAndSave(msg)
-    setSending(false)
-  }
-
-  const sendFile = (file: File) => {
+  const submitFile = async (file: File) => {
     if (!current || sending) return
     setSending(true)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = reader.result as string
-      const msg: ChatMessageType = {
-        id: `msg-${Date.now()}`,
-        chatId: current.id,
-        chatType: 'user',
-        senderId: email ?? '',
-        senderName: email ?? 'Я',
-        text: file.name,
-        timestamp: Date.now(),
-        isOwn: true,
-        attachments: [{ type: 'file', url: dataUrl, name: file.name }],
-      }
-      appendAndSave(msg)
+    setPickerOpen(false)
+    try {
+      const { message } = await sendChatFile(targetId(current), targetType(current), file)
+      setMessages((prev) => [...prev, message])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось отправить файл')
+    } finally {
       setSending(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-    reader.readAsDataURL(file)
   }
-
-  const dialogs = users.filter(
-    (u) => u.id && String(u.name).trim() && u.id !== email && String(u.name) !== email
-  )
-  const showDialogs = dialogs.length > 0 ? dialogs : [FALLBACK_USER]
-  const currentUser = current ?? showDialogs[0] ?? null
 
   return (
     <div className={styles.wrap}>
@@ -161,163 +127,123 @@ export function Chat() {
         <div className={styles.sidebarHead}>
           <span className={styles.sidebarTitle}>Диалоги</span>
           {email && <span className={styles.sidebarEmail} title={email}>{email}</span>}
-          <span className={styles.sidebarHint}>Локальный режим</span>
+          <span className={styles.sidebarHint}>{targets.length} каналов и диалогов</span>
         </div>
         <div className={styles.dialogList}>
-          {showDialogs.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              className={styles.dialogItem + (currentUser?.id === u.id ? ' ' + styles.dialogItemActive : '')}
-              onClick={() => setCurrent(u)}
-            >
-              <span className={styles.dialogAvatar}>{u.name?.charAt(0)?.toUpperCase() || '?'}</span>
-              <span className={styles.dialogName}>{u.name}</span>
-            </button>
-          ))}
+          {loading ? (
+            <div className={styles.emptyDialogs}>Загружаем диалоги...</div>
+          ) : targets.length > 0 ? (
+            targets.map((target) => (
+              <button
+                key={`${target.kind}:${target.id}`}
+                type="button"
+                className={styles.dialogItem + (current?.id === target.id && current?.kind === target.kind ? ' ' + styles.dialogItemActive : '')}
+                onClick={() => setCurrent(target)}
+              >
+                <span className={styles.dialogAvatar}>{target.name.charAt(0).toUpperCase()}</span>
+                <span className={styles.dialogBody}>
+                  <span className={styles.dialogName}>{target.name}</span>
+                  <span className={styles.dialogMeta}>{target.kind === 'channel' ? 'Канал' : 'Пользователь'}</span>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className={styles.emptyDialogs}>Нет подключенных каналов</div>
+          )}
         </div>
       </aside>
+
       <div className={styles.main}>
-        {currentUser ? (
-          <>
-            <header className={styles.header}>
-              <span className={styles.headerAvatar}>{currentUser.name?.charAt(0)?.toUpperCase() || '?'}</span>
-              <span className={styles.headerTitle}>{currentUser.name}</span>
-            </header>
-            <div className={styles.messages} ref={listRef}>
-              {messages.length === 0 ? (
-                <div className={styles.empty}>Нет сообщений</div>
-              ) : (
-                messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={m.isOwn ? styles.msgOwn : styles.msg}
-                  >
-                    {!m.isOwn && m.senderName && <span className={styles.msgSender}>{m.senderName}</span>}
-                    {m.attachments?.length ? (
-                      <div className={styles.msgAttachments}>
-                        {m.attachments.map((a, i) => (
-                          a.type === 'image' || (a.type === 'sticker' && /^(https?:|data:)/.test(a.url)) ? (
-                            <a
-                              key={i}
-                              href={a.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.msgImage}
-                            >
-                              <img src={a.url} alt="" />
-                            </a>
-                          ) : a.type === 'file' ? (
-                            <a
-                              key={i}
-                              href={a.url}
-                              download={a.name}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.msgFile}
-                            >
-                              📎 {a.name || 'Файл'}
-                            </a>
-                          ) : (
-                            <span key={i} className={styles.msgSticker}>{a.url}</span>
-                          )
-                        ))}
-                      </div>
-                    ) : null}
-                    {m.text ? <span className={styles.msgText}>{m.text}</span> : null}
-                    <span className={styles.msgTime}>
-                      {new Date(m.timestamp).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+        <header className={styles.header}>
+          <span className={styles.headerAvatar}>{activeTitle.charAt(0).toUpperCase()}</span>
+          <div className={styles.headerText}>
+            <span className={styles.headerTitle}>{activeTitle}</span>
+            <span className={online ? styles.headerStatusOk : styles.headerStatus}>
+              {online ? <Wifi aria-hidden /> : <WifiOff aria-hidden />}
+              {statusText}
+            </span>
+          </div>
+          <button type="button" className={styles.headerButton} onClick={() => { loadData(); loadMessages() }} disabled={loading || messagesLoading}>
+            <RefreshCw aria-hidden />
+            Обновить
+          </button>
+        </header>
+
+        {error && <div className={styles.uploadError}>{error}</div>}
+
+        <div className={styles.messages} ref={listRef}>
+          {messagesLoading ? (
+            <div className={styles.empty}>Загружаем сообщения...</div>
+          ) : sortedMessages.length === 0 ? (
+            <div className={styles.empty}>Сообщений пока нет</div>
+          ) : (
+            sortedMessages.map((message) => (
+              <div key={message.id} className={message.isOwn ? styles.msgOwn : styles.msg}>
+                {!message.isOwn && message.senderName && <span className={styles.msgSender}>{message.senderName}</span>}
+                {message.attachments?.length ? (
+                  <div className={styles.msgAttachments}>
+                    {message.attachments.map((attachment, index) => (
+                      attachment.type === 'image' && attachment.url ? (
+                        <a key={index} href={attachment.url} target="_blank" rel="noopener noreferrer" className={styles.msgImage}>
+                          <img src={attachment.url} alt={attachment.name ?? ''} />
+                        </a>
+                      ) : (
+                        <a key={index} href={attachment.url} download={attachment.name} target="_blank" rel="noopener noreferrer" className={styles.msgFile}>
+                          {attachment.name || 'Файл'}
+                        </a>
+                      )
+                    ))}
                   </div>
-                ))
-              )}
+                ) : null}
+                {message.text ? <span className={styles.msgText}>{message.text}</span> : null}
+                <span className={styles.msgTime}>{formatTime(message.timestamp)}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <form
+          className={styles.inputRow}
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submitText(input)
+          }}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            className={styles.hiddenFile}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void submitFile(file)
+            }}
+          />
+          <button type="button" className={styles.inputBtn} onClick={() => fileInputRef.current?.click()} disabled={!current || sending} title="Прикрепить файл">
+            <Paperclip aria-hidden />
+          </button>
+          <button type="button" className={styles.inputBtn} onClick={() => setPickerOpen((value) => !value)} disabled={!current || sending} title="Быстрые ответы">
+            <Smile aria-hidden />
+          </button>
+          {pickerOpen && (
+            <div className={styles.picker}>
+              {STICKERS.map((value) => (
+                <button key={value} type="button" className={styles.pickerItemSticker} onClick={() => void submitText(value)}>
+                  {value}
+                </button>
+              ))}
             </div>
-            <form
-              className={styles.inputRow}
-              onSubmit={(e) => {
-                e.preventDefault()
-                sendText(input)
-              }}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                className={styles.hiddenFile}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) sendFile(f)
-                }}
-              />
-              <button
-                type="button"
-                className={styles.inputBtn}
-                onClick={() => fileInputRef.current?.click()}
-                title="Прикрепить файл"
-                disabled={sending}
-              >
-                📎
-              </button>
-              <button
-                type="button"
-                className={styles.inputBtn}
-                onClick={() => { setStickerOpen(false); setEmojiOpen((v) => !v) }}
-                title="Эмодзи"
-                disabled={sending}
-              >
-                😀
-              </button>
-              <button
-                type="button"
-                className={styles.inputBtn}
-                onClick={() => { setEmojiOpen(false); setStickerOpen((v) => !v) }}
-                title="Стикеры"
-                disabled={sending}
-              >
-                🎭
-              </button>
-              {emojiOpen && (
-                <div className={styles.picker}>
-                  {EMOJI_LIST.map((em, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={styles.pickerItem}
-                      onClick={() => setInput((prev) => prev + em)}
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {stickerOpen && (
-                <div className={styles.picker}>
-                  {STICKER_EMOJI.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={styles.pickerItemSticker}
-                      onClick={() => sendSticker(s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <input
-                className={styles.input}
-                placeholder="Сообщение..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={sending}
-              />
-              <button type="submit" className={styles.sendBtn} disabled={sending || !input.trim()} title="Отправить">
-                ➤
-              </button>
-            </form>
-          </>
-        ) : (
-          <div className={styles.placeholder}>Выберите диалог слева</div>
-        )}
+          )}
+          <input
+            className={styles.input}
+            placeholder={current ? 'Сообщение...' : 'Выберите диалог'}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            disabled={!current || sending}
+          />
+          <button type="submit" className={styles.sendBtn} disabled={!current || sending || !input.trim()} title="Отправить">
+            <Send aria-hidden />
+          </button>
+        </form>
       </div>
     </div>
   )

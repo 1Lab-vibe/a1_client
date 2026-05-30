@@ -119,6 +119,18 @@
   white-space: nowrap;
 }
 
+.dialogBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dialogMeta {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
 /* ——— Правая часть: чат ——— */
 .main {
   flex: 1;
@@ -146,6 +158,14 @@
   gap: 12px;
 }
 
+.headerText {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .headerAvatar {
   width: 40px;
   height: 40px;
@@ -164,6 +184,47 @@
   font-weight: 600;
   font-size: 1rem;
   color: var(--text);
+}
+
+.headerStatus,
+.headerStatusOk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.headerStatusOk {
+  color: var(--success);
+}
+
+.headerStatus svg,
+.headerStatusOk svg {
+  width: 14px;
+  height: 14px;
+}
+
+.headerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.headerButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.headerButton:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .messages {
@@ -304,6 +365,11 @@
   transition: background 0.2s, color 0.2s;
 }
 
+.inputBtn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .inputBtn:hover:not(:disabled) {
   background: rgba(53, 213, 255, 0.14);
   color: var(--accent);
@@ -326,7 +392,7 @@
   max-height: 200px;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
   gap: 4px;
   z-index: 10;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -395,6 +461,11 @@
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s;
+}
+
+.sendBtn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .sendBtn:hover:not(:disabled) {

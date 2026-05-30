@@ -611,13 +611,20 @@ export async function updateUserRole(userId: string, role: string, companyId?: s
 
 // ——— Чат ———
 export async function fetchChatData(): Promise<{ channels: ChatChannel[]; users: ChatUser[] }> {
-  return request(buildBody('getChatData'))
+  const raw = await request<ApiEnvelope<{ channels?: ChatChannel[]; users?: ChatUser[] }>>(buildBody('getChatData'))
+  const data = unwrapData(raw)
+  return {
+    channels: Array.isArray(data?.channels) ? data.channels : [],
+    users: Array.isArray(data?.users) ? data.users : [],
+  }
 }
 
 export async function fetchChatMessages(chatId: string, chatType: 'channel' | 'user'): Promise<{
   messages: ChatMessage[]
 }> {
-  return request(buildBody('getChatMessages', { chatId, chatType }))
+  const raw = await request<ApiEnvelope<{ messages?: ChatMessage[] }>>(buildBody('getChatMessages', { chatId, chatType }))
+  const data = unwrapData(raw)
+  return { messages: Array.isArray(data?.messages) ? data.messages : [] }
 }
 
 export async function sendChatMessage(
@@ -626,7 +633,10 @@ export async function sendChatMessage(
   text: string,
   attachments?: ChatAttachment[]
 ): Promise<{ message: ChatMessage }> {
-  return request(buildBody('sendChatMessage', { chatId, chatType, text, attachments }))
+  const raw = await request<ApiEnvelope<{ message?: ChatMessage }>>(buildBody('sendChatMessage', { chatId, chatType, text, attachments }))
+  const data = unwrapData(raw)
+  if (!data?.message) throw new Error('Не удалось отправить сообщение')
+  return { message: data.message }
 }
 
 /** Отправка файла в чат (base64). Бэкенд может вернуть message с attachment.url для скачивания. */
@@ -637,13 +647,16 @@ export async function sendChatFile(
 ): Promise<{ message: ChatMessage }> {
   const buf = await file.arrayBuffer()
   const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
-  return request(buildBody('sendChatFile', {
+  const raw = await request<ApiEnvelope<{ message?: ChatMessage }>>(buildBody('sendChatFile', {
     chatId,
     chatType,
     fileName: file.name,
     mimeType: file.type || 'application/octet-stream',
     contentBase64: base64,
   }))
+  const data = unwrapData(raw)
+  if (!data?.message) throw new Error('Не удалось отправить файл')
+  return { message: data.message }
 }
 
 // ——— Авторизация (company_id и token не добавляются) ———
