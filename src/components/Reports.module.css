@@ -165,6 +165,35 @@
   font-size: 0.86rem;
 }
 
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.kpiStrip article {
+  min-height: 82px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.kpiStrip span {
+  display: block;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.kpiStrip strong {
+  display: block;
+  margin-top: 9px;
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -203,6 +232,12 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg-card);
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
 }
 
 .tableWrap table {
@@ -252,7 +287,9 @@
   }
 
   .grid,
-  .rail {
+  .rail,
+  .bottomGrid,
+  .kpiStrip {
     grid-template-columns: 1fr;
   }
 }

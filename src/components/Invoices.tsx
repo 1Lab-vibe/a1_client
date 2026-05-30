@@ -65,8 +65,27 @@ export function Invoices() {
   const [movingId, setMovingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Invoice | null>(null)
+  const [query, setQuery] = useState('')
+  const [stageFilter, setStageFilter] = useState('all')
 
-  const availableColumns = useMemo(() => getInvoiceTableColumns(invoices), [invoices])
+  const filteredInvoices = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return invoices.filter((invoice) => {
+      const stageOk = stageFilter === 'all' || invoice.stageId === stageFilter
+      if (!stageOk) return false
+      if (!q) return true
+      return [invoice.title, invoice.description, invoice.contactName, invoice.contactPhone, invoice.doc_no_text, invoice.file_name, invoice.status]
+        .some((value) => String(value ?? '').toLowerCase().includes(q))
+    })
+  }, [invoices, query, stageFilter])
+  const kpis = useMemo(() => [
+    { label: 'Всего', value: invoices.length },
+    { label: 'Оплачено', value: invoices.filter((invoice) => ['paid', 'won'].includes(String(invoice.stageId ?? invoice.status))).length },
+    { label: 'Сумма', value: invoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0) },
+    { label: 'Ожидают', value: invoices.filter((invoice) => !['paid', 'cancelled'].includes(String(invoice.stageId ?? invoice.status))).length },
+  ], [invoices])
+
+  const availableColumns = useMemo(() => getInvoiceTableColumns(filteredInvoices), [filteredInvoices])
   const { visibleColumns, toggle, isVisible } = useColumnVisibility('invoices', availableColumns)
 
   const load = () => {
@@ -116,7 +135,7 @@ export function Invoices() {
     return <SectionErrorState title="Счета" message={error} onRetry={load} />
   }
 
-  const byStage = stages.map((s) => ({ stage: s, items: invoices.filter((i) => i.stageId === s.id) }))
+  const byStage = stages.map((s) => ({ stage: s, items: filteredInvoices.filter((i) => i.stageId === s.id) }))
 
   return (
     <div className={styles.wrap}>
@@ -129,6 +148,21 @@ export function Invoices() {
             <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
           </div>
         </div>
+      </div>
+      <div className={styles.kpiGrid}>
+        {kpis.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value.toLocaleString('ru-RU')}</strong>
+          </article>
+        ))}
+      </div>
+      <div className={styles.filters}>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по счетам" />
+        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+          <option value="all">Все стадии</option>
+          {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.title}</option>)}
+        </select>
       </div>
       {viewMode === 'kanban' ? (
         <div className={styles.kanban}>
@@ -182,7 +216,11 @@ export function Invoices() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={visibleColumns.length + 1} className={styles.empty}>Счета не найдены по текущим фильтрам</td>
+                </tr>
+              ) : filteredInvoices.map((inv) => (
                 <tr key={inv.id}>
                   {visibleColumns.map((key) => (
                     <td key={key}>{formatCellValue(inv[key], key)}</td>

@@ -92,8 +92,27 @@ export function Leads() {
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Lead | null>(null)
+  const [query, setQuery] = useState('')
+  const [stageFilter, setStageFilter] = useState('all')
 
-  const availableColumns = useMemo(() => getTableColumns(leads), [leads])
+  const filteredLeads = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return leads.filter((lead) => {
+      const stageOk = stageFilter === 'all' || lead.stageId === stageFilter
+      if (!stageOk) return false
+      if (!q) return true
+      return [lead.title, lead.company_name, lead.contact_name, lead.contact_email, lead.contact_phone, lead.source, lead.channel]
+        .some((value) => String(value ?? '').toLowerCase().includes(q))
+    })
+  }, [leads, query, stageFilter])
+  const kpis = useMemo(() => [
+    { label: 'Всего', value: leads.length },
+    { label: 'В работе', value: leads.filter((lead) => !['won', 'lost', 'closed'].includes(String(lead.stageId))).length },
+    { label: 'Средний score', value: Math.round(leads.reduce((sum, lead) => sum + Number(lead.lead_score ?? 0), 0) / Math.max(leads.length, 1)) },
+    { label: 'Без следующего контакта', value: leads.filter((lead) => !isNotEmpty(lead.next_follow_up_at)).length },
+  ], [leads])
+
+  const availableColumns = useMemo(() => getTableColumns(filteredLeads), [filteredLeads])
   const { visibleColumns, toggle, isVisible } = useColumnVisibility('leads', availableColumns)
 
   const load = () => {
@@ -134,7 +153,7 @@ export function Leads() {
     return <SectionErrorState title="Лиды" message={error} onRetry={load} />
   }
 
-  const leadsByStage = stages.map((s) => ({ stage: s, items: leads.filter((l) => l.stageId === s.id) }))
+  const leadsByStage = stages.map((s) => ({ stage: s, items: filteredLeads.filter((l) => l.stageId === s.id) }))
 
   return (
     <div className={styles.wrap}>
@@ -165,6 +184,21 @@ export function Leads() {
             </button>
           </div>
         </div>
+      </div>
+      <div className={styles.kpiGrid}>
+        {kpis.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value.toLocaleString('ru-RU')}</strong>
+          </article>
+        ))}
+      </div>
+      <div className={styles.filters}>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по лидам" />
+        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+          <option value="all">Все стадии</option>
+          {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.title}</option>)}
+        </select>
       </div>
       {viewMode === 'kanban' ? (
         <div className={styles.kanban}>
@@ -212,7 +246,11 @@ export function Leads() {
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
+              {filteredLeads.length === 0 ? (
+                <tr>
+                  <td colSpan={visibleColumns.length + 1} className={styles.empty}>Лиды не найдены по текущим фильтрам</td>
+                </tr>
+              ) : filteredLeads.map((lead) => (
                 <tr key={lead.id}>
                   {visibleColumns.map((key) => (
                     <td key={key}>{formatCellValue(lead[key], key)}</td>

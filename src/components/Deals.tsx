@@ -66,8 +66,27 @@ export function Deals() {
   const [movingId, setMovingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [editing, setEditing] = useState<Deal | null>(null)
+  const [query, setQuery] = useState('')
+  const [stageFilter, setStageFilter] = useState('all')
 
-  const availableColumns = useMemo(() => getDealTableColumns(deals), [deals])
+  const filteredDeals = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return deals.filter((deal) => {
+      const stageOk = stageFilter === 'all' || deal.stageId === stageFilter
+      if (!stageOk) return false
+      if (!q) return true
+      return [deal.title, deal.description, deal.contactName, deal.contactPhone, deal.stage, deal.status]
+        .some((value) => String(value ?? '').toLowerCase().includes(q))
+    })
+  }, [deals, query, stageFilter])
+  const kpis = useMemo(() => [
+    { label: 'Всего', value: deals.length },
+    { label: 'Выиграно', value: deals.filter((deal) => ['won', 'paid', 'success'].includes(String(deal.stageId ?? deal.stage ?? deal.status))).length },
+    { label: 'Сумма', value: deals.reduce((sum, deal) => sum + Number(deal.amount ?? 0), 0) },
+    { label: 'В работе', value: deals.filter((deal) => !['won', 'lost', 'closed'].includes(String(deal.stageId ?? deal.stage ?? deal.status))).length },
+  ], [deals])
+
+  const availableColumns = useMemo(() => getDealTableColumns(filteredDeals), [filteredDeals])
   const { visibleColumns, toggle, isVisible } = useColumnVisibility('deals', availableColumns)
 
   const load = () => {
@@ -117,7 +136,7 @@ export function Deals() {
     return <SectionErrorState title="Сделки" message={error} onRetry={load} />
   }
 
-  const byStage = stages.map((s) => ({ stage: s, items: deals.filter((d) => d.stageId === s.id) }))
+  const byStage = stages.map((s) => ({ stage: s, items: filteredDeals.filter((d) => d.stageId === s.id) }))
 
   return (
     <div className={styles.wrap}>
@@ -130,6 +149,21 @@ export function Deals() {
             <button type="button" className={viewMode === 'list' ? styles.toggleActive : ''} onClick={() => setViewMode('list')}>Список</button>
           </div>
         </div>
+      </div>
+      <div className={styles.kpiGrid}>
+        {kpis.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value.toLocaleString('ru-RU')}</strong>
+          </article>
+        ))}
+      </div>
+      <div className={styles.filters}>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по сделкам" />
+        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+          <option value="all">Все стадии</option>
+          {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.title}</option>)}
+        </select>
       </div>
       {viewMode === 'kanban' ? (
         <div className={styles.kanban}>
@@ -183,7 +217,11 @@ export function Deals() {
               </tr>
             </thead>
             <tbody>
-              {deals.map((deal) => (
+              {filteredDeals.length === 0 ? (
+                <tr>
+                  <td colSpan={visibleColumns.length + 1} className={styles.empty}>Сделки не найдены по текущим фильтрам</td>
+                </tr>
+              ) : filteredDeals.map((deal) => (
                 <tr key={deal.id}>
                   {visibleColumns.map((key) => (
                     <td key={key}>{formatCellValue(deal[key], key)}</td>

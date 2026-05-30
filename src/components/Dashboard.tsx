@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Activity, BriefcaseBusiness, Building2, CheckCircle2, MessageSquareText, RefreshCw, Target } from 'lucide-react'
+import { Activity, BriefcaseBusiness, Building2, CheckCircle2, FileText, MessageSquareText, RefreshCw, Target, TriangleAlert } from 'lucide-react'
 import { getDashboard, type PeriodFilter, type PeriodPreset } from '../api/n8n'
 import styles from './Dashboard.module.css'
 
@@ -72,7 +72,52 @@ function normalizeSeries(data: unknown): Array<{ label: string; value: number; s
   }).filter((row) => row.value !== 0 || row.secondary !== 0)
 }
 
+function rowsFromKey(data: DataRecord | null, key: string): DataRecord[] {
+  const source = data?.table && typeof data.table === 'object' && !Array.isArray(data.table)
+    ? (data.table as DataRecord)[key]
+    : null
+  return Array.isArray(source)
+    ? source.filter((item): item is DataRecord => !!item && typeof item === 'object' && !Array.isArray(item))
+    : []
+}
+
+function breakdownRows(data: DataRecord | null): Array<{ group: string; label: string; value: number; amount?: number }> {
+  const source = data?.breakdown && typeof data.breakdown === 'object' && !Array.isArray(data.breakdown)
+    ? data.breakdown as DataRecord
+    : {}
+  return Object.entries(source).flatMap(([group, value]) => {
+    if (!Array.isArray(value)) return []
+    return value
+      .filter((item): item is DataRecord => !!item && typeof item === 'object' && !Array.isArray(item))
+      .slice(0, 5)
+      .map((item) => ({
+        group,
+        label: String(item.label ?? item.name ?? item.status ?? '-'),
+        value: toNumber(item.value ?? item.count ?? item.total),
+        amount: item.amount == null ? undefined : toNumber(item.amount),
+      }))
+  }).slice(0, 12)
+}
+
 function buildKpis(data: DataRecord | null) {
+  const apiKpis = Array.isArray(data?.kpis)
+    ? (data.kpis as unknown[])
+      .filter((item): item is DataRecord => !!item && typeof item === 'object' && !Array.isArray(item))
+      .map((item, index) => {
+        const id = String(item.id ?? item.label ?? index)
+        const icon = id.includes('revenue') ? BriefcaseBusiness
+          : id.includes('customer') ? Building2
+            : id.includes('message') ? MessageSquareText
+              : id.includes('attachment') ? FileText
+                : id.includes('error') ? TriangleAlert
+                  : id.includes('task') ? CheckCircle2
+                    : id.includes('deal') ? BriefcaseBusiness
+                      : Target
+        const tone = id.includes('error') ? 'danger' : id.includes('revenue') || id.includes('deal') ? 'cyan' : id.includes('customer') ? 'green' : 'gold'
+        return { label: String(item.label ?? id), value: toNumber(item.value), icon, tone }
+      })
+    : []
+  if (apiKpis.length > 0) return apiKpis
   return [
     { label: 'Лиды', value: deepFindNumber(data, ['lead', 'лид']), icon: Target, tone: 'gold' },
     { label: 'Сделки', value: deepFindNumber(data, ['deal', 'сдел']), icon: BriefcaseBusiness, tone: 'cyan' },
@@ -115,6 +160,9 @@ export function Dashboard() {
 
   const kpis = useMemo(() => buildKpis(data), [data])
   const series = useMemo(() => normalizeSeries(data), [data])
+  const breakdown = useMemo(() => breakdownRows(data), [data])
+  const recentLeads = useMemo(() => rowsFromKey(data, 'leads'), [data])
+  const recentDeals = useMemo(() => rowsFromKey(data, 'deals'), [data])
   const hasData = data && Object.keys(data).length > 0
 
   return (
@@ -237,6 +285,74 @@ export function Dashboard() {
           Данные получены, но в ответе нет массива `timeline`, `series`, `rows` или `items` для построения графика.
         </div>
       )}
+
+      <section className={styles.detailGrid}>
+        <article className={styles.tablePanel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2>Структура</h2>
+              <p>Статусы лидов, сделок, задач и интеграций</p>
+            </div>
+          </div>
+          {breakdown.length > 0 ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Группа</th>
+                  <th>Срез</th>
+                  <th>Кол-во</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((row) => (
+                  <tr key={`${row.group}-${row.label}`}>
+                    <td>{row.group.replace(/_/g, ' ')}</td>
+                    <td>{row.label}</td>
+                    <td>{row.value.toLocaleString('ru-RU')}</td>
+                    <td>{row.amount == null ? '-' : row.amount.toLocaleString('ru-RU')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className={styles.emptyMini}>Нет данных для среза</div>
+          )}
+        </article>
+
+        <article className={styles.tablePanel}>
+          <div className={styles.panelHead}>
+            <div>
+              <h2>Последняя активность CRM</h2>
+              <p>Лиды и сделки из prod за выбранную компанию</p>
+            </div>
+          </div>
+          {[...recentLeads.map((row) => ({ type: 'Лид', row })), ...recentDeals.map((row) => ({ type: 'Сделка', row }))].slice(0, 10).length > 0 ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Тип</th>
+                  <th>Название</th>
+                  <th>Статус</th>
+                  <th>Обновлено</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...recentLeads.map((row) => ({ type: 'Лид', row })), ...recentDeals.map((row) => ({ type: 'Сделка', row }))].slice(0, 10).map(({ type, row }, index) => (
+                  <tr key={`${type}-${row.id ?? index}`}>
+                    <td>{type}</td>
+                    <td>{String(row.title ?? row.name ?? row.company_name ?? '-')}</td>
+                    <td>{String(row.stage ?? row.status ?? '-')}</td>
+                    <td>{String(row.updated_at ?? '-')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className={styles.emptyMini}>Нет последних записей</div>
+          )}
+        </article>
+      </section>
     </div>
   )
 }

@@ -122,6 +122,11 @@
   color: var(--success);
 }
 
+.kpiCard[data-tone="danger"] .kpiIcon {
+  background: rgba(255, 123, 123, 0.1);
+  color: var(--danger);
+}
+
 .kpiCard span {
   display: block;
   color: var(--text-muted);
@@ -215,12 +220,65 @@
   line-height: 1.45;
 }
 
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.tablePanel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.tablePanel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tablePanel th,
+.tablePanel td {
+  padding: 10px 11px;
+  border-bottom: 1px solid rgba(216, 183, 92, 0.14);
+  color: var(--text-muted);
+  text-align: left;
+  font-size: 0.83rem;
+  vertical-align: top;
+}
+
+.tablePanel th {
+  color: var(--text-soft);
+  background: rgba(255, 255, 255, 0.035);
+  font-weight: 600;
+}
+
+.emptyMini {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(216, 183, 92, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  text-align: center;
+  font-size: 0.86rem;
+}
+
 @media (max-width: 1180px) {
   .kpiGrid {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
 
   .panels {
+    grid-template-columns: 1fr;
+  }
+
+  .detailGrid {
     grid-template-columns: 1fr;
   }
 }

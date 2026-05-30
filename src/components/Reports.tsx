@@ -43,6 +43,34 @@ function rowsFrom(data: Record<string, unknown> | null) {
     }))
 }
 
+function kpisFrom(data: Record<string, unknown> | null): Array<{ id: string; label: string; value: number }> {
+  const source = Array.isArray(data?.kpis) ? data.kpis : []
+  return source
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item, index) => ({
+      id: String(item.id ?? item.label ?? index),
+      label: String(item.label ?? item.id ?? index),
+      value: toNumber(item.value),
+    }))
+}
+
+function breakdownFrom(data: Record<string, unknown> | null): Array<{ group: string; label: string; value: number; amount?: number }> {
+  const source = data?.breakdown && typeof data.breakdown === 'object' && !Array.isArray(data.breakdown)
+    ? data.breakdown as Record<string, unknown>
+    : {}
+  return Object.entries(source).flatMap(([group, rows]) => Array.isArray(rows)
+    ? rows
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+      .map((item) => ({ group, label: String(item.label ?? '-'), value: toNumber(item.value), amount: item.amount == null ? undefined : toNumber(item.amount) }))
+    : [])
+}
+
+function tableRows(data: Record<string, unknown> | null, key: string): Record<string, unknown>[] {
+  const table = data?.table && typeof data.table === 'object' && !Array.isArray(data.table) ? data.table as Record<string, unknown> : {}
+  const rows = table[key]
+  return Array.isArray(rows) ? rows.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item)) : []
+}
+
 function makePeriod(preset: PeriodPreset, from: string, to: string): PeriodFilter {
   return preset === 'custom' ? { preset, from, to } : { preset }
 }
@@ -79,6 +107,12 @@ export function Reports() {
   useEffect(load, [reportId, period, dateFrom, dateTo])
 
   const rows = useMemo(() => rowsFrom(data), [data])
+  const kpis = useMemo(() => kpisFrom(data), [data])
+  const breakdown = useMemo(() => breakdownFrom(data), [data])
+  const recent = useMemo(() => {
+    const key = reportId === 'sales' ? 'deals' : reportId === 'crm' ? 'leads' : reportId === 'coo' ? 'messages' : 'customers'
+    return tableRows(data, key)
+  }, [data, reportId])
   const current = REPORTS.find((item) => item.id === reportId) ?? REPORTS[0]
 
   return (
@@ -135,6 +169,17 @@ export function Reports() {
         )}
 
         {error && <div className={styles.notice}>{error}</div>}
+
+        {kpis.length > 0 && (
+          <div className={styles.kpiStrip}>
+            {kpis.slice(0, 8).map((kpi) => (
+              <article key={kpi.id}>
+                <span>{kpi.label}</span>
+                <strong>{kpi.value.toLocaleString('ru-RU')}</strong>
+              </article>
+            ))}
+          </div>
+        )}
 
         <div className={styles.grid}>
           <article className={styles.panel}>
@@ -201,6 +246,55 @@ export function Reports() {
             </table>
           </div>
         )}
+
+        <div className={styles.bottomGrid}>
+          <div className={styles.tableWrap}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Группа</th>
+                  <th>Срез</th>
+                  <th>Кол-во</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.length > 0 ? breakdown.slice(0, 16).map((row) => (
+                  <tr key={`${row.group}-${row.label}`}>
+                    <td>{row.group.replace(/_/g, ' ')}</td>
+                    <td>{row.label}</td>
+                    <td>{row.value.toLocaleString('ru-RU')}</td>
+                    <td>{row.amount == null ? '-' : row.amount.toLocaleString('ru-RU')}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={4}>Нет данных для среза</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.tableWrap}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Запись</th>
+                  <th>Статус</th>
+                  <th>Обновлено</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.length > 0 ? recent.slice(0, 10).map((row, index) => (
+                  <tr key={String(row.id ?? index)}>
+                    <td>{String(row.title ?? row.name ?? row.company_name ?? row.text ?? '-')}</td>
+                    <td>{String(row.stage ?? row.status ?? row.customer_stage ?? '-')}</td>
+                    <td>{String(row.updated_at ?? row.created_at ?? '-')}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={3}>Нет последних записей</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </div>
   )

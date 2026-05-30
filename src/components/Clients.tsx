@@ -110,8 +110,29 @@ export function Clients() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
+  const [query, setQuery] = useState('')
+  const [stageFilter, setStageFilter] = useState('all')
 
-  const availableColumns = useMemo(() => getTableColumns(list), [list])
+  const stages = useMemo(() => Array.from(new Set(list.map((item) => String(item.customer_stage ?? item.outreach_status ?? 'unknown')).filter(Boolean))).sort(), [list])
+  const filteredList = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return list.filter((item) => {
+      const stage = String(item.customer_stage ?? item.outreach_status ?? 'unknown')
+      const stageOk = stageFilter === 'all' || stage === stageFilter
+      if (!stageOk) return false
+      if (!q) return true
+      return [item.name, item.legal_name, item.primary_email, item.primary_phone, item.website, item.industry, item.city]
+        .some((value) => String(value ?? '').toLowerCase().includes(q))
+    })
+  }, [list, query, stageFilter])
+  const kpis = useMemo(() => [
+    { label: 'Всего', value: list.length },
+    { label: 'Клиенты', value: list.filter((item) => item.is_customer).length },
+    { label: 'С email', value: list.filter((item) => isNotEmpty(item.primary_email)).length },
+    { label: 'Без активности', value: list.filter((item) => !isNotEmpty(item.last_contacted_at)).length },
+  ], [list])
+
+  const availableColumns = useMemo(() => getTableColumns(filteredList), [filteredList])
   const { visibleColumns, toggle, isVisible } = useColumnVisibility('clients', availableColumns)
 
   const load = () => {
@@ -169,6 +190,21 @@ export function Clients() {
           title="Колонки в списке"
         />
       </div>
+      <div className={styles.kpiGrid}>
+        {kpis.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value.toLocaleString('ru-RU')}</strong>
+          </article>
+        ))}
+      </div>
+      <div className={styles.filters}>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по клиентам" />
+        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+          <option value="all">Все статусы</option>
+          {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+        </select>
+      </div>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
@@ -179,14 +215,14 @@ export function Clients() {
             </tr>
           </thead>
           <tbody>
-            {list.length === 0 ? (
+            {filteredList.length === 0 ? (
               <tr>
                 <td colSpan={visibleColumns.length || 1} className={styles.empty}>
-                  Нет клиентов
+                  Клиенты не найдены по текущим фильтрам
                 </td>
               </tr>
             ) : (
-              list.map((c, idx) => (
+              filteredList.map((c, idx) => (
                 <tr
                   key={String(c.id) || idx}
                   onClick={() => setSelected(c)}
