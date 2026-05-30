@@ -509,7 +509,8 @@ export async function getBlockData(viewId: string): Promise<Record<string, unkno
     body.token = session.token
     body.user_id = session.user_id
   }
-  return request(body)
+  const raw = await request<ApiEnvelope<Record<string, unknown>>>(body)
+  return unwrapData(raw) || {}
 }
 
 // ——— Дашборд: данные по шаблону ———
@@ -791,9 +792,9 @@ export async function requestPasswordReset(email: string): Promise<{ sent: boole
 
 // ——— COO: входящие сообщения от n8n (push). Нормализуем ответ: n8n может вернуть { messages } или [{ messages }]. ———
 export async function getCOOIncomingMessages(afterId?: string): Promise<{ messages: COOIncomingMessage[] }> {
-  let raw: { messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>
+  let raw: ApiEnvelope<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>
   try {
-    raw = await request<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>(
+    raw = await request<ApiEnvelope<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>>(
       buildBody('getCOOIncomingMessages', afterId != null ? { after_id: afterId } : undefined)
     )
   } catch (error) {
@@ -802,11 +803,12 @@ export async function getCOOIncomingMessages(afterId?: string): Promise<{ messag
     }
     throw error
   }
-  if (Array.isArray(raw) && raw.length > 0 && raw[0]?.messages) {
-    return { messages: raw[0].messages }
+  const data = unwrapData(raw)
+  if (Array.isArray(data) && data.length > 0 && data[0]?.messages) {
+    return { messages: data[0].messages }
   }
-  if (raw && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray((raw as { messages?: COOIncomingMessage[] }).messages)) {
-    return { messages: (raw as { messages: COOIncomingMessage[] }).messages }
+  if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray((data as { messages?: COOIncomingMessage[] }).messages)) {
+    return { messages: (data as { messages: COOIncomingMessage[] }).messages }
   }
   return { messages: [] }
 }
@@ -816,11 +818,22 @@ export async function downloadCOOAttachment(attachment: N8nAttachment): Promise<
   mimeType: string
   contentBase64: string
 }> {
-  return request(buildBody('downloadCOOAttachment', {
+  const raw = await request<ApiEnvelope<{
+    fileName: string
+    mimeType: string
+    contentBase64: string
+  }>>(buildBody('downloadCOOAttachment', {
     path: attachment.path ?? attachment.url,
     filename: attachment.filename ?? attachment.name,
     content_type: attachment.content_type ?? attachment.contentType ?? attachment.mimeType,
   }))
+  const data = unwrapData(raw)
+  if (!data?.contentBase64) {
+    const rawRecord: unknown = raw
+    const message = isObjectRecord(rawRecord) && typeof rawRecord.error === 'string' ? rawRecord.error : 'Не удалось скачать файл'
+    throw new Error(message)
+  }
+  return data
 }
 
 // ——— Настройки (конфиг компании) ———
