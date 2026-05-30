@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Circle, Rocket, Save } from 'lucide-react'
-import { getConfig, getSettings, updateConfig, updateSettingsSection, type CompanyConfig } from '../api/n8n'
+import {
+  completeOnboarding,
+  getConfig,
+  getOnboardingState,
+  getSettings,
+  saveOnboardingStep,
+  updateConfig,
+  updateSettingsSection,
+  type CompanyConfig,
+} from '../api/n8n'
 import styles from './Onboarding.module.css'
 
 const STEPS = [
@@ -53,6 +62,41 @@ const STEPS = [
     description: 'Webhook secret, age+SOAP и audit markers.',
     paths: ['security.webhook_secret_status', 'security.keys_encryption', 'security.audit_enabled'],
   },
+  {
+    id: 'policies',
+    section: 'policies',
+    title: 'Политики',
+    description: 'Согласования, handoff, риск и хранение данных.',
+    paths: ['policies.approval_required', 'policies.human_handoff_required', 'policies.risk_level', 'policies.data_retention_days'],
+  },
+  {
+    id: 'prompts',
+    section: 'prompts',
+    title: 'Промпты',
+    description: 'Базовые инструкции COO, продаж и отчетов.',
+    paths: ['prompts.coo_system', 'prompts.lead_qualification', 'prompts.sales_reply', 'prompts.report_summary'],
+  },
+  {
+    id: 'handlers',
+    section: 'handlers',
+    title: 'Хендлеры',
+    description: 'Включение доменов и маршрутизация задач.',
+    paths: ['handlers.sales.enabled', 'handlers.marketing.enabled', 'handlers.default_owner'],
+  },
+  {
+    id: 'templates',
+    section: 'letter_templates',
+    title: 'Письма',
+    description: 'Шаблоны демо-доступа, временного пароля и outreach.',
+    paths: ['letter_templates.demo_access_subject', 'letter_templates.password_reset_subject', 'letter_templates.outreach_body'],
+  },
+  {
+    id: 'access',
+    section: 'access',
+    title: 'Доступ',
+    description: 'Роли, приглашения и домены почты.',
+    paths: ['access.default_role', 'access.invites_enabled', 'access.allowed_domains'],
+  },
 ]
 
 const FIELD_LABELS: Record<string, string> = {
@@ -80,6 +124,23 @@ const FIELD_LABELS: Record<string, string> = {
   'security.webhook_secret_status': 'Webhook secret',
   'security.keys_encryption': 'Шифрование ключей',
   'security.audit_enabled': 'Audit включен',
+  'policies.approval_required': 'Согласование важных действий',
+  'policies.human_handoff_required': 'Handoff при риске',
+  'policies.risk_level': 'Уровень риска',
+  'policies.data_retention_days': 'Хранение данных, дней',
+  'prompts.coo_system': 'COO system prompt',
+  'prompts.lead_qualification': 'Квалификация лидов',
+  'prompts.sales_reply': 'Ответы продаж',
+  'prompts.report_summary': 'Сводки и отчеты',
+  'handlers.sales.enabled': 'Sales handler',
+  'handlers.marketing.enabled': 'Marketing handler',
+  'handlers.default_owner': 'Ответственный по умолчанию',
+  'letter_templates.demo_access_subject': 'Тема демо-доступа',
+  'letter_templates.password_reset_subject': 'Тема временного пароля',
+  'letter_templates.outreach_body': 'Лидогенерация',
+  'access.default_role': 'Роль по умолчанию',
+  'access.invites_enabled': 'Приглашения включены',
+  'access.allowed_domains': 'Домены почты',
 }
 
 function getPath(obj: CompanyConfig, path: string): unknown {
@@ -125,9 +186,19 @@ export function Onboarding() {
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    getSettings()
+    getOnboardingState()
+      .then((res) => {
+        const fromState = res.config && typeof res.config === 'object' && !Array.isArray(res.config) ? res.config as CompanyConfig : null
+        if (fromState) {
+          setConfig(fromState)
+          return null
+        }
+        return getSettings()
+      })
       .catch(() => getConfig())
-      .then(setConfig)
+      .then((res) => {
+        if (res) setConfig(res)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -142,13 +213,29 @@ export function Onboarding() {
     const patch = sectionValue(config, activeStep.section)
     setSaving(true)
     setMessage(null)
-    updateSettingsSection(activeStep.section, patch)
+    saveOnboardingStep(activeStep.id, patch)
+      .then((res) => {
+        const nextConfig = res.config && typeof res.config === 'object' && !Array.isArray(res.config) ? res.config as CompanyConfig : null
+        return nextConfig || updateSettingsSection(activeStep.section, patch)
+      })
       .catch(() => updateConfig(config))
       .then((updated) => {
         setConfig(updated && Object.keys(updated).length > 0 ? updated : config)
         setMessage('Онбординг сохранен')
       })
       .catch(() => setMessage('Не удалось сохранить онбординг'))
+      .finally(() => setSaving(false))
+  }
+
+  const complete = () => {
+    setSaving(true)
+    setMessage(null)
+    completeOnboarding()
+      .then(() => {
+        setConfig((current) => setPath(current, 'onboarding.completed', true))
+        setMessage('Онбординг завершен')
+      })
+      .catch(() => setMessage('Не удалось завершить онбординг'))
       .finally(() => setSaving(false))
   }
 
@@ -197,6 +284,9 @@ export function Onboarding() {
             <button type="button" onClick={save} disabled={saving || loading}>
               <Save aria-hidden />
               {saving ? 'Сохраняем...' : 'Сохранить'}
+            </button>
+            <button type="button" className={styles.secondaryBtn} onClick={complete} disabled={saving || loading || total < 70}>
+              Завершить
             </button>
           </div>
 

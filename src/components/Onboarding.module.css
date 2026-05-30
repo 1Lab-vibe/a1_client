@@ -161,6 +161,16 @@
   font-weight: 700;
 }
 
+.panelHead .secondaryBtn {
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.panelHead button:disabled {
+  opacity: 0.55;
+}
+
 .panelHead button svg {
   width: 16px;
   height: 16px;

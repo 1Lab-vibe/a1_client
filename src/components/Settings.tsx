@@ -66,8 +66,38 @@ interface ManagedCollectionDef {
   emptyItem: Record<string, string>
 }
 
-const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef> = {
-  marketing: {
+const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef[]> = {
+  crm: [
+    {
+      section: 'crm',
+      path: 'crm.sources',
+      title: 'Источники и поля CRM',
+      description: 'Источники, обязательность и правила обработки лидов сохраняются в конфиг компании.',
+      addLabel: 'Добавить источник',
+      fields: [
+        { key: 'name', label: 'Источник' },
+        { key: 'code', label: 'Код' },
+        { key: 'required_fields', label: 'Обязательные поля' },
+        { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled'] },
+      ],
+      emptyItem: { name: '', code: '', required_fields: '', enabled: 'enabled' },
+    },
+    {
+      section: 'crm',
+      path: 'crm.stage_rules',
+      title: 'Правила стадий',
+      description: 'Стадии лидов и сделок с SLA, ответственными и правилами перехода.',
+      addLabel: 'Добавить стадию',
+      fields: [
+        { key: 'pipeline', label: 'Воронка', type: 'select', options: ['lead', 'deal'] },
+        { key: 'name', label: 'Стадия' },
+        { key: 'sla_hours', label: 'SLA, часов' },
+        { key: 'owner_role', label: 'Роль владельца', type: 'select', options: ['owner', 'admin', 'member'] },
+      ],
+      emptyItem: { pipeline: 'lead', name: '', sla_hours: '24', owner_role: 'admin' },
+    },
+  ],
+  marketing: [{
     section: 'marketing',
     path: 'marketing.channels',
     title: 'Каналы привлечения',
@@ -81,8 +111,8 @@ const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef> = {
       { key: 'status', label: 'Статус', type: 'select', options: ['active', 'paused', 'testing'] },
     ],
     emptyItem: { name: '', type: 'direct', budget: '', goal: '', status: 'active' },
-  },
-  products: {
+  }],
+  products: [{
     section: 'products',
     path: 'products.catalog',
     title: 'Продуктовая матрица',
@@ -95,8 +125,8 @@ const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef> = {
       { key: 'priority', label: 'Приоритет', type: 'select', options: ['high', 'medium', 'low'] },
     ],
     emptyItem: { name: '', offer: '', price: '', priority: 'medium' },
-  },
-  icp: {
+  }],
+  icp: [{
     section: 'icp',
     path: 'icp.segments_detail',
     title: 'ICP-сегменты',
@@ -110,7 +140,121 @@ const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef> = {
       { key: 'fit_score', label: 'Fit score' },
     ],
     emptyItem: { name: '', industry: '', decision_maker: '', pain: '', fit_score: '70' },
-  },
+  }],
+  policies: [{
+    section: 'policies',
+    path: 'policies.rules',
+    title: 'Правила и ограничения',
+    description: 'Политики согласования, эскалации и риск-контроля без правки JSON.',
+    addLabel: 'Добавить правило',
+    fields: [
+      { key: 'name', label: 'Правило' },
+      { key: 'domain', label: 'Домен', type: 'select', options: ['sales', 'marketing', 'finance', 'legal', 'security', 'ops'] },
+      { key: 'trigger', label: 'Когда срабатывает' },
+      { key: 'action', label: 'Действие', type: 'textarea' },
+      { key: 'severity', label: 'Риск', type: 'select', options: ['low', 'medium', 'high'] },
+    ],
+    emptyItem: { name: '', domain: 'ops', trigger: '', action: '', severity: 'medium' },
+  }],
+  prompts: [{
+    section: 'prompts',
+    path: 'prompts.items',
+    title: 'Рабочие промпты',
+    description: 'Версионируемые инструкции по доменам: COO, продажи, маркетинг, отчеты.',
+    addLabel: 'Добавить промпт',
+    fields: [
+      { key: 'name', label: 'Название' },
+      { key: 'domain', label: 'Домен', type: 'select', options: ['coo', 'sales', 'marketing', 'reports', 'support'] },
+      { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled', 'draft'] },
+      { key: 'prompt', label: 'Инструкция', type: 'textarea' },
+    ],
+    emptyItem: { name: '', domain: 'coo', enabled: 'enabled', prompt: '' },
+  }],
+  handlers: [{
+    section: 'handlers',
+    path: 'handlers.routes',
+    title: 'Маршруты хендлеров',
+    description: 'Какие домены включены и в какие внутренние workflow отправлять задачи.',
+    addLabel: 'Добавить маршрут',
+    fields: [
+      { key: 'domain', label: 'Домен', type: 'select', options: ['sales', 'marketing', 'finance', 'legal', 'hr', 'it', 'ops'] },
+      { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled'] },
+      { key: 'workflow_key', label: 'Workflow key' },
+      { key: 'fallback_owner', label: 'Ответственный' },
+    ],
+    emptyItem: { domain: 'sales', enabled: 'enabled', workflow_key: '', fallback_owner: '' },
+  }],
+  action_templates: [{
+    section: 'action_templates',
+    path: 'action_templates.items',
+    title: 'Шаблоны действий',
+    description: 'Управляемые сценарии задач, follow-up, согласований и отчетов.',
+    addLabel: 'Добавить шаблон',
+    fields: [
+      { key: 'name', label: 'Название' },
+      { key: 'type', label: 'Тип', type: 'select', options: ['approval', 'follow_up', 'task', 'report', 'escalation'] },
+      { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled'] },
+      { key: 'template', label: 'Шаблон', type: 'textarea' },
+    ],
+    emptyItem: { name: '', type: 'task', enabled: 'enabled', template: '' },
+  }],
+  letter_templates: [{
+    section: 'letter_templates',
+    path: 'letter_templates.items',
+    title: 'Шаблоны писем',
+    description: 'Темы и тела писем в нормальной кодировке: демо, пароль, follow-up, outreach.',
+    addLabel: 'Добавить письмо',
+    fields: [
+      { key: 'name', label: 'Название' },
+      { key: 'type', label: 'Тип', type: 'select', options: ['demo_access', 'password_reset', 'follow_up', 'outreach'] },
+      { key: 'subject', label: 'Тема' },
+      { key: 'body', label: 'Тело письма', type: 'textarea' },
+    ],
+    emptyItem: { name: '', type: 'follow_up', subject: '', body: '' },
+  }],
+  notifications: [{
+    section: 'notifications',
+    path: 'notifications.rules',
+    title: 'Правила уведомлений',
+    description: 'Какие события отправлять в email, Telegram и web без правки workflow.',
+    addLabel: 'Добавить правило',
+    fields: [
+      { key: 'event', label: 'Событие' },
+      { key: 'channel', label: 'Канал', type: 'select', options: ['email', 'telegram', 'web'] },
+      { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled'] },
+      { key: 'quiet_hours', label: 'Тихие часы' },
+    ],
+    emptyItem: { event: '', channel: 'email', enabled: 'enabled', quiet_hours: '' },
+  }],
+  access: [
+    {
+      section: 'access',
+      path: 'access.role_permissions',
+      title: 'Матрица прав',
+      description: 'Роли и доступы к разделам сохраняются в конфиг компании и используются UI/backend как единый источник.',
+      addLabel: 'Добавить правило роли',
+      fields: [
+        { key: 'role', label: 'Роль', type: 'select', options: ['owner', 'admin', 'member'] },
+        { key: 'section', label: 'Раздел', type: 'select', options: ['dashboard', 'crm', 'coo', 'reports', 'settings', 'integrations', 'users'] },
+        { key: 'access', label: 'Доступ', type: 'select', options: ['none', 'read', 'write', 'admin'] },
+        { key: 'note', label: 'Комментарий' },
+      ],
+      emptyItem: { role: 'member', section: 'dashboard', access: 'read', note: '' },
+    },
+    {
+      section: 'access',
+      path: 'access.audit_markers',
+      title: 'Audit-маркеры',
+      description: 'События, которые нужно логировать при изменениях доступов и настроек.',
+      addLabel: 'Добавить marker',
+      fields: [
+        { key: 'event', label: 'Событие' },
+        { key: 'severity', label: 'Важность', type: 'select', options: ['info', 'warning', 'critical'] },
+        { key: 'notify', label: 'Уведомление', type: 'select', options: ['none', 'owner', 'security'] },
+      ],
+      emptyItem: { event: '', severity: 'info', notify: 'owner' },
+    },
+  ],
 }
 
 const SECTIONS: SettingsSection[] = [
@@ -634,8 +778,11 @@ export function Settings({ initialSection }: SettingsProps = {}) {
 
   const integrationRows = useMemo(() => normalizeIntegrations(integrationsData, draft), [integrationsData, draft])
   const userRows = useMemo(() => normalizeUsers(usersData), [usersData])
-  const collectionDef = MANAGED_COLLECTIONS[section.id]
-  const managedRows = useMemo(() => collectionDef ? collectionItems(draft, collectionDef) : [], [collectionDef, draft])
+  const collectionDefs = MANAGED_COLLECTIONS[section.id] ?? []
+  const managedRowsByPath = useMemo(
+    () => Object.fromEntries(collectionDefs.map((def) => [def.path, collectionItems(draft, def)])),
+    [collectionDefs, draft],
+  )
 
   return (
     <div className={styles.wrap}>
@@ -811,55 +958,58 @@ export function Settings({ initialSection }: SettingsProps = {}) {
           </div>
         )}
 
-        {!loading && collectionDef && (
-          <div className={styles.managedPanel}>
-            <div className={styles.runtimeHead}>
-              <div>
-                <h3>{collectionDef.title}</h3>
-                <p>{collectionDef.description}</p>
+        {!loading && collectionDefs.map((collectionDef) => {
+          const managedRows = managedRowsByPath[collectionDef.path] ?? []
+          return (
+            <div key={collectionDef.path} className={styles.managedPanel}>
+              <div className={styles.runtimeHead}>
+                <div>
+                  <h3>{collectionDef.title}</h3>
+                  <p>{collectionDef.description}</p>
+                </div>
+                <button type="button" onClick={() => addCollectionItem(collectionDef)}>
+                  {collectionDef.addLabel}
+                </button>
               </div>
-              <button type="button" onClick={() => addCollectionItem(collectionDef)}>
-                {collectionDef.addLabel}
-              </button>
+              {managedRows.length > 0 ? (
+                <div className={styles.managedGrid}>
+                  {managedRows.map((row, rowIndex) => (
+                    <article key={`${collectionDef.path}-${rowIndex}`} className={styles.managedCard}>
+                      <div className={styles.managedCardHead}>
+                        <strong>{cell(row.name ?? row.title ?? row.event ?? `${collectionDef.title} ${rowIndex + 1}`)}</strong>
+                        <button type="button" onClick={() => removeCollectionItem(collectionDef, rowIndex)}>Удалить</button>
+                      </div>
+                      <div className={styles.managedFields}>
+                        {collectionDef.fields.map((field) => {
+                          const value = String(row[field.key] ?? '')
+                          return (
+                            <label key={field.key} className={field.type === 'textarea' ? styles.managedWide : ''}>
+                              <span>{field.label}</span>
+                              {field.type === 'select' ? (
+                                <select value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)}>
+                                  {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
+                                </select>
+                              ) : field.type === 'textarea' ? (
+                                <textarea value={value} rows={4} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
+                              ) : (
+                                <input value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.emptyManaged}>
+                  <span>Пока нет записей.</span>
+                  <button type="button" onClick={() => addCollectionItem(collectionDef)}>{collectionDef.addLabel}</button>
+                </div>
+              )}
             </div>
-            {managedRows.length > 0 ? (
-              <div className={styles.managedGrid}>
-                {managedRows.map((row, rowIndex) => (
-                  <article key={`${collectionDef.path}-${rowIndex}`} className={styles.managedCard}>
-                    <div className={styles.managedCardHead}>
-                      <strong>{cell(row.name ?? row.title ?? `${collectionDef.title} ${rowIndex + 1}`)}</strong>
-                      <button type="button" onClick={() => removeCollectionItem(collectionDef, rowIndex)}>Удалить</button>
-                    </div>
-                    <div className={styles.managedFields}>
-                      {collectionDef.fields.map((field) => {
-                        const value = String(row[field.key] ?? '')
-                        return (
-                          <label key={field.key} className={field.type === 'textarea' ? styles.managedWide : ''}>
-                            <span>{field.label}</span>
-                            {field.type === 'select' ? (
-                              <select value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)}>
-                                {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
-                              </select>
-                            ) : field.type === 'textarea' ? (
-                              <textarea value={value} rows={4} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
-                            ) : (
-                              <input value={value} onChange={(event) => updateCollectionItem(collectionDef, rowIndex, field.key, event.target.value)} />
-                            )}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.emptyManaged}>
-                <span>Пока нет записей.</span>
-                <button type="button" onClick={() => addCollectionItem(collectionDef)}>{collectionDef.addLabel}</button>
-              </div>
-            )}
-          </div>
-        )}
+          )
+        })}
 
         {!loading && (
           <div className={styles.formGrid}>
