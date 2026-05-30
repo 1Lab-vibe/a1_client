@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, Bot, Building2, CheckCircle2, KeyRound, Link2, Megaphone, Package, Save, ShieldCheck, Target, Users } from 'lucide-react'
-import { getConfig, getSettings, updateConfig, updateSettingsSection, type CompanyConfig } from '../api/n8n'
+import { Bell, Bot, Building2, CheckCircle2, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users } from 'lucide-react'
+import {
+  getConfig,
+  getIntegrations,
+  getSettings,
+  getUsersAndPermissions,
+  startIntegrationConnect,
+  testIntegration,
+  updateConfig,
+  updateSettingsSection,
+  updateUserRole,
+  type CompanyConfig,
+} from '../api/n8n'
 import styles from './Settings.module.css'
 
 type FieldType = 'text' | 'textarea' | 'select' | 'toggle' | 'slider'
@@ -23,6 +34,17 @@ interface SettingsSection {
   description: string
   icon: typeof Building2
   fields: FieldDef[]
+}
+
+type DataRow = Record<string, unknown>
+
+interface IntegrationRow {
+  provider: string
+  name: string
+  status: string
+  health: string
+  lastSync: string
+  error: string
 }
 
 const SECTIONS: SettingsSection[] = [
@@ -292,6 +314,80 @@ function sectionValue(config: CompanyConfig, sectionId: string): Record<string, 
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
+function asRows(value: unknown, keys: string[]): DataRow[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is DataRow => !!item && typeof item === 'object' && !Array.isArray(item))
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  const record = value as Record<string, unknown>
+  for (const key of keys) {
+    const rows = asRows(record[key], [])
+    if (rows.length > 0) return rows
+  }
+  return []
+}
+
+function cell(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'boolean') return value ? 'да' : 'нет'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  telegram: 'Telegram',
+  email: 'Email',
+  yandex_direct: 'Yandex Direct',
+  web: 'Web client',
+  client: 'A1 client',
+  crm: 'CRM',
+}
+
+function normalizeIntegrations(data: Record<string, unknown> | null, config: CompanyConfig): IntegrationRow[] {
+  const rows = asRows(data, ['integrations', 'items', 'rows', 'data'])
+  if (rows.length > 0) {
+    return rows.map((row) => {
+      const provider = cell(row.provider ?? row.id ?? row.code ?? row.name).toLowerCase().replace(/\s+/g, '_')
+      return {
+        provider,
+        name: cell(row.title ?? row.name ?? PROVIDER_LABELS[provider] ?? provider),
+        status: cell(row.status ?? row.connection_status ?? 'unknown'),
+        health: cell(row.health ?? row.health_status ?? row.ok),
+        lastSync: cell(row.last_sync_at ?? row.lastSyncAt ?? row.updated_at),
+        error: cell(row.error ?? row.last_error),
+      }
+    })
+  }
+
+  const configured = sectionValue(config, 'integrations')
+  const providers = ['telegram', 'email', 'yandex_direct', 'web', 'client']
+  return providers.map((provider) => {
+    const value = configured[provider]
+    const record = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+    return {
+      provider,
+      name: PROVIDER_LABELS[provider] ?? provider,
+      status: cell(record.status ?? 'unknown'),
+      health: cell(record.health ?? record.ok ?? '-'),
+      lastSync: cell(record.last_sync_at ?? configured.last_sync_at),
+      error: cell(record.error ?? record.last_error),
+    }
+  })
+}
+
+function normalizeUsers(data: Record<string, unknown> | null): DataRow[] {
+  return asRows(data, ['users', 'permissions', 'items', 'rows', 'data'])
+}
+
+function rowId(row: DataRow): string {
+  return cell(row.user_id ?? row.id ?? row.auth_user_id ?? row.email ?? row.login)
+}
+
+function rowCompanyId(row: DataRow): string | undefined {
+  const value = row.company_id ?? row.companyId
+  return value == null ? undefined : String(value)
+}
+
 export function Settings({ initialSection }: SettingsProps = {}) {
   const [activeSection, setActiveSection] = useState(() => normalizeSectionId(initialSection))
   const [config, setConfig] = useState<CompanyConfig>({})
@@ -300,6 +396,14 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [integrationsData, setIntegrationsData] = useState<Record<string, unknown> | null>(null)
+  const [integrationsLoading, setIntegrationsLoading] = useState(false)
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null)
+  const [integrationAction, setIntegrationAction] = useState<string | null>(null)
+  const [usersData, setUsersData] = useState<Record<string, unknown> | null>(null)
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [usersError, setUsersError] = useState<string | null>(null)
+  const [roleAction, setRoleAction] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -317,6 +421,29 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   useEffect(() => {
     setActiveSection(normalizeSectionId(initialSection))
   }, [initialSection])
+
+  const loadIntegrations = () => {
+    setIntegrationsLoading(true)
+    setIntegrationsError(null)
+    getIntegrations()
+      .then((res) => setIntegrationsData(res || {}))
+      .catch((e) => setIntegrationsError(e instanceof Error ? e.message : 'Ошибка загрузки интеграций'))
+      .finally(() => setIntegrationsLoading(false))
+  }
+
+  const loadUsers = () => {
+    setUsersLoading(true)
+    setUsersError(null)
+    getUsersAndPermissions()
+      .then((res) => setUsersData(res || {}))
+      .catch((e) => setUsersError(e instanceof Error ? e.message : 'Ошибка загрузки доступов'))
+      .finally(() => setUsersLoading(false))
+  }
+
+  useEffect(() => {
+    if (activeSection === 'integrations' && !integrationsData && !integrationsLoading) loadIntegrations()
+    if (activeSection === 'access' && !usersData && !usersLoading) loadUsers()
+  }, [activeSection])
 
   const section = useMemo(() => SECTIONS.find((item) => item.id === activeSection) ?? SECTIONS[0], [activeSection])
   const dirty = useMemo(
@@ -348,6 +475,30 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка сохранения настроек'))
       .finally(() => setSaving(false))
   }
+
+  const runIntegrationAction = (provider: string, mode: 'connect' | 'test') => {
+    setIntegrationAction(`${mode}:${provider}`)
+    setIntegrationsError(null)
+    const action = mode === 'connect' ? startIntegrationConnect(provider) : testIntegration(provider)
+    action
+      .then(() => loadIntegrations())
+      .catch((e) => setIntegrationsError(e instanceof Error ? e.message : 'Ошибка проверки интеграции'))
+      .finally(() => setIntegrationAction(null))
+  }
+
+  const changeRole = (row: DataRow, role: string) => {
+    const userId = rowId(row)
+    if (!userId || userId === '-') return
+    setRoleAction(userId)
+    setUsersError(null)
+    updateUserRole(userId, role, rowCompanyId(row))
+      .then(() => loadUsers())
+      .catch((e) => setUsersError(e instanceof Error ? e.message : 'Ошибка изменения роли'))
+      .finally(() => setRoleAction(null))
+  }
+
+  const integrationRows = useMemo(() => normalizeIntegrations(integrationsData, draft), [integrationsData, draft])
+  const userRows = useMemo(() => normalizeUsers(usersData), [usersData])
 
   return (
     <div className={styles.wrap}>
@@ -383,6 +534,110 @@ export function Settings({ initialSection }: SettingsProps = {}) {
         {loading && <div className={styles.state}>Загружаем настройки...</div>}
         {error && <div className={styles.error}>{error}</div>}
         {savedAt && !dirty && <div className={styles.saved}>Сохранено в {savedAt}</div>}
+
+        {!loading && section.id === 'integrations' && (
+          <div className={styles.runtimePanel}>
+            <div className={styles.runtimeHead}>
+              <div>
+                <h3>Подключения и health-check</h3>
+                <p>Статусы приходят из prod n8n, секреты и токены в интерфейс не выводятся.</p>
+              </div>
+              <button type="button" onClick={loadIntegrations} disabled={integrationsLoading}>
+                <RefreshCw aria-hidden />
+                Обновить
+              </button>
+            </div>
+            {integrationsError && <div className={styles.error}>{integrationsError}</div>}
+            <div className={styles.integrationGrid}>
+              {integrationRows.map((item) => (
+                <article key={item.provider} className={styles.integrationCard}>
+                  <div className={styles.integrationTop}>
+                    <PlugZap aria-hidden />
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span className={styles.statusPill}>{item.status}</span>
+                    </div>
+                  </div>
+                  <dl>
+                    <div><dt>Проверка</dt><dd>{item.health}</dd></div>
+                    <div><dt>Синхронизация</dt><dd>{item.lastSync}</dd></div>
+                    <div><dt>Ошибка</dt><dd>{item.error}</dd></div>
+                  </dl>
+                  <div className={styles.cardActions}>
+                    <button
+                      type="button"
+                      onClick={() => runIntegrationAction(item.provider, 'test')}
+                      disabled={integrationAction === `test:${item.provider}`}
+                    >
+                      Проверить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runIntegrationAction(item.provider, 'connect')}
+                      disabled={integrationAction === `connect:${item.provider}`}
+                    >
+                      Подключить
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && section.id === 'access' && (
+          <div className={styles.runtimePanel}>
+            <div className={styles.runtimeHead}>
+              <div>
+                <h3>Пользователи и роли</h3>
+                <p>Роли сохраняются в backend и перечитываются из prod n8n.</p>
+              </div>
+              <button type="button" onClick={loadUsers} disabled={usersLoading}>
+                <RefreshCw aria-hidden />
+                Обновить
+              </button>
+            </div>
+            {usersError && <div className={styles.error}>{usersError}</div>}
+            <div className={styles.accessTable}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Пользователь</th>
+                    <th>Email / login</th>
+                    <th>Компания</th>
+                    <th>Роль</th>
+                    <th>Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userRows.length > 0 ? userRows.map((row, index) => {
+                    const id = rowId(row)
+                    const currentRole = cell(row.role ?? row.access_role ?? 'member')
+                    return (
+                      <tr key={`${id}-${index}`}>
+                        <td>{cell(row.name ?? row.full_name ?? row.user_name ?? id)}</td>
+                        <td>{cell(row.email ?? row.login)}</td>
+                        <td>{cell(row.company_name ?? row.company_id)}</td>
+                        <td>
+                          <select value={currentRole} onChange={(event) => changeRole(row, event.target.value)} disabled={roleAction === id}>
+                            <option value="owner">owner</option>
+                            <option value="admin">admin</option>
+                            <option value="member">member</option>
+                          </select>
+                        </td>
+                        <td>{cell(row.status ?? row.active ?? row.is_default)}</td>
+                      </tr>
+                    )
+                  }) : (
+                    <tr>
+                      <td colSpan={5}>Пока нет записей доступа для выбранной компании.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {!loading && (
           <div className={styles.formGrid}>

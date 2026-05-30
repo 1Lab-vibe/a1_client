@@ -420,7 +420,19 @@ export async function updateInvoice(invoice: Invoice): Promise<{ invoice: Invoic
 
 // ——— Данные по разделу (универсальный webhook для любого блока) ———
 export async function getBlockData(viewId: string): Promise<Record<string, unknown>> {
-  return request(buildBody('getBlockData', { viewId }))
+  const session = getSession()
+  const body: Record<string, unknown> = {
+    action: 'getBlockData',
+    viewId,
+    view_id: viewId,
+    payload: { viewId, view_id: viewId },
+  }
+  if (session) {
+    body.company_id = session.company_id
+    body.token = session.token
+    body.user_id = session.user_id
+  }
+  return request(body)
 }
 
 // ——— Дашборд: данные по шаблону ———

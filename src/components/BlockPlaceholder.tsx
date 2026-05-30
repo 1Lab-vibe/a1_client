@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Database, RefreshCw } from 'lucide-react'
+import { BarChart3, Database, RefreshCw } from 'lucide-react'
 import { getBlockData } from '../api/n8n'
 import styles from './BlockPlaceholder.module.css'
 
@@ -55,13 +55,16 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
     rows.slice(0, 20).forEach((row) => Object.keys(row).slice(0, 8).forEach((key) => collected.add(key)))
     return Array.from(collected).slice(0, 8)
   }, [rows])
+  const meta = data && typeof data.meta === 'object' && !Array.isArray(data.meta) ? data.meta as Record<string, unknown> : {}
+  const domain = displayValue(data?.domain ?? meta.domain ?? viewId.split('/')[0])
+  const resolvedView = displayValue(data?.view_id ?? data?.viewId ?? meta.view_id ?? viewId)
 
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
         <div>
           <h2>{title}</h2>
-          <p>Рабочий раздел с данными выбранной компании, периодами и операционными строками.</p>
+          <p>Рабочий раздел с данными выбранной компании, периодами и операционными строками из n8n.</p>
         </div>
         <button type="button" onClick={load} disabled={loading} title="Обновить">
           <RefreshCw aria-hidden />
@@ -74,22 +77,41 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
       {loading ? (
         <div className={styles.state}>Загружаем данные...</div>
       ) : rows.length > 0 ? (
-        <div className={styles.tableWrap}>
-          <table>
-            <thead>
-              <tr>
-                {keys.map((key) => <th key={key}>{key}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={String(row.id ?? index)}>
-                  {keys.map((key) => <td key={key}>{displayValue(row[key])}</td>)}
+        <>
+          <div className={styles.kpis}>
+            <div>
+              <BarChart3 aria-hidden />
+              <span>Строк</span>
+              <strong>{rows.length}</strong>
+            </div>
+            <div>
+              <Database aria-hidden />
+              <span>Домен</span>
+              <strong>{domain}</strong>
+            </div>
+            <div>
+              <Database aria-hidden />
+              <span>View</span>
+              <strong>{resolvedView}</strong>
+            </div>
+          </div>
+          <div className={styles.tableWrap}>
+            <table>
+              <thead>
+                <tr>
+                  {keys.map((key) => <th key={key}>{key}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr key={String(row.id ?? index)}>
+                    {keys.map((key) => <td key={key}>{displayValue(row[key])}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <div className={styles.empty}>
           <Database aria-hidden />
