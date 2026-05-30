@@ -170,7 +170,60 @@ export async function requestWebhook<T = unknown>(body: object): Promise<T> {
 
 // ——— Задачи ———
 export async function fetchTasks(): Promise<{ tasks: Task[] }> {
-  return request(buildBody('getTasks'))
+  const raw = await request<ApiEnvelope<{ tasks?: Task[] } | Task[]>>(buildBody('getTasks'))
+  const data = unwrapData(raw)
+  if (Array.isArray(data)) return { tasks: data.filter(isObjectRecord).map((row) => toTask(row as unknown as Record<string, unknown>)) }
+  if (data && typeof data === 'object' && Array.isArray((data as { tasks?: unknown }).tasks)) {
+    return { tasks: ((data as { tasks: unknown[] }).tasks).filter(isObjectRecord).map(toTask) }
+  }
+  return { tasks: extractRecords(data, ['tasks', 'items', 'rows', 'data']).map(toTask) }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function extractRecords(value: unknown, keys: string[]): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.filter(isObjectRecord)
+  if (!isObjectRecord(value)) return []
+  for (const key of keys) {
+    const nested = extractRecords(value[key], [])
+    if (nested.length > 0) return nested
+  }
+  for (const nested of Object.values(value)) {
+    const rows = extractRecords(nested, [])
+    if (rows.length > 0) return rows
+  }
+  return []
+}
+
+function extractStages(value: unknown): { id: string; title: string; order: number }[] {
+  const rows = extractRecords(value, ['stages', 'pipeline', 'columns'])
+  return rows
+    .map((row, index) => {
+      const id = row.id ?? row.stageId ?? row.stage_id ?? row.code
+      const title = row.title ?? row.name ?? row.label ?? id
+      if (id == null) return null
+      return {
+        id: String(id),
+        title: String(title),
+        order: Number.isFinite(Number(row.order)) ? Number(row.order) : index,
+      }
+    })
+    .filter((stage): stage is { id: string; title: string; order: number } => stage !== null)
+}
+
+function toTask(row: Record<string, unknown>): Task {
+  return {
+    ...row,
+    id: String(row.id ?? row._id ?? crypto.randomUUID()),
+    task_type: String(row.task_type ?? row.type ?? row.title ?? ''),
+    domain: String(row.domain ?? row.department ?? ''),
+    status: String(row.status ?? 'new'),
+    step_index: row.step_index != null ? row.step_index as string | number : '',
+    created_at: String(row.created_at ?? row.createdAt ?? ''),
+    params: isObjectRecord(row.params) ? row.params : row,
+  }
 }
 
 // ——— Клиенты ———
@@ -256,7 +309,10 @@ export async function fetchClients(): Promise<{ clients: Client[] }> {
 }
 
 export async function updateClient(client: Client): Promise<{ client: Client }> {
-  return request(buildBody('updateClient', client))
+  const raw = await request<ApiEnvelope<{ client?: Client } & Client>>(buildBody('updateClient', client))
+  const data = unwrapData(raw)
+  if (isObjectRecord(data) && isObjectRecord(data.client)) return { client: data.client as Client }
+  return { client: (isObjectRecord(data) ? data : client) as Client }
 }
 
 // ——— Лиды ———
@@ -397,25 +453,46 @@ function stageIdToTitle(id: string): string {
 }
 
 export async function updateLead(lead: Lead): Promise<{ lead: Lead }> {
-  return request(buildBody('updateLead', lead))
+  const raw = await request<ApiEnvelope<{ lead?: Lead } & Lead>>(buildBody('updateLead', lead))
+  const data = unwrapData(raw)
+  if (isObjectRecord(data) && isObjectRecord(data.lead)) return { lead: data.lead as Lead }
+  return { lead: (isObjectRecord(data) ? data : lead) as Lead }
 }
 
 // ——— Сделки ———
 export async function fetchDeals(): Promise<{ deals: Deal[]; stages: { id: string; title: string; order: number }[] }> {
-  return request(buildBody('getDeals'))
+  const raw = await request<ApiEnvelope<{ deals?: Deal[]; stages?: { id: string; title: string; order: number }[] } | Deal[]>>(buildBody('getDeals'))
+  const data = unwrapData(raw)
+  const deals = (isObjectRecord(data) && Array.isArray(data.deals)
+    ? data.deals.filter(isObjectRecord)
+    : extractRecords(data, ['deals', 'items', 'rows', 'data'])) as Deal[]
+  const stages = extractStages(data)
+  return { deals, stages }
 }
 
 export async function updateDeal(deal: Deal): Promise<{ deal: Deal }> {
-  return request(buildBody('updateDeal', deal))
+  const raw = await request<ApiEnvelope<{ deal?: Deal } & Deal>>(buildBody('updateDeal', deal))
+  const data = unwrapData(raw)
+  if (isObjectRecord(data) && isObjectRecord(data.deal)) return { deal: data.deal as Deal }
+  return { deal: (isObjectRecord(data) ? data : deal) as Deal }
 }
 
 // ——— Счета ———
 export async function fetchInvoices(): Promise<{ invoices: Invoice[]; stages: { id: string; title: string; order: number }[] }> {
-  return request(buildBody('getInvoices'))
+  const raw = await request<ApiEnvelope<{ invoices?: Invoice[]; stages?: { id: string; title: string; order: number }[] } | Invoice[]>>(buildBody('getInvoices'))
+  const data = unwrapData(raw)
+  const invoices = (isObjectRecord(data) && Array.isArray(data.invoices)
+    ? data.invoices.filter(isObjectRecord)
+    : extractRecords(data, ['invoices', 'items', 'rows', 'data'])) as Invoice[]
+  const stages = extractStages(data)
+  return { invoices, stages }
 }
 
 export async function updateInvoice(invoice: Invoice): Promise<{ invoice: Invoice }> {
-  return request(buildBody('updateInvoice', invoice))
+  const raw = await request<ApiEnvelope<{ invoice?: Invoice } & Invoice>>(buildBody('updateInvoice', invoice))
+  const data = unwrapData(raw)
+  if (isObjectRecord(data) && isObjectRecord(data.invoice)) return { invoice: data.invoice as Invoice }
+  return { invoice: (isObjectRecord(data) ? data : invoice) as Invoice }
 }
 
 // ——— Данные по разделу (универсальный webhook для любого блока) ———

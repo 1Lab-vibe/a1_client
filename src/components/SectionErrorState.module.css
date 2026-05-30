@@ -1,0 +1,61 @@
+.wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 24px;
+}
+
+.panel {
+  min-height: 220px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(255, 123, 123, 0.28);
+  border-radius: var(--radius);
+  background: rgba(255, 123, 123, 0.07);
+}
+
+.panel svg {
+  width: 24px;
+  height: 24px;
+  color: var(--danger);
+}
+
+.panel h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.panel p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.panel button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
+}
+
+.panel button svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+@media (max-width: 700px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+}

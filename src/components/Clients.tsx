@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchClients, updateClient } from '../api/n8n'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
 import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
-import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { SectionErrorState } from './SectionErrorState'
 import { formatCellValue } from '../utils/dateFormat'
 import type { Client } from '../types'
 import styles from './Clients.module.css'
@@ -154,7 +154,7 @@ export function Clients() {
   }
 
   if (error) {
-    return <SectionUnderDevelopment title="Клиенты" />
+    return <SectionErrorState title="Клиенты" message={error} onRetry={load} />
   }
 
   return (

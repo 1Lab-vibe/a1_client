@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchDeals, updateDeal } from '../api/n8n'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
 import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
-import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { SectionErrorState } from './SectionErrorState'
 import { formatCellValue } from '../utils/dateFormat'
 import type { Deal } from '../types'
 import styles from './Leads.module.css'
@@ -114,7 +114,7 @@ export function Deals() {
   }
 
   if (error) {
-    return <SectionUnderDevelopment title="Сделки" />
+    return <SectionErrorState title="Сделки" message={error} onRetry={load} />
   }
 
   const byStage = stages.map((s) => ({ stage: s, items: deals.filter((d) => d.stageId === s.id) }))

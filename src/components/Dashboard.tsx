@@ -232,8 +232,10 @@ export function Dashboard() {
         </article>
       </section>
 
-      {hasData && (
-        <pre className={styles.debugPanel}>{JSON.stringify(data, null, 2)}</pre>
+      {hasData && series.length === 0 && !loading && (
+        <div className={styles.dataNotice}>
+          Данные получены, но в ответе нет массива `timeline`, `series`, `rows` или `items` для построения графика.
+        </div>
       )}
     </div>
   )

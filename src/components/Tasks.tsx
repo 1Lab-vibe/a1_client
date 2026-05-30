@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchTasks } from '../api/n8n'
 import type { Task } from '../types'
-import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { SectionErrorState } from './SectionErrorState'
 import styles from './Tasks.module.css'
 
 const statusLabels: Record<string, string> = {
@@ -38,7 +38,7 @@ export function Tasks() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -53,6 +53,10 @@ export function Tasks() {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
+  }
+
+  useEffect(() => {
+    return load()
   }, [])
 
   if (loading) {
@@ -65,7 +69,7 @@ export function Tasks() {
   }
 
   if (error) {
-    return <SectionUnderDevelopment title="Задачи" />
+    return <SectionErrorState title="Задачи" message={error} onRetry={load} />
   }
 
   return (

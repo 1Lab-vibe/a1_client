@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchInvoices, updateInvoice } from '../api/n8n'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
 import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
-import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { SectionErrorState } from './SectionErrorState'
 import { formatCellValue } from '../utils/dateFormat'
 import type { Invoice } from '../types'
 import styles from './Leads.module.css'
@@ -113,7 +113,7 @@ export function Invoices() {
   }
 
   if (error) {
-    return <SectionUnderDevelopment title="Счета" />
+    return <SectionErrorState title="Счета" message={error} onRetry={load} />
   }
 
   const byStage = stages.map((s) => ({ stage: s, items: invoices.filter((i) => i.stageId === s.id) }))

@@ -50,7 +50,7 @@ function makePeriod(preset: PeriodPreset, from: string, to: string): PeriodFilte
 function friendlyReportError(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (message.includes('No item to return') || message.includes('(500)')) {
-    return 'Отчет пока не подключен в n8n для выбранного раздела. Интерфейс готов и ждет ответ `getReport`.'
+    return 'Не удалось получить данные отчета для выбранного раздела. Проверьте настройки отчета и повторите запрос.'
   }
   return 'Не удалось загрузить отчет. Проверьте webhook-контракт `getReport`.'
 }
@@ -156,7 +156,7 @@ export function Reports() {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className={styles.empty}>{loading ? 'Загружаем отчет...' : 'n8n еще не вернул ряд для этого отчета'}</div>
+              <div className={styles.empty}>{loading ? 'Загружаем отчет...' : 'За выбранный период нет временного ряда для графика'}</div>
             )}
           </article>
 

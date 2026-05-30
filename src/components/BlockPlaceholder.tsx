@@ -116,7 +116,7 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
         <div className={styles.empty}>
           <Database aria-hidden />
           <strong>По выбранной компании пока нет строк</strong>
-          <span>Можно продолжать работу: раздел готов к данным из n8n, а пустое состояние означает отсутствие записей в текущем контуре или периоде.</span>
+          <span>Для выбранной компании и текущего фильтра нет записей. Обновите раздел или измените компанию, если ожидаете другой набор данных.</span>
         </div>
       )}
     </div>

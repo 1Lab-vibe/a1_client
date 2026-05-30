@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchLeads, updateLead } from '../api/n8n'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
 import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
-import { SectionUnderDevelopment } from './SectionUnderDevelopment'
+import { SectionErrorState } from './SectionErrorState'
 import { formatCellValue, formatDate } from '../utils/dateFormat'
 import type { Lead, LeadStage } from '../types'
 import styles from './Leads.module.css'
@@ -131,7 +131,7 @@ export function Leads() {
   }
 
   if (error) {
-    return <SectionUnderDevelopment title="Лиды" />
+    return <SectionErrorState title="Лиды" message={error} onRetry={load} />
   }
 
   const leadsByStage = stages.map((s) => ({ stage: s, items: leads.filter((l) => l.stageId === s.id) }))
