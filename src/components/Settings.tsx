@@ -1145,6 +1145,10 @@ function planSku(row: DataRow | null | undefined): string {
   return cell(row?.sku ?? row?.plan_sku ?? row?.plan_code)
 }
 
+function isUiErrorMessage(value: string | null): boolean {
+  return Boolean(value && /не удалось|выберите|нет прав|ошиб|не найден|нельзя|требуется/i.test(value))
+}
+
 function limitRows(row: DataRow | null | undefined): { label: string; value: string }[] {
   const limits = asObject(row?.limits)
   const map: Record<string, string> = {
@@ -1270,7 +1274,7 @@ function SubscriptionPanel({
         ))}
       </div>
 
-      {message && <div className={message.includes('Не удалось') ? styles.error : styles.saved}>{message}</div>}
+      {message && <div className={isUiErrorMessage(message) ? styles.error : styles.saved}>{message}</div>}
 
       {tab === 'current' && (
         <div className={styles.subscriptionGrid}>

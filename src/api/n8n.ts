@@ -598,7 +598,17 @@ export async function updateSettingsRecord(
   )
   const unwrapped = unwrapData(data)
   if (unwrapped && typeof unwrapped === 'object' && 'error' in unwrapped) {
-    throw new Error(String((unwrapped as { error?: unknown }).error || 'Ошибка сохранения записи'))
+    const rawError = String((unwrapped as { error?: unknown }).error || 'Ошибка сохранения записи')
+    const errorMap: Record<string, string> = {
+      plan_not_found: 'Выбранный тариф не найден в продуктах A1. Обновите страницу и выберите тариф из списка.',
+      plan_required: 'Выберите тариф подписки из списка.',
+      company_required: 'Выберите компанию, для которой нужно изменить подписку.',
+      forbidden: 'У вас нет прав на изменение этой настройки.',
+      subscription_record_required: 'Не найдена запись подписки для изменения.',
+      subscription_record_not_found: 'Запись подписки не найдена.',
+      unsupported_collection: 'Этот раздел пока нельзя сохранить из интерфейса.',
+    }
+    throw new Error(errorMap[rawError] || rawError)
   }
   return unwrapped?.record || {}
 }
