@@ -734,6 +734,11 @@ export interface LoginResponse {
   blockedUntil?: number
 }
 
+function authCompanyName(c: Record<string, unknown>, companyId: string): string {
+  const raw = c.name ?? c.display_name ?? c.company_name ?? c.brand_name ?? c.full_name ?? c.short_name
+  return typeof raw === 'string' && raw.trim() ? raw : `Компания ${companyId.slice(0, 8)}`
+}
+
 export async function login(
   email: string,
   password: string
@@ -779,7 +784,7 @@ export async function login(
       if (!id) return null
       return {
         company_id: id,
-        name: typeof c.name === 'string' && c.name.trim() ? c.name : `Компания ${id.slice(0, 8)}`,
+        name: authCompanyName(c, id),
         role: typeof c.role === 'string' ? c.role : undefined,
         token: typeof c.token === 'string' ? c.token : undefined,
         is_default: c.is_default != null ? Boolean(c.is_default) : undefined,
@@ -802,7 +807,7 @@ export async function getAuthCompanies(): Promise<{ companies: AuthCompany[] }> 
           if (!company_id) return null
           return {
             company_id,
-            name: typeof c.name === 'string' && c.name.trim() ? c.name : `Компания ${company_id.slice(0, 8)}`,
+            name: authCompanyName(c, company_id),
             role: typeof c.role === 'string' ? c.role : undefined,
             token: typeof c.token === 'string' ? c.token : undefined,
             is_default: c.is_default != null ? Boolean(c.is_default) : undefined,

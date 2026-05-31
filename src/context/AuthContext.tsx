@@ -104,6 +104,14 @@ function normalizeCompanies(companies: unknown, fallbackCompanyId?: string, fall
   return normalized
 }
 
+function patchStoredCompanyName(auth: StoredAuth, companyId: string, name: string): StoredAuth {
+  if (!companyId || !name.trim()) return auth
+  const companies = normalizeCompanies(auth.companies, auth.company_id, auth.token).map((company) =>
+    company.company_id === companyId ? { ...company, name: name.trim() } : company
+  )
+  return { ...auth, companies }
+}
+
 function getClientDataForFailedLogin(): { userAgent: string; language: string; screenWidth: number; screenHeight: number; timezoneOffset: number } {
   return {
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -120,6 +128,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [blockedUntil, setBlockedUntilState] = useState<number | null>(() => getBlockedUntil())
 
+  const refreshCompanies = useCallback(async () => {
+    const currentStored = loadStored()
+    if (!currentStored?.email || !currentStored.token || !currentStored.company_id) return
+    setSession(currentStored.company_id, currentStored.token, currentStored.email)
+    const { getAuthCompanies } = await import('../api/n8n')
+    const res = await getAuthCompanies()
+    if (res.companies.length === 0) return
+    setStored((current) => {
+      const base = current ?? currentStored
+      const selected =
+        res.companies.find((company) => company.company_id === base.company_id) ??
+        res.companies.find((company) => company.is_default) ??
+        res.companies[0]
+      const next: StoredAuth = {
+        ...base,
+        token: selected.token ?? base.token,
+        company_id: selected.company_id,
+        companies: res.companies.map((company) => ({ ...company, token: company.token ?? base.token })),
+      }
+      saveStored(next)
+      setSession(next.company_id, next.token, next.email)
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     const data = loadStored()
     setStored(data)
@@ -129,37 +162,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!stored?.email || !stored.token || !stored.company_id) return
-    setSession(stored.company_id, stored.token, stored.email)
-    let cancelled = false
-    void (async () => {
-      try {
-        const { getAuthCompanies } = await import('../api/n8n')
-        const res = await getAuthCompanies()
-        if (cancelled || res.companies.length === 0) return
+    void refreshCompanies().catch(() => {
+      // Keep the existing session; company list will refresh on the next successful login.
+    })
+  }, [stored?.email, stored?.token, refreshCompanies])
+
+  useEffect(() => {
+    const onCompanyUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ company_id?: string; name?: string }>).detail
+      const companyId = detail?.company_id
+      const name = detail?.name
+      if (companyId && name) {
         setStored((current) => {
           if (!current) return current
-          const selected =
-            res.companies.find((company) => company.company_id === current.company_id) ??
-            res.companies.find((company) => company.is_default) ??
-            res.companies[0]
-          const next: StoredAuth = {
-            ...current,
-            token: selected.token ?? current.token,
-            company_id: selected.company_id,
-            companies: res.companies.map((company) => ({ ...company, token: company.token ?? current.token })),
-          }
+          const next = patchStoredCompanyName(current, companyId, name)
           saveStored(next)
-          setSession(next.company_id, next.token, next.email)
           return next
         })
-      } catch {
-        // Keep the existing session; company list will refresh on the next successful login.
       }
-    })()
-    return () => {
-      cancelled = true
+      void refreshCompanies().catch(() => {
+        // Local name patch above is enough until the next login if backend refresh fails.
+      })
     }
-  }, [stored?.email, stored?.token])
+    window.addEventListener('a1:company-updated', onCompanyUpdated)
+    return () => window.removeEventListener('a1:company-updated', onCompanyUpdated)
+  }, [refreshCompanies])
 
 
   useEffect(() => {

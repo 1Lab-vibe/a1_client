@@ -82,6 +82,7 @@ interface RealFieldDef {
   label: string
   type?: RealFieldType
   options?: string[]
+  optionLabels?: Record<string, string>
   readonly?: boolean
   required?: boolean
 }
@@ -135,6 +136,56 @@ const DOMAIN_COLLECTIONS: Record<string, RealCollectionDef[]> = {
         { key: 'bank_account', label: 'Расчетный счет' },
         { key: 'corr_account', label: 'Корр. счет' },
         { key: 'status', label: 'Статус', type: 'select', options: ['active', 'inactive', 'liquidation', 'liquidated', 'unknown'] },
+      ],
+    },
+    {
+      key: 'legal_entities',
+      title: 'Юрлица',
+      description: 'Юридические лица тенант-компании: реквизиты, банк, адреса и основная организация для документов.',
+      labelKey: 'entity_name',
+      subLabelKey: 'inn',
+      emptyItem: { entity_code: '', entity_name: '', entity_type: 'ooo', is_default: false, is_active: true, account_currency: 'RUB' },
+      fields: [
+        { key: 'entity_name', label: 'Название', required: true },
+        { key: 'entity_code', label: 'Код юрлица', required: true },
+        {
+          key: 'entity_type',
+          label: 'Тип',
+          type: 'select',
+          options: ['ooo', 'ip', 'ao', 'zao', 'pao', 'self_employed', 'foreign_company'],
+          optionLabels: {
+            ooo: 'ООО',
+            ip: 'ИП',
+            ao: 'АО',
+            zao: 'ЗАО',
+            pao: 'ПАО',
+            self_employed: 'Самозанятый',
+            foreign_company: 'Иностранная компания',
+          },
+          required: true,
+        },
+        { key: 'is_default', label: 'Основное юрлицо', type: 'toggle' },
+        { key: 'is_active', label: 'Активно', type: 'toggle' },
+        { key: 'short_name', label: 'Краткое название' },
+        { key: 'full_name', label: 'Полное название', type: 'textarea' },
+        { key: 'inn', label: 'ИНН' },
+        { key: 'kpp', label: 'КПП' },
+        { key: 'ogrn', label: 'ОГРН' },
+        { key: 'ogrnip', label: 'ОГРНИП' },
+        { key: 'okpo', label: 'ОКПО' },
+        { key: 'signer_name', label: 'Подписант' },
+        { key: 'signer_title', label: 'Должность подписанта' },
+        { key: 'signer_basis', label: 'Основание подписи' },
+        { key: 'bank_name', label: 'Банк' },
+        { key: 'bik', label: 'БИК' },
+        { key: 'account_number', label: 'Расчетный счет' },
+        { key: 'corr_account', label: 'Корр. счет' },
+        { key: 'account_currency', label: 'Валюта счета', type: 'select', options: ['RUB', 'USD', 'EUR'] },
+        { key: 'legal_address', label: 'Юридический адрес', type: 'textarea' },
+        { key: 'postal_address', label: 'Почтовый адрес', type: 'textarea' },
+        { key: 'bank_address', label: 'Адрес банка', type: 'textarea' },
+        { key: 'email', label: 'Email' },
+        { key: 'phone', label: 'Телефон' },
       ],
     },
   ],
@@ -1072,6 +1123,10 @@ function parseRealValue(raw: string | boolean, field: RealFieldDef): unknown {
   return raw === '' ? null : raw
 }
 
+function optionLabel(field: RealFieldDef, option: string): string {
+  return field.optionLabels?.[option] ?? option
+}
+
 function asArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
   if (typeof value === 'string') {
@@ -1458,7 +1513,15 @@ function DomainCollectionsPanel({
     setRecordError(null)
     const id = selectedId === '__new__' ? undefined : String(form.id ?? selected?.id ?? '')
     updateSettingsRecord(collectionDef.key, id, form)
-      .then(() => {
+      .then((record) => {
+        if (collectionDef.key === 'company_profile' && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('a1:company-updated', {
+            detail: {
+              company_id: cell(record.id ?? record.company_id ?? form.id ?? form.company_id),
+              name: cell(record.display_name ?? record.company_name ?? record.brand_name ?? form.display_name ?? form.company_name ?? form.brand_name),
+            },
+          }))
+        }
         setSelectedId(null)
         onReload()
       })
@@ -1545,7 +1608,7 @@ function DomainCollectionsPanel({
                     </button>
                   ) : field.type === 'select' ? (
                     <select value={inputValue} onChange={(event) => updateRealField(field, event.target.value)} disabled={readonly}>
-                      {(field.options ?? []).map((option) => <option key={option} value={option}>{option || '-'}</option>)}
+                      {(field.options ?? []).map((option) => <option key={option} value={option}>{optionLabel(field, option) || '-'}</option>)}
                     </select>
                   ) : field.type === 'textarea' || field.type === 'json' || field.type === 'tags' ? (
                     <textarea value={inputValue} onChange={(event) => updateRealField(field, event.target.value)} rows={field.type === 'json' ? 7 : 4} readOnly={readonly} />
