@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Bell, Bot, Building2, CheckCircle2, CreditCard, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users } from 'lucide-react'
+import { BarChart3, Bell, Bot, Building2, CheckCircle2, CreditCard, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users, XCircle } from 'lucide-react'
 import {
   changeOwnPassword,
   getConfig,
@@ -96,6 +96,12 @@ interface RealCollectionDef {
   fields: RealFieldDef[]
   emptyItem?: DataRow
 }
+
+type SubscriptionTab = 'current' | 'plans' | 'billing' | 'admin'
+
+const A1_ADMIN_USER = '1lab@1true.ru'
+
+const HIDDEN_REAL_FIELD_RE = /(^id$|_id$|company_id|metadata|meta|settings|attributes|variants|source_limits|capabilities|access_summary|provider_payment_id|payment_url|payload|raw|secret|token|password|webhook|n8n|system)/i
 
 const DOMAIN_COLLECTIONS: Record<string, RealCollectionDef[]> = {
   company: [
@@ -396,57 +402,45 @@ const DOMAIN_COLLECTIONS: Record<string, RealCollectionDef[]> = {
         { key: 'user_id', label: 'User ID / account' },
         { key: 'access_status', label: 'Статус', type: 'select', options: ['active', 'trial_active', 'paid_test_active', 'expired', 'cancelled', 'blocked'] },
         { key: 'plan_code', label: 'Тариф', type: 'select', options: ['admin_internal', 'demo', 'assistant_pro_month', 'assistant_pro_year'] },
-        { key: 'provider', label: 'Provider' },
-        { key: 'provider_payment_id', label: 'Provider payment ID' },
-        { key: 'payment_url', label: 'Payment URL' },
         { key: 'trial_starts_at', label: 'Trial start' },
         { key: 'trial_ends_at', label: 'Trial end' },
         { key: 'paid_test_starts_at', label: 'Paid test start' },
         { key: 'paid_test_ends_at', label: 'Paid test end' },
         { key: 'paid_subscription_starts_at', label: 'Subscription start' },
         { key: 'paid_subscription_ends_at', label: 'Subscription end' },
-        { key: 'capabilities', label: 'Capabilities JSON', type: 'json' },
-        { key: 'access_summary', label: 'Summary JSON', type: 'json' },
       ],
     },
     {
       key: 'subscription_plans',
       title: 'Тарифы',
-      description: 'bot_subscription_plans: доступные тарифы для покупки/продления.',
+      description: 'Доступные тарифы для покупки и продления.',
       labelKey: 'name',
       subLabelKey: 'plan_code',
       fields: [
-        { key: 'plan_code', label: 'Code', readonly: true },
         { key: 'name', label: 'Название', readonly: true },
         { key: 'billing_period', label: 'Период', readonly: true },
         { key: 'price_amount', label: 'Цена', type: 'number', readonly: true },
         { key: 'currency', label: 'Валюта', readonly: true },
         { key: 'is_active', label: 'Активен', type: 'toggle', readonly: true },
-        { key: 'features', label: 'Features JSON', type: 'json', readonly: true },
-        { key: 'limits', label: 'Limits JSON', type: 'json', readonly: true },
       ],
     },
     {
       key: 'billing_events',
       title: 'История биллинга',
-      description: 'a1_billing_events: события оплат и провайдеров для выбранной компании.',
+      description: 'История оплат, активаций и продлений для выбранной компании.',
       labelKey: 'status',
       subLabelKey: 'provider',
       fields: [
-        { key: 'provider', label: 'Provider', readonly: true },
         { key: 'status', label: 'Статус', readonly: true },
         { key: 'amount', label: 'Сумма', type: 'number', readonly: true },
         { key: 'currency', label: 'Валюта', readonly: true },
-        { key: 'invoice_id', label: 'Invoice', readonly: true },
-        { key: 'payment_id', label: 'Payment', readonly: true },
         { key: 'created_at', label: 'Создано', readonly: true },
-        { key: 'payload', label: 'Payload JSON', type: 'json', readonly: true },
       ],
     },
     {
       key: 'payments',
       title: 'Платежи',
-      description: 'bot_payments: созданные платежи и checkout URL.',
+      description: 'Созданные платежи и статусы оплаты.',
       labelKey: 'status',
       subLabelKey: 'plan_code',
       fields: [
@@ -455,7 +449,6 @@ const DOMAIN_COLLECTIONS: Record<string, RealCollectionDef[]> = {
         { key: 'amount', label: 'Сумма', type: 'number', readonly: true },
         { key: 'currency', label: 'Валюта', readonly: true },
         { key: 'status', label: 'Статус', readonly: true },
-        { key: 'checkout_url', label: 'Checkout URL', readonly: true },
         { key: 'paid_at', label: 'Оплачено', readonly: true },
       ],
     },
@@ -1035,6 +1028,15 @@ function realRows(data: SettingsDomainData | null, key: string): DataRow[] {
   return data?.collections?.[key]?.rows?.filter((row): row is DataRow => !!row && typeof row === 'object' && !Array.isArray(row)) ?? []
 }
 
+function realVisibleFields(def: RealCollectionDef): RealFieldDef[] {
+  return def.fields.filter((field) => {
+    if (field.type === 'json') return false
+    if (HIDDEN_REAL_FIELD_RE.test(field.key)) return false
+    if (/json|provider payment|payment url|payload|system/i.test(field.label)) return false
+    return true
+  })
+}
+
 function realLabel(row: DataRow, def: RealCollectionDef): string {
   return cell(row[def.labelKey] ?? row.name ?? row.title ?? row.id ?? 'Новая запись')
 }
@@ -1068,6 +1070,322 @@ function parseRealValue(raw: string | boolean, field: RealFieldDef): unknown {
     }
   }
   return raw === '' ? null : raw
+}
+
+function asArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (Array.isArray(parsed)) return parsed.map((item) => String(item)).filter(Boolean)
+    } catch {
+      // plain text list
+    }
+    return trimmed.split(/[\n,;]/).map((item) => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
+  if (typeof value === 'string' && value.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+    } catch {
+      // ignore invalid JSON from legacy rows
+    }
+  }
+  return {}
+}
+
+function formatDate(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw) return 'не задано'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10).split('-').reverse().join('-')
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date).replace(/\./g, '-')
+}
+
+function dateInputValue(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10)
+  return date.toISOString().slice(0, 10)
+}
+
+function formatMoney(amount: unknown, currency: unknown, period?: unknown): string {
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n <= 0) return 'по запросу'
+  const suffix = String(currency || 'RUB').toUpperCase() === 'RUB' ? '₽' : String(currency || '')
+  const periodText = String(period || '') === 'year' ? ' / год' : String(period || '') === 'month' ? ' / месяц' : ''
+  return `${new Intl.NumberFormat('ru-RU').format(n)} ${suffix}${periodText}`
+}
+
+function subscriptionStatusLabel(value: unknown): string {
+  const status = String(value || '').toLowerCase()
+  if (['active', 'paid_active', 'subscription_active', 'paid_subscription_active'].includes(status)) return 'Активна'
+  if (status.includes('trial')) return 'Пробный доступ'
+  if (['expired', 'cancelled', 'blocked', 'revoked'].includes(status)) return 'Завершена'
+  return status ? status : 'Нет активной подписки'
+}
+
+function planName(row: DataRow | null | undefined): string {
+  return cell(row?.name ?? row?.plan_name ?? row?.title ?? 'Тариф не выбран')
+}
+
+function planDescription(row: DataRow | null | undefined): string {
+  return cell(row?.description ?? row?.plan_description ?? row?.summary ?? 'Описание тарифа будет добавлено в карточку продукта.')
+}
+
+function planSku(row: DataRow | null | undefined): string {
+  return cell(row?.sku ?? row?.plan_sku ?? row?.plan_code)
+}
+
+function limitRows(row: DataRow | null | undefined): { label: string; value: string }[] {
+  const limits = asObject(row?.limits)
+  const map: Record<string, string> = {
+    seats: 'Сотрудников',
+    tasks_per_month: 'Задач в месяц',
+    channels: 'Каналы',
+    storage_gb: 'Место на диске',
+    admins: 'Администраторов',
+  }
+  return Object.entries(limits).map(([key, value]) => ({
+    label: map[key] || key.replace(/_/g, ' '),
+    value: Array.isArray(value) ? value.join(', ') : String(value),
+  }))
+}
+
+function findPlanBySku(plans: DataRow[], sku: string): DataRow | null {
+  return plans.find((plan) => planSku(plan) === sku) ?? null
+}
+
+function activeUntil(row: DataRow | null | undefined): unknown {
+  return row?.active_until ?? row?.paid_subscription_ends_at ?? row?.paid_test_ends_at ?? row?.trial_ends_at ?? row?.expires_at
+}
+
+function SubscriptionPanel({
+  data,
+  loading,
+  error,
+  onReload,
+  isAdmin,
+}: {
+  data: SettingsDomainData | null
+  loading: boolean
+  error: string | null
+  onReload: () => void
+  isAdmin: boolean
+}) {
+  const [tab, setTab] = useState<SubscriptionTab>('current')
+  const [selectedPlanSku, setSelectedPlanSku] = useState('')
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [adminPlanSku, setAdminPlanSku] = useState('')
+  const [adminUntil, setAdminUntil] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const currentRows = realRows(data, 'current_subscription').length ? realRows(data, 'current_subscription') : realRows(data, 'subscription_access')
+  const plans = realRows(data, 'subscription_plans')
+  const billing = realRows(data, 'billing_history').length ? realRows(data, 'billing_history') : [...realRows(data, 'billing_events'), ...realRows(data, 'payments')]
+  const companies = realRows(data, 'admin_companies')
+  const current = currentRows[0] ?? null
+  const activeSku = planSku(current)
+  const selectedPlan = findPlanBySku(plans, selectedPlanSku || activeSku) ?? plans[0] ?? null
+  const adminCompany = companies.find((company) => cell(company.company_id ?? company.id) === selectedCompanyId) ?? companies[0] ?? null
+
+  useEffect(() => {
+    if (!selectedPlanSku && (activeSku || plans[0])) setSelectedPlanSku(activeSku || planSku(plans[0]))
+  }, [activeSku, plans, selectedPlanSku])
+
+  useEffect(() => {
+    if (!selectedCompanyId && companies[0]) setSelectedCompanyId(cell(companies[0].company_id ?? companies[0].id))
+  }, [companies, selectedCompanyId])
+
+  useEffect(() => {
+    if (!adminCompany) return
+    setAdminPlanSku(cell(adminCompany.active_plan_sku ?? adminCompany.plan_sku ?? adminCompany.plan_code ?? plans[0]?.sku ?? ''))
+    setAdminUntil(dateInputValue(activeUntil(adminCompany)))
+  }, [adminCompany, plans])
+
+  const saveAdmin = (action: 'activate' | 'deactivate') => {
+    if (!adminCompany) return
+    setSaving(true)
+    setMessage(null)
+    updateSettingsRecord('subscription_admin', undefined, {
+      action,
+      company_id: cell(adminCompany.company_id ?? adminCompany.id),
+      plan_sku: adminPlanSku,
+      active_until: adminUntil,
+    })
+      .then(() => {
+        setMessage(action === 'deactivate' ? 'Подписка деактивирована' : 'Подписка обновлена')
+        onReload()
+      })
+      .catch((e) => setMessage(e instanceof Error ? e.message : 'Не удалось сохранить подписку'))
+      .finally(() => setSaving(false))
+  }
+
+  if (loading) return <div className={styles.state}>Загружаем подписку...</div>
+  if (error) return <div className={styles.error}>{error}</div>
+
+  const tabs: { id: SubscriptionTab; label: string }[] = [
+    { id: 'current', label: 'Текущий тариф' },
+    { id: 'plans', label: 'Тарифы' },
+    { id: 'billing', label: 'Биллинг' },
+    ...(isAdmin ? [{ id: 'admin' as SubscriptionTab, label: 'Админ' }] : []),
+  ]
+
+  return (
+    <div className={styles.subscriptionPanel}>
+      <div className={styles.runtimeHead}>
+        <div>
+          <h3>Подписка A1</h3>
+          <p>Статус доступа, тарифы и история оплат без служебных полей и секретов.</p>
+        </div>
+        <button type="button" onClick={onReload}>
+          <RefreshCw aria-hidden />
+          Обновить
+        </button>
+      </div>
+
+      <div className={styles.subscriptionTabs}>
+        {tabs.map((item) => (
+          <button key={item.id} type="button" className={tab === item.id ? styles.subscriptionTabActive : ''} onClick={() => setTab(item.id)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {message && <div className={message.includes('Не удалось') ? styles.error : styles.saved}>{message}</div>}
+
+      {tab === 'current' && (
+        <div className={styles.subscriptionGrid}>
+          <section className={styles.subscriptionCard}>
+            <span className={styles.subscriptionEyebrow}>Активная подписка</span>
+            <h3>{planName(current || findPlanBySku(plans, activeSku))}</h3>
+            <p>{planDescription(current || findPlanBySku(plans, activeSku))}</p>
+            <div className={styles.subscriptionFacts}>
+              <div><span>Статус</span><strong>{subscriptionStatusLabel(current?.access_status ?? current?.status)}</strong></div>
+              <div><span>Активна до</span><strong>{formatDate(activeUntil(current))}</strong></div>
+            </div>
+          </section>
+          <section className={styles.subscriptionCard}>
+            <span className={styles.subscriptionEyebrow}>Что входит</span>
+            <ul className={styles.featureList}>
+              {asArray((current || findPlanBySku(plans, activeSku))?.features).slice(0, 8).map((feature) => <li key={feature}>{feature}</li>)}
+              {asArray((current || findPlanBySku(plans, activeSku))?.features).length === 0 && <li>Состав тарифа подтянется из карточки продукта A1.</li>}
+            </ul>
+          </section>
+        </div>
+      )}
+
+      {tab === 'plans' && (
+        <div className={styles.recordWorkbench}>
+          <aside className={styles.recordList}>
+            <div className={styles.recordListHead}><strong>Тарифы</strong></div>
+            {plans.map((plan) => {
+              const sku = planSku(plan)
+              const active = sku && sku === activeSku
+              return (
+                <button key={sku || planName(plan)} type="button" className={sku === planSku(selectedPlan) ? styles.recordActive : ''} onClick={() => setSelectedPlanSku(sku)}>
+                  <strong>{active ? '✓ ' : ''}{planName(plan)}</strong>
+                  <span>{formatMoney(plan.price_amount, plan.price_currency, plan.billing_period)}</span>
+                </button>
+              )
+            })}
+            {plans.length === 0 && <div className={styles.recordEmpty}>Тарифы не найдены</div>}
+          </aside>
+          <section className={styles.subscriptionCard}>
+            <span className={styles.subscriptionEyebrow}>{planSku(selectedPlan) === activeSku ? 'Ваш тариф' : 'Доступный тариф'}</span>
+            <h3>{planName(selectedPlan)}</h3>
+            <p>{planDescription(selectedPlan)}</p>
+            <div className={styles.priceLine}>{formatMoney(selectedPlan?.price_amount, selectedPlan?.price_currency, selectedPlan?.billing_period)}</div>
+            <ul className={styles.featureList}>
+              {asArray(selectedPlan?.features).map((feature) => <li key={feature}>{feature}</li>)}
+            </ul>
+            <div className={styles.limitGrid}>
+              {limitRows(selectedPlan).map((limit) => <div key={limit.label}><span>{limit.label}</span><strong>{limit.value}</strong></div>)}
+            </div>
+            <div className={styles.subscriptionActions}>
+              <button type="button" className={styles.saveBtn} onClick={() => setMessage('Форма оплаты на месяц будет подключена следующим шагом.')}>
+                <CreditCard aria-hidden />
+                Оплатить месяц
+              </button>
+              <button type="button" className={styles.saveBtn} onClick={() => setMessage('Годовая оплата будет подключена следующим шагом.')}>
+                <CreditCard aria-hidden />
+                Оплатить год
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {tab === 'billing' && (
+        <div className={styles.billingList}>
+          {billing.map((item, index) => (
+            <article key={cell(item.id ?? index)} className={styles.billingItem}>
+              <div>
+                <strong>{cell(item.title ?? item.operation ?? item.payment_type ?? 'Операция по подписке')}</strong>
+                <span>{cell(item.details ?? item.status ?? 'Статус операции обновлен')}</span>
+              </div>
+              <div><span>Дата</span><strong>{formatDate(item.date ?? item.created_at ?? item.paid_at)}</strong></div>
+              <div><span>Сумма</span><strong>{formatMoney(item.amount, item.currency, '')}</strong></div>
+              <div><span>Чек</span><strong>{cell(item.receipt ?? item.receipt_url ?? item.invoice_id ?? 'нет')}</strong></div>
+            </article>
+          ))}
+          {billing.length === 0 && <div className={styles.recordEmpty}>Оплат и грантов пока нет.</div>}
+        </div>
+      )}
+
+      {tab === 'admin' && isAdmin && (
+        <div className={styles.recordWorkbench}>
+          <aside className={styles.recordList}>
+            <div className={styles.recordListHead}><strong>Компании</strong></div>
+            {companies.map((company) => {
+              const id = cell(company.company_id ?? company.id)
+              return (
+                <button key={id} type="button" className={id === selectedCompanyId ? styles.recordActive : ''} onClick={() => setSelectedCompanyId(id)}>
+                  <strong>{cell(company.company_name ?? company.display_name ?? company.name ?? 'Компания')}</strong>
+                  <span>{subscriptionStatusLabel(company.access_status ?? company.status)} · до {formatDate(activeUntil(company))}</span>
+                </button>
+              )
+            })}
+          </aside>
+          <section className={styles.subscriptionCard}>
+            <span className={styles.subscriptionEyebrow}>Управление подпиской</span>
+            <h3>{cell(adminCompany?.company_name ?? adminCompany?.display_name ?? adminCompany?.name ?? 'Компания')}</h3>
+            <div className={styles.adminForm}>
+              <label>
+                <span>Тариф</span>
+                <select value={adminPlanSku} onChange={(event) => setAdminPlanSku(event.target.value)}>
+                  {plans.map((plan) => <option key={planSku(plan)} value={planSku(plan)}>{planName(plan)}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Активна до</span>
+                <input type="date" value={adminUntil} onChange={(event) => setAdminUntil(event.target.value)} />
+              </label>
+            </div>
+            <div className={styles.subscriptionActions}>
+              <button type="button" className={styles.saveBtn} onClick={() => saveAdmin('activate')} disabled={saving || !adminCompany || !adminPlanSku || !adminUntil}>
+                <CheckCircle2 aria-hidden />
+                Активировать
+              </button>
+              <button type="button" className={styles.dangerBtn} onClick={() => saveAdmin('deactivate')} disabled={saving || !adminCompany}>
+                <XCircle aria-hidden />
+                Деактивировать
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function DomainCollectionsPanel({
@@ -1144,7 +1462,7 @@ function DomainCollectionsPanel({
       <div className={styles.runtimeHead}>
         <div>
           <h3>Данные из prod DB</h3>
-          <p>Секции ниже читают реальные таблицы и сохраняют изменения через signed n8n webhook.</p>
+          <p>Секции ниже читают реальные данные и сохраняют изменения через защищенный backend.</p>
           {domain === 'subscription' && !canEdit && <p>Покупка и продление будут подключены позже. Сейчас доступен просмотр текущей подписки и тарифов.</p>}
         </div>
         <button type="button" onClick={onReload}>
@@ -1200,7 +1518,7 @@ function DomainCollectionsPanel({
           </div>
           {recordError && <div className={styles.error}>{recordError}</div>}
           <div className={styles.realForm}>
-            {collectionDef.fields.map((field) => {
+            {realVisibleFields(collectionDef).map((field) => {
               const value = form[field.key]
               const inputValue = valueToInput(value, field.type)
               const wide = field.type === 'textarea' || field.type === 'json' || field.type === 'tags'
@@ -1451,7 +1769,8 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const collectionDefs = MANAGED_COLLECTIONS[section.id] ?? []
   const hasRealDomain = Boolean(DOMAIN_COLLECTIONS[section.id])
   const session = getSession()
-  const canEditDomain = section.id !== 'subscription' || session?.user_id?.toLowerCase() === '1lab@1true.ru'
+  const isSubscriptionAdmin = session?.user_id?.toLowerCase() === A1_ADMIN_USER
+  const canEditDomain = section.id !== 'subscription' || isSubscriptionAdmin
   const managedRowsByPath = useMemo(
     () => Object.fromEntries(collectionDefs.map((def) => [def.path, collectionItems(draft, def)])),
     [collectionDefs, draft],
@@ -1540,7 +1859,17 @@ export function Settings({ initialSection }: SettingsProps = {}) {
           </div>
         )}
 
-        {!loading && DOMAIN_COLLECTIONS[section.id] && (
+        {!loading && section.id === 'subscription' && (
+          <SubscriptionPanel
+            data={domainData}
+            loading={domainLoading}
+            error={domainError}
+            onReload={loadDomainData}
+            isAdmin={isSubscriptionAdmin}
+          />
+        )}
+
+        {!loading && section.id !== 'subscription' && DOMAIN_COLLECTIONS[section.id] && (
           <DomainCollectionsPanel
             domain={section.id}
             data={domainData}
@@ -1556,7 +1885,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
             <div className={styles.runtimeHead}>
               <div>
                 <h3>Подключения и health-check</h3>
-                <p>Статусы приходят из prod n8n, секреты и токены в интерфейс не выводятся.</p>
+                <p>Статусы приходят из backend, секреты и токены в интерфейс не выводятся.</p>
               </div>
               <button type="button" onClick={loadIntegrations} disabled={integrationsLoading}>
                 <RefreshCw aria-hidden />
@@ -1609,7 +1938,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
             <div className={styles.runtimeHead}>
               <div>
                 <h3>Пользователи и роли</h3>
-                <p>Роли сохраняются в backend и перечитываются из prod n8n.</p>
+                <p>Роли сохраняются в backend и перечитываются после изменения.</p>
               </div>
               <button type="button" onClick={loadUsers} disabled={usersLoading}>
                 <RefreshCw aria-hidden />
