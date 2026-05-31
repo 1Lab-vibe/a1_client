@@ -1189,14 +1189,23 @@ function SubscriptionPanel({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  const currentRows = realRows(data, 'current_subscription').length ? realRows(data, 'current_subscription') : realRows(data, 'subscription_access')
-  const plans = realRows(data, 'subscription_plans')
-  const billing = realRows(data, 'billing_history').length ? realRows(data, 'billing_history') : [...realRows(data, 'billing_events'), ...realRows(data, 'payments')]
-  const companies = realRows(data, 'admin_companies')
+  const currentRows = useMemo(() => {
+    const rows = realRows(data, 'current_subscription')
+    return rows.length ? rows : realRows(data, 'subscription_access')
+  }, [data])
+  const plans = useMemo(() => realRows(data, 'subscription_plans'), [data])
+  const billing = useMemo(() => {
+    const rows = realRows(data, 'billing_history')
+    return rows.length ? rows : [...realRows(data, 'billing_events'), ...realRows(data, 'payments')]
+  }, [data])
+  const companies = useMemo(() => realRows(data, 'admin_companies'), [data])
   const current = currentRows[0] ?? null
   const activeSku = planSku(current)
-  const selectedPlan = findPlanBySku(plans, selectedPlanSku || activeSku) ?? plans[0] ?? null
-  const adminCompany = companies.find((company) => cell(company.company_id ?? company.id) === selectedCompanyId) ?? companies[0] ?? null
+  const selectedPlan = useMemo(() => findPlanBySku(plans, selectedPlanSku || activeSku) ?? plans[0] ?? null, [activeSku, plans, selectedPlanSku])
+  const adminCompany = useMemo(
+    () => companies.find((company) => cell(company.company_id ?? company.id) === selectedCompanyId) ?? companies[0] ?? null,
+    [companies, selectedCompanyId],
+  )
 
   useEffect(() => {
     if (!selectedPlanSku && (activeSku || plans[0])) setSelectedPlanSku(activeSku || planSku(plans[0]))

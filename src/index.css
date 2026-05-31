@@ -108,6 +108,22 @@ textarea {
   color-scheme: dark;
 }
 
+select {
+  background-color: #0b0f19;
+}
+
+select option,
+select optgroup {
+  background-color: #0b0f19;
+  color: var(--text);
+}
+
+select option:checked,
+select option:hover {
+  background-color: rgba(243, 200, 93, 0.2);
+  color: var(--text);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
