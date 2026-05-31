@@ -72,7 +72,8 @@
 }
 
 .clearBtn,
-.showAllBtn {
+.showAllBtn,
+.refreshBtn {
   padding: 6px 12px;
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -80,10 +81,21 @@
   border: 1px solid var(--grid-line);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.clearBtn svg,
+.showAllBtn svg,
+.refreshBtn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .clearBtn:hover,
-.showAllBtn:hover {
+.showAllBtn:hover,
+.refreshBtn:hover {
   color: var(--text);
   border-color: var(--text-muted);
 }
@@ -97,6 +109,50 @@
   color: var(--accent);
   border-color: var(--accent);
   background: rgba(243, 200, 93, 0.09);
+}
+
+.refreshBtn {
+  color: var(--text);
+  border-color: rgba(53, 213, 255, 0.28);
+  background: rgba(53, 213, 255, 0.07);
+}
+
+.statPill {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid rgba(216, 183, 92, 0.2);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.76rem;
+}
+
+.statPill svg {
+  width: 13px;
+  height: 13px;
+}
+
+.pollOk,
+.pollError {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.pollOk {
+  color: var(--success);
+  border: 1px solid rgba(125, 255, 188, 0.22);
+  background: rgba(125, 255, 188, 0.06);
+}
+
+.pollError {
+  color: var(--danger);
+  border: 1px solid rgba(255, 123, 123, 0.28);
+  background: rgba(255, 123, 123, 0.08);
 }
 
 .filterLabel {
@@ -144,6 +200,12 @@
   font-size: 1.2rem;
   flex-shrink: 0;
   transition: background 0.2s, transform 0.2s;
+}
+
+.micBtn svg,
+.sendBtn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .micBtn:hover {

@@ -76,6 +76,13 @@
   text-decoration: none;
 }
 
+.attFile svg,
+.attFileButton svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
 .attFile:hover {
   text-decoration: underline;
 }

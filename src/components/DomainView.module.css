@@ -20,9 +20,11 @@
 }
 
 .header p {
+  max-width: 760px;
   margin-top: 5px;
   color: var(--text-soft);
   font-size: 0.86rem;
+  line-height: 1.45;
 }
 
 .header button {

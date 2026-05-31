@@ -1,26 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Database, RefreshCw } from 'lucide-react'
+import { BarChart3, Database, RefreshCw, Table2 } from 'lucide-react'
 import { getBlockData } from '../api/n8n'
-import styles from './BlockPlaceholder.module.css'
+import styles from './DomainView.module.css'
 
-interface BlockPlaceholderProps {
+interface DomainViewProps {
   viewId: string
   title: string
 }
 
 function findRows(data: Record<string, unknown> | null): Record<string, unknown>[] {
   if (!data) return []
-  for (const key of ['rows', 'items', 'data', 'tasks', 'users', 'integrations', 'templates']) {
+  for (const key of ['rows', 'items', 'tasks', 'users', 'integrations', 'templates', 'documents', 'records']) {
     const value = data[key]
     if (Array.isArray(value)) {
       return value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
     }
   }
+  const nested = data.data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) return findRows(nested as Record<string, unknown>)
+  if (Array.isArray(nested)) return nested.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
   return []
 }
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'boolean') return value ? 'да' : 'нет'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
@@ -28,12 +32,16 @@ function displayValue(value: unknown): string {
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (message.includes('No item to return') || message.includes('(500)')) {
-    return 'Данные раздела пока недоступны. Повторите обновление или проверьте workflow сервиса.'
+    return 'Данные раздела сейчас недоступны. Проверьте workflow-контракт getBlockData и повторите обновление.'
   }
-  return 'Не удалось загрузить данные раздела.'
+  return message || 'Не удалось загрузить данные раздела.'
 }
 
-export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
+function viewDomain(viewId: string): string {
+  return viewId.split('/')[0] || viewId
+}
+
+export function DomainView({ viewId, title }: DomainViewProps) {
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,15 +64,16 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
     return Array.from(collected).slice(0, 8)
   }, [rows])
   const meta = data && typeof data.meta === 'object' && !Array.isArray(data.meta) ? data.meta as Record<string, unknown> : {}
-  const domain = displayValue(data?.domain ?? meta.domain ?? viewId.split('/')[0])
+  const domain = displayValue(data?.domain ?? meta.domain ?? viewDomain(viewId))
   const resolvedView = displayValue(data?.view_id ?? data?.viewId ?? meta.view_id ?? viewId)
+  const source = displayValue(data?.source ?? meta.source ?? 'n8n')
 
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
         <div>
           <h2>{title}</h2>
-          <p>Рабочий раздел с данными выбранной компании, периодами и операционными строками из n8n.</p>
+          <p>Операционный раздел компании: реальные строки из backend-контракта, фильтрация по выбранной компании и безопасные пустые состояния.</p>
         </div>
         <button type="button" onClick={load} disabled={loading} title="Обновить">
           <RefreshCw aria-hidden />
@@ -80,19 +89,19 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
         <>
           <div className={styles.kpis}>
             <div>
-              <BarChart3 aria-hidden />
+              <Table2 aria-hidden />
               <span>Строк</span>
               <strong>{rows.length}</strong>
             </div>
             <div>
-              <Database aria-hidden />
+              <BarChart3 aria-hidden />
               <span>Домен</span>
               <strong>{domain}</strong>
             </div>
             <div>
               <Database aria-hidden />
-              <span>View</span>
-              <strong>{resolvedView}</strong>
+              <span>Источник</span>
+              <strong>{source}</strong>
             </div>
           </div>
           <div className={styles.tableWrap}>
@@ -104,7 +113,7 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
               </thead>
               <tbody>
                 {rows.map((row, index) => (
-                  <tr key={String(row.id ?? index)}>
+                  <tr key={String(row.id ?? row.key ?? index)}>
                     {keys.map((key) => <td key={key}>{displayValue(row[key])}</td>)}
                   </tr>
                 ))}
@@ -115,8 +124,8 @@ export function BlockPlaceholder({ viewId, title }: BlockPlaceholderProps) {
       ) : (
         <div className={styles.empty}>
           <Database aria-hidden />
-          <strong>По выбранной компании пока нет строк</strong>
-          <span>Для выбранной компании и текущего фильтра нет записей. Обновите раздел или измените компанию, если ожидаете другой набор данных.</span>
+          <strong>Для выбранной компании нет строк</strong>
+          <span>Раздел подключен к backend и готов к данным. Когда в prod n8n появятся записи для {resolvedView}, они отобразятся здесь без изменения фронта.</span>
         </div>
       )}
     </div>

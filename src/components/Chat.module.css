@@ -57,6 +57,58 @@
   opacity: 0.9;
 }
 
+.searchBox {
+  margin-top: 8px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--grid-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.searchBox svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+
+.searchBox input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.segmented button {
+  height: 30px;
+  border: 1px solid var(--grid-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.segmented .segmentActive {
+  color: var(--accent);
+  border-color: rgba(243, 200, 93, 0.45);
+  background: rgba(243, 200, 93, 0.1);
+}
+
 .dialogList {
   flex: 1;
   overflow-y: auto;
@@ -105,6 +157,11 @@
   justify-content: center;
   font-weight: 600;
   font-size: 1.1rem;
+}
+
+.dialogAvatar svg {
+  width: 19px;
+  height: 19px;
 }
 
 .dialogItemActive .dialogAvatar {
@@ -292,10 +349,19 @@
 }
 
 .msgFile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.9rem;
   color: var(--accent);
   text-decoration: none;
   word-break: break-all;
+}
+
+.msgFile svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .msgFile:hover {
@@ -321,10 +387,18 @@
 }
 
 .msgTime {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.7rem;
   color: var(--text-muted);
   align-self: flex-end;
   margin-left: auto;
+}
+
+.msgTime svg {
+  width: 12px;
+  height: 12px;
 }
 
 .uploadError {

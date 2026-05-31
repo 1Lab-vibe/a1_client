@@ -4,7 +4,6 @@ import { LoginScreen } from './components/LoginScreen'
 import { Desktop } from './components/Desktop'
 import { AppHeader, getViewTitle } from './components/AppHeader'
 import { COO } from './components/COO'
-import { Tasks } from './components/Tasks'
 import { Clients } from './components/Clients'
 import { Settings } from './components/Settings'
 import { Leads } from './components/Leads'
@@ -14,11 +13,19 @@ import { Chat } from './components/Chat'
 import { Dashboard } from './components/Dashboard'
 import { Reports } from './components/Reports'
 import { Onboarding } from './components/Onboarding'
-import { BlockPlaceholder } from './components/BlockPlaceholder'
+import { DomainView } from './components/DomainView'
+import { OpsDepartmentView } from './components/OpsDepartmentView'
 import type { ViewId } from './types'
 
 const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
   'settings/configuration': 'company',
+  'settings/company': 'company',
+  'settings/channels': 'channels',
+  'settings/marketing': 'marketing',
+  'settings/products': 'products',
+  'settings/icp': 'icp',
+  'settings/dashboard': 'dashboard',
+  'settings/subscription': 'subscription',
   'settings/crm': 'crm',
   'settings/policies': 'policies',
   'settings/prompts': 'prompts',
@@ -62,7 +69,7 @@ function App() {
       content = <Reports />
       break
     case 'ops/tasks':
-      content = <Tasks />
+      content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
       break
     case 'chat':
       content = <Chat />
@@ -76,8 +83,10 @@ function App() {
     default:
       if (viewId.startsWith('settings/')) {
         content = <Settings initialSection={SETTINGS_VIEW_SECTIONS[viewId]} />
+      } else if (viewId.startsWith('ops/')) {
+        content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
       } else {
-        content = <BlockPlaceholder viewId={viewId} title={getViewTitle(viewId)} />
+        content = <DomainView viewId={viewId} title={getViewTitle(viewId)} />
       }
   }
 

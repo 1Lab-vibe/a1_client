@@ -513,6 +513,11 @@ export async function getBlockData(viewId: string): Promise<Record<string, unkno
   return unwrapData(raw) || {}
 }
 
+export async function getOpsDepartment(department: string, period?: PeriodFilter): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getOpsDepartment', { department, period }))
+  return unwrapData(data) || {}
+}
+
 // ——— Дашборд: данные по шаблону ———
 export type PeriodPreset = 'today' | '7d' | '30d' | 'month' | 'quarter' | 'custom'
 
@@ -567,6 +572,35 @@ export async function updateSettingsSection(section: string, patch: Record<strin
     return (unwrapped as { config: CompanyConfig }).config
   }
   return (unwrapped as CompanyConfig) || {}
+}
+
+export interface SettingsCollection {
+  rows?: Record<string, unknown>[]
+}
+
+export interface SettingsDomainData {
+  domain: string
+  collections: Record<string, SettingsCollection>
+}
+
+export async function getSettingsDomain(domain: string): Promise<SettingsDomainData> {
+  const data = await request<ApiEnvelope<SettingsDomainData>>(buildBody('getSettingsDomain', { domain }))
+  return unwrapData(data) || { domain, collections: {} }
+}
+
+export async function updateSettingsRecord(
+  collection: string,
+  id: string | undefined,
+  values: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const data = await request<ApiEnvelope<{ collection?: string; record?: Record<string, unknown> }>>(
+    buildBody('updateSettingsRecord', { collection, id, values })
+  )
+  const unwrapped = unwrapData(data)
+  if (unwrapped && typeof unwrapped === 'object' && 'error' in unwrapped) {
+    throw new Error(String((unwrapped as { error?: unknown }).error || 'Ошибка сохранения записи'))
+  }
+  return unwrapped?.record || {}
 }
 
 export async function getOnboardingState(): Promise<Record<string, unknown>> {
@@ -649,6 +683,16 @@ export async function sendChatMessage(
   return { message: data.message }
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
 /** Отправка файла в чат (base64). Бэкенд может вернуть message с attachment.url для скачивания. */
 export async function sendChatFile(
   chatId: string,
@@ -656,7 +700,7 @@ export async function sendChatFile(
   file: File
 ): Promise<{ message: ChatMessage }> {
   const buf = await file.arrayBuffer()
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+  const base64 = arrayBufferToBase64(buf)
   const raw = await request<ApiEnvelope<{ message?: ChatMessage }>>(buildBody('sendChatFile', {
     chatId,
     chatType,
@@ -810,6 +854,21 @@ export async function requestPasswordReset(email: string): Promise<{ sent: boole
   return {
     sent: res.sent ?? res.ok ?? true,
     message: res.message,
+  }
+}
+
+export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; message?: string }> {
+  const data = await request<ApiEnvelope<{ ok?: boolean; message?: string; error?: string }>>(
+    buildBody('changeOwnPassword', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+  )
+  const unwrapped = unwrapData(data)
+  if (unwrapped?.error) throw new Error(String(unwrapped.error))
+  return {
+    ok: unwrapped?.ok ?? true,
+    message: unwrapped?.message,
   }
 }
 

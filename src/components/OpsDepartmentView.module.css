@@ -1,0 +1,233 @@
+.wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.header,
+.toolbar,
+.panelHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.header {
+  margin-bottom: 14px;
+}
+
+.header h2,
+.panelHead h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.header p {
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.header button,
+.tabs button,
+.periods button,
+.actionCard button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+}
+
+.header svg,
+.panelHead svg,
+.actionCard svg {
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tabs,
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tabs .active,
+.periods .periodActive {
+  color: #080c14;
+  background: linear-gradient(135deg, #f8e2a4, var(--accent));
+}
+
+.state,
+.error,
+.empty {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-soft);
+}
+
+.error {
+  color: var(--danger);
+  border-color: rgba(255, 123, 123, 0.36);
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.kpis article {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.kpis svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+
+.kpis span {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.kpis strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 1.6rem;
+}
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.actionCard,
+.chartPanel,
+.tablePanel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.actionCard {
+  display: grid;
+  gap: 12px;
+}
+
+.actionCard strong {
+  color: var(--text);
+  font-size: 0.94rem;
+}
+
+.actionCard p {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.actionCard dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.actionCard dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.actionCard dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.actionCard button:disabled {
+  opacity: 0.55;
+}
+
+.reportGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.7fr);
+  gap: 14px;
+}
+
+.tablePanel {
+  overflow: auto;
+}
+
+.tablePanel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tablePanel th,
+.tablePanel td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(216, 183, 92, 0.14);
+  text-align: left;
+  color: var(--text);
+  font-size: 0.84rem;
+  vertical-align: top;
+}
+
+.tablePanel th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .reportGrid,
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    padding: 16px;
+  }
+
+  .header,
+  .toolbar {
+    flex-direction: column;
+  }
+}

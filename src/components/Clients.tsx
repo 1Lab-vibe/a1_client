@@ -49,21 +49,54 @@ function getFieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? key.replace(/_/g, ' ')
 }
 
-/** Колонки, которые не показываем в таблице (в карточке остаются) */
-const HIDDEN_TABLE_KEYS = new Set([
+const SYSTEM_FIELD_KEYS = new Set([
   'id',
   'company_id',
-  'outreach_status',
-  'campaign_sent_count',
-  'is_customer',
-  'contacts',
+  'companyId',
+  'auth_user_id',
+  'user_id',
+  'owner_id',
+  'customer_id',
+  'lead_id',
+  'deal_id',
+  'external_id',
+  'provider_id',
+  'provider_key',
+  'source_id',
+  'dedupe_key',
+  'fingerprint',
+  'raw',
+  'raw_data',
+  'payload',
+  'meta',
+  'metadata',
+  'data',
   'created_at',
+  'createdAt',
   'updated_at',
+  'updatedAt',
+  'deleted_at',
+  'sync_at',
+  'synced_at',
   'last_contacted_at',
   'last_email_sent_at',
   'last_telegram_sent_at',
   'last_campaign_sent_at',
   'primary_email_bounced_at',
+  'primary_email_bounce_reason',
+  'primary_email_replacement',
+  'telegram_user_id',
+  'telegram_chat_id',
+  'last_campaign_id',
+  'campaign_sent_count',
+  'contacts',
+])
+
+/** Колонки, которые не показываем в таблице */
+const HIDDEN_TABLE_KEYS = new Set([
+  ...SYSTEM_FIELD_KEYS,
+  'outreach_status',
+  'is_customer',
   'next_followup_at',
 ])
 
@@ -96,11 +129,28 @@ function getTableColumns(list: Client[]): string[] {
   return [...ordered, ...rest]
 }
 
-/** Все ключи клиента для карточки редактирования (все поля), id первым */
+/** Бизнес-поля клиента для карточки редактирования */
 function getAllKeysForEditor(client: Client): string[] {
-  const keys = Object.keys(client).sort((a, b) => (a === 'id' ? -1 : b === 'id' ? 1 : a.localeCompare(b)))
-  if (keys[0] !== 'id' && keys.includes('id')) return ['id', ...keys.filter((k) => k !== 'id')]
-  return keys
+  const preferred = [
+    'name',
+    'legal_name',
+    'primary_email',
+    'primary_phone',
+    'website',
+    'industry',
+    'city',
+    'country',
+    'annual_revenue',
+    'employees',
+    'customer_stage',
+    'source_channel',
+    'tags',
+    'notes',
+  ]
+  const keys = Object.keys(client).filter((key) => !SYSTEM_FIELD_KEYS.has(key) && isNotEmpty(client[key]))
+  const ordered = preferred.filter((key) => keys.includes(key))
+  const rest = keys.filter((key) => !preferred.includes(key)).sort((a, b) => a.localeCompare(b))
+  return [...ordered, ...rest]
 }
 
 
@@ -321,13 +371,11 @@ function ClientEditor({ client, columns, onClose, onSave, saving }: ClientEditor
                     value={val}
                     onChange={(e) => change(key, e.target.value)}
                     rows={4}
-                    readOnly={key === 'id'}
                   />
                 ) : (
                   <input
                     value={val}
                     onChange={(e) => change(key, e.target.value)}
-                    readOnly={key === 'id'}
                   />
                 )}
               </label>

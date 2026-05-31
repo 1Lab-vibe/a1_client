@@ -221,6 +221,13 @@
   font-size: 0.92rem;
 }
 
+.integrationTop small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+}
+
 .statusPill {
   display: inline-flex;
   margin-top: 6px;
@@ -240,7 +247,7 @@
 
 .integrationCard dl div {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 108px minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -331,6 +338,54 @@
 .inviteForm button:disabled,
 .tableAction:disabled {
   opacity: 0.55;
+}
+
+.passwordForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(170px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.passwordForm label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.passwordForm span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+}
+
+.passwordForm input,
+.passwordForm button {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.passwordForm button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.passwordForm button:disabled {
+  opacity: 0.55;
+}
+
+.passwordForm svg {
+  width: 16px;
+  height: 16px;
 }
 
 .managedPanel {
@@ -424,6 +479,222 @@
   border-radius: var(--radius-sm);
   color: var(--text-soft);
   font-size: 0.84rem;
+}
+
+.domainPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.collectionTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.collectionTabs button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.collectionTabs button span {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(243, 200, 93, 0.12);
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.collectionTabs .collectionTabActive {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: rgba(243, 200, 93, 0.1);
+}
+
+.recordWorkbench {
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.recordList,
+.recordCard {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.recordList {
+  max-height: 680px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.recordListHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 4px 10px;
+  background: #0b0f19;
+}
+
+.recordListHead strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.recordListHead button,
+.recordCardHead button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.recordList > button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.recordList > button strong,
+.recordList > button span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recordList > button strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.recordList > button span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+}
+
+.recordList > button:hover,
+.recordList .recordActive {
+  border-color: var(--line-strong);
+  background: rgba(243, 200, 93, 0.08);
+}
+
+.recordEmpty {
+  padding: 16px 10px;
+  border: 1px dashed rgba(216, 183, 92, 0.22);
+  border-radius: 8px;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
+.recordCard {
+  padding: 16px;
+  overflow: auto;
+}
+
+.recordCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.recordCardHead h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.recordCardHead p {
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.recordCardHead svg {
+  width: 15px;
+  height: 15px;
+}
+
+.realForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.realForm label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(216, 183, 92, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.realFieldWide {
+  grid-column: 1 / -1;
+}
+
+.realForm input,
+.realForm select,
+.realForm textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.realForm textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.realForm input:read-only,
+.realForm textarea:read-only,
+.realForm select:disabled,
+.realForm button:disabled {
+  opacity: 0.66;
 }
 
 .field,
@@ -580,7 +851,10 @@
   }
 
   .inviteForm,
-  .managedFields {
+  .passwordForm,
+  .managedFields,
+  .recordWorkbench,
+  .realForm {
     grid-template-columns: 1fr;
   }
 

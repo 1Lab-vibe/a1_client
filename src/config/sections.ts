@@ -39,6 +39,13 @@ export const DEFAULT_SECTIONS: NavSection[] = [
     children: [
       { id: 'configuration', label: 'Конфиг' },
       { id: 'onboarding', label: 'Онбординг' },
+      { id: 'company', label: 'Компания' },
+      { id: 'channels', label: 'Каналы' },
+      { id: 'marketing', label: 'Маркетинг' },
+      { id: 'products', label: 'Продукты' },
+      { id: 'icp', label: 'ICP' },
+      { id: 'dashboard', label: 'Дашборд' },
+      { id: 'subscription', label: 'Подписка' },
       { id: 'crm', label: 'CRM' },
       { id: 'policies', label: 'Политики' },
       { id: 'prompts', label: 'Промпты' },

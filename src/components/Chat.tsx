@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Paperclip, RefreshCw, Send, Smile, Wifi, WifiOff } from 'lucide-react'
+import { CheckCheck, Clock3, FileText, Hash, Image, Paperclip, RefreshCw, Search, Send, Smile, UserRound, Wifi, WifiOff } from 'lucide-react'
 import { fetchChatData, fetchChatMessages, sendChatFile, sendChatMessage } from '../api/n8n'
 import { useAuth } from '../context/AuthContext'
 import type { ChatChannel, ChatMessage as ChatMessageType, ChatUser } from '../types'
 import styles from './Chat.module.css'
 
 type ChatTarget = (ChatChannel & { kind: 'channel' }) | (ChatUser & { kind: 'user' })
+type TargetFilter = 'all' | 'channel' | 'user'
 
 const STICKERS = ['OK', '+1', 'Done', 'Wait', 'Call', 'Check']
 
@@ -32,6 +33,18 @@ function normalizeTargets(channels: ChatChannel[], users: ChatUser[]): ChatTarge
   return [...channelTargets, ...userTargets]
 }
 
+function targetMeta(target: ChatTarget): string {
+  return target.kind === 'channel' ? 'Канал' : 'Пользователь'
+}
+
+function deliveryLabel(status?: string): string {
+  if (!status) return 'Локально'
+  if (status === 'queued') return 'В очереди'
+  if (status === 'sent' || status === 'delivered') return 'Доставлено'
+  if (status === 'failed' || status === 'error') return 'Ошибка'
+  return status
+}
+
 export function Chat() {
   const { email } = useAuth()
   const [targets, setTargets] = useState<ChatTarget[]>([])
@@ -43,6 +56,8 @@ export function Chat() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [targetFilter, setTargetFilter] = useState<TargetFilter>('all')
   const listRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -89,6 +104,16 @@ export function Chat() {
   const statusText = loading ? 'Загрузка' : error ? 'Ошибка' : 'Онлайн'
   const online = !loading && !error
   const sortedMessages = useMemo(() => [...messages].sort((a, b) => a.timestamp - b.timestamp), [messages])
+  const filteredTargets = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return targets.filter((target) => {
+      if (targetFilter !== 'all' && target.kind !== targetFilter) return false
+      if (!q) return true
+      return target.name.toLowerCase().includes(q) || target.id.toLowerCase().includes(q)
+    })
+  }, [query, targetFilter, targets])
+  const channelCount = targets.filter((target) => target.kind === 'channel').length
+  const userCount = targets.filter((target) => target.kind === 'user').length
 
   const submitText = async (text: string) => {
     const trimmed = text.trim()
@@ -127,23 +152,43 @@ export function Chat() {
         <div className={styles.sidebarHead}>
           <span className={styles.sidebarTitle}>Диалоги</span>
           {email && <span className={styles.sidebarEmail} title={email}>{email}</span>}
-          <span className={styles.sidebarHint}>{targets.length} каналов и диалогов</span>
+          <span className={styles.sidebarHint}>{channelCount} каналов, {userCount} пользователей</span>
+          <label className={styles.searchBox}>
+            <Search aria-hidden />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск" />
+          </label>
+          <div className={styles.segmented}>
+            {([
+              ['all', 'Все'],
+              ['channel', 'Каналы'],
+              ['user', 'Люди'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={targetFilter === value ? styles.segmentActive : ''}
+                onClick={() => setTargetFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className={styles.dialogList}>
           {loading ? (
             <div className={styles.emptyDialogs}>Загружаем диалоги...</div>
-          ) : targets.length > 0 ? (
-            targets.map((target) => (
+          ) : filteredTargets.length > 0 ? (
+            filteredTargets.map((target) => (
               <button
                 key={`${target.kind}:${target.id}`}
                 type="button"
                 className={styles.dialogItem + (current?.id === target.id && current?.kind === target.kind ? ' ' + styles.dialogItemActive : '')}
                 onClick={() => setCurrent(target)}
               >
-                <span className={styles.dialogAvatar}>{target.name.charAt(0).toUpperCase()}</span>
+                <span className={styles.dialogAvatar}>{target.kind === 'channel' ? <Hash aria-hidden /> : <UserRound aria-hidden />}</span>
                 <span className={styles.dialogBody}>
                   <span className={styles.dialogName}>{target.name}</span>
-                  <span className={styles.dialogMeta}>{target.kind === 'channel' ? 'Канал' : 'Пользователь'}</span>
+                  <span className={styles.dialogMeta}>{targetMeta(target)}</span>
                 </span>
               </button>
             ))
@@ -189,6 +234,7 @@ export function Chat() {
                         </a>
                       ) : (
                         <a key={index} href={attachment.url} download={attachment.name} target="_blank" rel="noopener noreferrer" className={styles.msgFile}>
+                          {attachment.type === 'image' ? <Image aria-hidden /> : <FileText aria-hidden />}
                           {attachment.name || 'Файл'}
                         </a>
                       )
@@ -196,7 +242,13 @@ export function Chat() {
                   </div>
                 ) : null}
                 {message.text ? <span className={styles.msgText}>{message.text}</span> : null}
-                <span className={styles.msgTime}>{formatTime(message.timestamp)}</span>
+                <span className={styles.msgTime}>
+                  {message.isOwn ? (
+                    message.deliveryStatus === 'queued' ? <Clock3 aria-hidden /> : <CheckCheck aria-hidden />
+                  ) : null}
+                  {formatTime(message.timestamp)}
+                  {message.isOwn ? ` · ${deliveryLabel(message.deliveryStatus)}` : ''}
+                </span>
               </div>
             ))
           )}

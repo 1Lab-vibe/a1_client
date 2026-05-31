@@ -137,6 +137,8 @@ export interface ChatAttachment {
   type: 'file' | 'image' | 'sticker'
   url: string
   name?: string
+  mimeType?: string
+  contentType?: string
 }
 
 export interface ChatMessage {
@@ -149,4 +151,6 @@ export interface ChatMessage {
   timestamp: number
   isOwn?: boolean
   attachments?: ChatAttachment[]
+  deliveryStatus?: string
+  deliveryError?: string
 }

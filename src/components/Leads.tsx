@@ -50,7 +50,40 @@ function getLeadLabel(key: string): string {
   return LEAD_FIELD_LABELS[key] ?? key.replace(/_/g, ' ')
 }
 
-const SKIP_KEYS = new Set(['events', 'history'])
+const SYSTEM_FIELD_KEYS = new Set([
+  'id',
+  'company_id',
+  'companyId',
+  'user_id',
+  'owner_id',
+  'customer_id',
+  'deal_id',
+  'invoice_id',
+  'pipeline_id',
+  'stage_id',
+  'source_id',
+  'external_id',
+  'provider_id',
+  'provider_key',
+  'dedupe_key',
+  'fingerprint',
+  'raw',
+  'raw_data',
+  'payload',
+  'meta',
+  'metadata',
+  'data',
+  'events',
+  'history',
+  'created_at',
+  'createdAt',
+  'updated_at',
+  'updatedAt',
+  'deleted_at',
+  'stage_updated_at',
+])
+
+const TABLE_SKIP_KEYS = new Set([...SYSTEM_FIELD_KEYS, 'description'])
 
 function isNotEmpty(v: unknown): boolean {
   if (v === null || v === undefined) return false
@@ -65,21 +98,20 @@ function getTableColumns(leads: Lead[]): string[] {
   const keyHasValue = new Map<string, boolean>()
   leads.forEach((l) => {
     Object.keys(l).forEach((k) => {
-      if (SKIP_KEYS.has(k)) return
+      if (TABLE_SKIP_KEYS.has(k)) return
       if (isNotEmpty(l[k])) keyHasValue.set(k, true)
     })
   })
-  const keys = Array.from(keyHasValue.keys()).filter((k) => k !== 'events')
-  if (!keys.includes('id')) keys.unshift('id')
+  const keys = Array.from(keyHasValue.keys())
   if (!keys.includes('title')) keys.unshift('title')
   if (!keys.includes('stageId')) keys.push('stageId')
   return keys
 }
 
-/** Все ключи лида для карточки редактирования (кроме events) */
+/** Бизнес-поля лида для карточки редактирования */
 function getLeadFormKeys(lead: Lead): string[] {
-  const keys = Object.keys(lead).filter((k) => !SKIP_KEYS.has(k) && k !== 'events')
-  const order = ['id', 'title', 'stageId']
+  const keys = Object.keys(lead).filter((k) => !SYSTEM_FIELD_KEYS.has(k) && isNotEmpty(lead[k]))
+  const order = ['title', 'stageId', 'status', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'source', 'channel', 'direction', 'website', 'priority', 'lead_score', 'tags', 'next_follow_up_at', 'description', 'close_reason']
   const rest = keys.filter((k) => !order.includes(k)).sort((a, b) => a.localeCompare(b))
   return [...order.filter((k) => keys.includes(k)), ...rest]
 }
@@ -220,7 +252,7 @@ export function Leads() {
                   >
                     <div className={styles.cardTitle}>{formatCellValue(lead.title ?? 'Без названия')}</div>
                     {getLeadFormKeys(lead)
-                      .filter((k) => !['id', 'title', 'stageId'].includes(k) && isNotEmpty(lead[k]) && isVisible(k))
+                      .filter((k) => !['title', 'stageId'].includes(k) && isNotEmpty(lead[k]) && isVisible(k))
                       .slice(0, 5)
                       .map((k) => (
                         <div key={k} className={styles.cardMeta}>

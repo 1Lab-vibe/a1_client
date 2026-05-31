@@ -1,4 +1,5 @@
 import type { N8nMessage } from '../types'
+import { FileText } from 'lucide-react'
 import { downloadCOOAttachment } from '../api/n8n'
 import { hasHtmlTags, sanitizeHtml } from '../utils/htmlSanitize'
 import { formatMessageTime } from '../utils/dateFormat'
@@ -71,7 +72,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                   )}
                   {directUrl ? (
                     <a href={directUrl} target="_blank" rel="noopener noreferrer" download={name} className={styles.attFile}>
-                      📎 {name}
+                      <FileText aria-hidden /> {name}
                     </a>
                   ) : (
                     <button
@@ -81,7 +82,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                         downloadAttachment(att).catch(() => alert('Не удалось скачать файл'))
                       }}
                     >
-                      📎 {name}
+                      <FileText aria-hidden /> {name}
                     </button>
                   )}
                 </div>

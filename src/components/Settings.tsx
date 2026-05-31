@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, Bot, Building2, CheckCircle2, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users } from 'lucide-react'
+import { BarChart3, Bell, Bot, Building2, CheckCircle2, CreditCard, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users } from 'lucide-react'
 import {
+  changeOwnPassword,
   getConfig,
   getIntegrations,
   getSettings,
+  getSettingsDomain,
   getUsersAndPermissions,
   inviteUser,
   startIntegrationConnect,
   testIntegration,
   updateConfig,
+  updateSettingsRecord,
   updateSettingsSection,
   updateUserRole,
   updateUserStatus,
+  type SettingsDomainData,
   type CompanyConfig,
 } from '../api/n8n'
+import { getSession } from '../session'
 import styles from './Settings.module.css'
 
 type FieldType = 'text' | 'textarea' | 'select' | 'toggle' | 'slider'
@@ -43,8 +48,12 @@ type DataRow = Record<string, unknown>
 interface IntegrationRow {
   provider: string
   name: string
+  family: string
   status: string
   health: string
+  authMode: string
+  entities: string
+  lastConnected: string
   lastSync: string
   error: string
 }
@@ -64,6 +73,393 @@ interface ManagedCollectionDef {
   addLabel: string
   fields: ManagedFieldDef[]
   emptyItem: Record<string, string>
+}
+
+type RealFieldType = 'text' | 'textarea' | 'number' | 'select' | 'toggle' | 'tags' | 'json'
+
+interface RealFieldDef {
+  key: string
+  label: string
+  type?: RealFieldType
+  options?: string[]
+  readonly?: boolean
+  required?: boolean
+}
+
+interface RealCollectionDef {
+  key: string
+  title: string
+  description: string
+  mode?: 'single' | 'list'
+  labelKey: string
+  subLabelKey?: string
+  fields: RealFieldDef[]
+  emptyItem?: DataRow
+}
+
+const DOMAIN_COLLECTIONS: Record<string, RealCollectionDef[]> = {
+  company: [
+    {
+      key: 'company_profile',
+      title: 'Профиль компании',
+      description: 'Данные из a1_companies: реквизиты, бренд, контакты, адреса и статус.',
+      mode: 'single',
+      labelKey: 'display_name',
+      subLabelKey: 'inn',
+      fields: [
+        { key: 'display_name', label: 'Название в интерфейсе' },
+        { key: 'brand_name', label: 'Бренд' },
+        { key: 'full_name', label: 'Юр. название', type: 'textarea' },
+        { key: 'inn', label: 'ИНН', readonly: true },
+        { key: 'ogrn', label: 'ОГРН', readonly: true },
+        { key: 'kpp', label: 'КПП' },
+        { key: 'industry', label: 'Отрасль' },
+        { key: 'primary_email', label: 'Email' },
+        { key: 'primary_phone', label: 'Телефон' },
+        { key: 'website', label: 'Сайт' },
+        { key: 'domain', label: 'Домен' },
+        { key: 'city', label: 'Город' },
+        { key: 'region', label: 'Регион' },
+        { key: 'legal_address', label: 'Юр. адрес', type: 'textarea' },
+        { key: 'signer_name', label: 'Подписант' },
+        { key: 'signer_title', label: 'Должность подписанта' },
+        { key: 'signer_basis', label: 'Основание' },
+        { key: 'bank_name', label: 'Банк' },
+        { key: 'bik', label: 'БИК' },
+        { key: 'bank_account', label: 'Расчетный счет' },
+        { key: 'corr_account', label: 'Корр. счет' },
+        { key: 'status', label: 'Статус', type: 'select', options: ['active', 'inactive', 'liquidation', 'liquidated', 'unknown'] },
+      ],
+    },
+  ],
+  marketing: [
+    {
+      key: 'marketing_runtime',
+      title: 'Runtime-маркетинг',
+      description: 'a1_marketing_runtime_config: автономность, бюджеты, Direct, источники и legal/footer.',
+      mode: 'single',
+      labelKey: 'name',
+      subLabelKey: 'status',
+      fields: [
+        { key: 'status', label: 'Статус', type: 'select', options: ['draft', 'active', 'paused', 'archived'] },
+        { key: 'leadgen_enabled', label: 'Лидогенерация', type: 'toggle' },
+        { key: 'leadgen_autonomy_level', label: 'Автономность', type: 'select', options: ['manual', 'approval', 'autonomous_task_queue'] },
+        { key: 'outbound_mode', label: 'Outbound mode', type: 'select', options: ['manual', 'approval', 'autonomous_task_queue'] },
+        { key: 'allow_autonomous_cold_email', label: 'Авто cold email', type: 'toggle' },
+        { key: 'allow_paid_sources', label: 'Платные источники', type: 'toggle' },
+        { key: 'max_leads_per_run', label: 'Лидов за запуск', type: 'number' },
+        { key: 'max_source_requests_per_run', label: 'Запросов к источникам', type: 'number' },
+        { key: 'min_priority_score', label: 'Мин. priority score', type: 'number' },
+        { key: 'min_email_confidence', label: 'Мин. confidence email', type: 'number' },
+        { key: 'follow_up_after_hours', label: 'Follow-up, часов', type: 'number' },
+        { key: 'media_plan_enabled', label: 'Медиаплан', type: 'toggle' },
+        { key: 'media_budget_total_rub', label: 'Медиа бюджет', type: 'number' },
+        { key: 'yandex_direct_enabled', label: 'Yandex Direct', type: 'toggle' },
+        { key: 'yandex_direct_publish_allowed', label: 'Публикация Direct', type: 'toggle' },
+        { key: 'direct_monthly_budget_cap_rub', label: 'Лимит Direct / месяц', type: 'number' },
+        { key: 'brand_name', label: 'Бренд' },
+        { key: 'sender_name', label: 'Отправитель' },
+        { key: 'sender_title', label: 'Должность' },
+        { key: 'default_landing_url', label: 'Landing URL' },
+        { key: 'privacy_url', label: 'Privacy URL' },
+        { key: 'legal_footer_text', label: 'Юр. футер', type: 'textarea' },
+        { key: 'default_source_order', label: 'Порядок источников', type: 'tags' },
+        { key: 'media_plan_channel_keys', label: 'Каналы медиаплана', type: 'tags' },
+        { key: 'direct_channel_keys', label: 'Каналы Direct', type: 'tags' },
+        { key: 'protected_terms', label: 'Защищенные слова', type: 'tags' },
+        { key: 'negative_terms', label: 'Минус-слова', type: 'tags' },
+        { key: 'notes', label: 'Заметки', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'geo_targets',
+      title: 'География',
+      description: 'a1_marketing_geo_targets: регионы для leadgen и paid ads.',
+      labelKey: 'display_name',
+      subLabelKey: 'geo_key',
+      emptyItem: { geo_key: '', display_name: '', country_code: 'RU', priority: 100, is_active: true, include_in_leadgen: true, include_in_paid_ads: true },
+      fields: [
+        { key: 'geo_key', label: 'Ключ', required: true },
+        { key: 'display_name', label: 'Название', required: true },
+        { key: 'country_code', label: 'Страна' },
+        { key: 'region_name', label: 'Регион' },
+        { key: 'city_name', label: 'Город' },
+        { key: 'aliases', label: 'Алиасы', type: 'tags' },
+        { key: 'hh_area_id', label: 'HH area' },
+        { key: 'yandex_region_id', label: 'Yandex region' },
+        { key: 'priority', label: 'Приоритет', type: 'number' },
+        { key: 'is_active', label: 'Активен', type: 'toggle' },
+        { key: 'include_in_leadgen', label: 'Leadgen', type: 'toggle' },
+        { key: 'include_in_paid_ads', label: 'Paid ads', type: 'toggle' },
+      ],
+    },
+  ],
+  products: [
+    {
+      key: 'products',
+      title: 'Продукты / услуги',
+      description: 'a1_products: карточки продуктовой матрицы, цены, фичи и лендинги.',
+      labelKey: 'name',
+      subLabelKey: 'sku',
+      emptyItem: { sku: '', name: '', is_active: true, price_currency: 'RUB', priority: 100, deliverables: [], features: [], tags: [], search_aliases: [], attributes: {} },
+      fields: [
+        { key: 'sku', label: 'SKU', required: true },
+        { key: 'name', label: 'Название', required: true },
+        { key: 'is_active', label: 'Активен', type: 'toggle' },
+        { key: 'product_type', label: 'Тип', type: 'select', options: ['subscription', 'service', 'consulting', 'ai_product', 'custom', 'platform', 'integration', 'agent_bot', 'other'] },
+        { key: 'category', label: 'Категория' },
+        { key: 'description', label: 'Описание', type: 'textarea' },
+        { key: 'price_amount', label: 'Цена', type: 'number' },
+        { key: 'price_currency', label: 'Валюта', type: 'select', options: ['RUB', 'USD', 'EUR'] },
+        { key: 'billing_period', label: 'Период', type: 'select', options: ['one_time', 'month', 'quarter', 'year', 'usage'] },
+        { key: 'setup_fee', label: 'Setup fee', type: 'number' },
+        { key: 'trial_days', label: 'Trial дней', type: 'number' },
+        { key: 'deliverables', label: 'Результаты', type: 'tags' },
+        { key: 'features', label: 'Фичи', type: 'tags' },
+        { key: 'target_audience', label: 'ЦА', type: 'textarea' },
+        { key: 'cta_text', label: 'CTA' },
+        { key: 'landing_url', label: 'Landing URL' },
+        { key: 'priority', label: 'Приоритет', type: 'number' },
+        { key: 'tags', label: 'Теги', type: 'tags' },
+        { key: 'search_aliases', label: 'Поисковые алиасы', type: 'tags' },
+        { key: 'measurement_unit', label: 'Ед. измерения' },
+        { key: 'attributes', label: 'Атрибуты JSON', type: 'json' },
+      ],
+    },
+    {
+      key: 'marketing_products',
+      title: 'Маркетинговый каталог',
+      description: 'a1_marketing_products_catalog: value proposition, ICP, topics, economics и категории рекламы.',
+      labelKey: 'name',
+      subLabelKey: 'product_key',
+      emptyItem: { product_key: '', name: '', type: 'service', primary_landing_url: 'https://1lab.one', active: true, product_category: 'subscription_mid', business_priority: 5, seed_topics: [], forbidden_topics: [], variants: [] },
+      fields: [
+        { key: 'product_key', label: 'Product key', required: true },
+        { key: 'name', label: 'Название', required: true },
+        { key: 'short_name', label: 'Короткое имя' },
+        { key: 'type', label: 'Тип', type: 'select', options: ['saas', 'service', 'consulting', 'ai_product', 'custom', 'platform'] },
+        { key: 'value_proposition', label: 'Ценность', type: 'textarea' },
+        { key: 'target_audience', label: 'ЦА', type: 'textarea' },
+        { key: 'primary_landing_url', label: 'Landing URL', required: true },
+        { key: 'estimated_avg_order_value_rub', label: 'AOV', type: 'number' },
+        { key: 'estimated_sales_cycle_days', label: 'Цикл сделки дней', type: 'number' },
+        { key: 'gross_margin_pct', label: 'Маржа', type: 'number' },
+        { key: 'expected_lead_to_deal_pct', label: 'Lead→deal', type: 'number' },
+        { key: 'expected_click_to_lead_pct', label: 'Click→lead', type: 'number' },
+        { key: 'business_priority', label: 'Приоритет', type: 'number' },
+        { key: 'seed_topics', label: 'Seed topics', type: 'tags' },
+        { key: 'forbidden_topics', label: 'Forbidden topics', type: 'tags' },
+        { key: 'variants', label: 'Варианты JSON', type: 'json' },
+        { key: 'active', label: 'Активен', type: 'toggle' },
+        { key: 'product_category', label: 'Категория', type: 'select', options: ['enterprise_saas', 'custom_dev', 'subscription_mid', 'b2c_service', 'other'] },
+        { key: 'ad_category_key', label: 'Ad category', type: 'select', options: ['', 'enterprise_saas', 'enterprise_onprem_deployment', 'b2b_integration_project', 'subscription_mid', 'subscription_low_selfserve', 'custom_dev_fast', 'custom_dev_complex', 'lead_magnet_discovery', 'addon_cross_sell', 'b2c_service_local', 'b2c_ecommerce_resale', 'b2b_professional_service', 'b2b_commodity_trade', 'info_education_content', 'managed_b2b_service'] },
+        { key: 'notes', label: 'Заметки', type: 'textarea' },
+      ],
+    },
+  ],
+  icp: [
+    {
+      key: 'icp_configs',
+      title: 'ICP по категориям',
+      description: 'a1_marketing_category_icp_config: сегменты, источники, фразы, боли и scoring thresholds.',
+      labelKey: 'display_name',
+      subLabelKey: 'icp_key',
+      emptyItem: { icp_key: '', display_name: '', status: 'active', segment: 'b2b', priority: 100, source_order: [], seed_phrases: [], target_industries: [], min_priority_score: 0.55, source_limits: {} },
+      fields: [
+        { key: 'icp_key', label: 'ICP key', required: true },
+        { key: 'display_name', label: 'Название', required: true },
+        { key: 'status', label: 'Статус', type: 'select', options: ['draft', 'active', 'paused', 'archived'] },
+        { key: 'segment', label: 'Сегмент', type: 'select', options: ['b2b', 'b2c'] },
+        { key: 'priority', label: 'Приоритет', type: 'number' },
+        { key: 'product_key', label: 'Product key' },
+        { key: 'product_category', label: 'Категория продукта' },
+        { key: 'ad_category_key', label: 'Ad category' },
+        { key: 'source_order', label: 'Порядок источников', type: 'tags' },
+        { key: 'seed_phrases', label: 'Seed-фразы', type: 'tags' },
+        { key: 'search_phrase_templates', label: 'Шаблоны поиска', type: 'tags' },
+        { key: 'excluded_phrases', label: 'Исключения', type: 'tags' },
+        { key: 'buyer_personas', label: 'Персоны', type: 'tags' },
+        { key: 'target_industries', label: 'Отрасли', type: 'tags' },
+        { key: 'target_okved', label: 'ОКВЭД', type: 'tags' },
+        { key: 'trigger_signals', label: 'Триггеры', type: 'tags' },
+        { key: 'pain_signals', label: 'Боли', type: 'tags' },
+        { key: 'offer_pitch', label: 'Оффер', type: 'textarea' },
+        { key: 'landing_url', label: 'Landing URL' },
+        { key: 'outreach_subject_template', label: 'Тема outreach' },
+        { key: 'outreach_body_template', label: 'Тело outreach', type: 'textarea' },
+        { key: 'min_priority_score', label: 'Мин. score', type: 'number' },
+        { key: 'source_limits', label: 'Лимиты источников JSON', type: 'json' },
+      ],
+    },
+  ],
+  channels: [
+    {
+      key: 'public_channels',
+      title: 'Публичные каналы',
+      description: 'a1_public_concierge_channels: Telegram/webhook канал без вывода секретов.',
+      labelKey: 'gateway_name',
+      subLabelKey: 'channel_key',
+      fields: [
+        { key: 'channel_key', label: 'Channel key', readonly: true },
+        { key: 'gateway_key', label: 'Gateway', readonly: true },
+        { key: 'source_bot_key', label: 'Bot key', readonly: true },
+        { key: 'gateway_name', label: 'Название' },
+        { key: 'bot_username', label: 'Username' },
+        { key: 'bot_display_name', label: 'Display name' },
+        { key: 'is_active', label: 'Активен', type: 'toggle' },
+        { key: 'default_language', label: 'Язык', type: 'select', options: ['ru', 'en'] },
+        { key: 'timezone', label: 'Часовой пояс' },
+        { key: 'setup_status', label: 'Setup', type: 'select', options: ['not_configured', 'pending', 'configured', 'failed'] },
+        { key: 'webhook_status', label: 'Webhook', type: 'select', options: ['unknown', 'missing', 'configured', 'failed'] },
+        { key: 'token_status', label: 'Token', type: 'select', options: ['missing', 'configured', 'rotation_required'] },
+        { key: 'settings', label: 'Settings JSON', type: 'json' },
+      ],
+    },
+    {
+      key: 'marketing_sites',
+      title: 'Сайты / лендинги',
+      description: 'a1_marketing_sites: лендинги и активность для маркетинга.',
+      labelKey: 'base_url',
+      subLabelKey: 'site_key',
+      emptyItem: { site_key: '', base_url: 'https://1lab.one', name: '', is_active: true, metadata: {} },
+      fields: [
+        { key: 'site_key', label: 'Site key', required: true },
+        { key: 'base_url', label: 'Base URL', required: true },
+        { key: 'name', label: 'Название' },
+        { key: 'is_active', label: 'Активен', type: 'toggle' },
+        { key: 'metadata', label: 'Metadata JSON', type: 'json' },
+      ],
+    },
+  ],
+  handlers: [
+    {
+      key: 'handlers',
+      title: 'Action handlers',
+      description: 'a1_action_handlers: включение режимов, workflow refs, approval и риск.',
+      labelKey: 'action_key',
+      subLabelKey: 'domain',
+      fields: [
+        { key: 'action_key', label: 'Action key', readonly: true },
+        { key: 'action_name', label: 'Название' },
+        { key: 'description', label: 'Описание', type: 'textarea' },
+        { key: 'domain', label: 'Домен', type: 'select', options: ['sales', 'marketing', 'finance', 'legal', 'hr', 'it', 'ops', 'coo', 'reports', 'support'] },
+        { key: 'handler_type', label: 'Тип', type: 'select', options: ['workflow', 'tool', 'api', 'manual'] },
+        { key: 'handler_ref', label: 'Ref' },
+        { key: 'workflow_id', label: 'Workflow ID' },
+        { key: 'enabled', label: 'Включен', type: 'toggle' },
+        { key: 'priority', label: 'Приоритет', type: 'number' },
+        { key: 'risk_level', label: 'Риск', type: 'select', options: ['', 'low', 'medium', 'high', 'critical'] },
+        { key: 'requires_human_approval', label: 'Approval', type: 'toggle' },
+        { key: 'run_only_in_work_hours', label: 'Только рабочее время', type: 'toggle' },
+        { key: 'default_timeout_sec', label: 'Timeout сек', type: 'number' },
+        { key: 'retry_policy', label: 'Retry JSON', type: 'json' },
+        { key: 'meta', label: 'Meta JSON', type: 'json' },
+      ],
+    },
+  ],
+  dashboard: [
+    {
+      key: 'dashboard_config',
+      title: 'Конфигурация дашборда',
+      description: 'Настройки виджетов, KPI и отчетов для пользовательского дашборда.',
+      mode: 'single',
+      labelKey: 'name',
+      subLabelKey: 'template',
+      emptyItem: {
+        name: 'Свой дашборд',
+        template: 'custom',
+        period_default: '30d',
+        enabled_widgets: ['kpis', 'timeline', 'breakdown', 'recent_activity'],
+        kpi_keys: ['leads', 'deals', 'customers', 'messages', 'tasks'],
+        report_ids: ['sales_funnel', 'ops_sla'],
+      },
+      fields: [
+        { key: 'name', label: 'Название' },
+        { key: 'template', label: 'Шаблон', type: 'select', options: ['default', 'sales', 'ops', 'custom'] },
+        { key: 'period_default', label: 'Период по умолчанию', type: 'select', options: ['today', '7d', '30d', 'month', 'quarter'] },
+        { key: 'enabled_widgets', label: 'Виджеты', type: 'tags' },
+        { key: 'kpi_keys', label: 'KPI', type: 'tags' },
+        { key: 'report_ids', label: 'Отчеты', type: 'tags' },
+        { key: 'layout', label: 'Layout JSON', type: 'json' },
+      ],
+    },
+  ],
+  subscription: [
+    {
+      key: 'subscription_access',
+      title: 'Активная подписка',
+      description: 'a1_subscription_access: статус доступа, тариф, сроки trial/paid и payment URL.',
+      mode: 'single',
+      labelKey: 'access_status',
+      subLabelKey: 'plan_code',
+      fields: [
+        { key: 'user_id', label: 'User ID / account' },
+        { key: 'access_status', label: 'Статус', type: 'select', options: ['active', 'trial_active', 'paid_test_active', 'expired', 'cancelled', 'blocked'] },
+        { key: 'plan_code', label: 'Тариф', type: 'select', options: ['admin_internal', 'demo', 'assistant_pro_month', 'assistant_pro_year'] },
+        { key: 'provider', label: 'Provider' },
+        { key: 'provider_payment_id', label: 'Provider payment ID' },
+        { key: 'payment_url', label: 'Payment URL' },
+        { key: 'trial_starts_at', label: 'Trial start' },
+        { key: 'trial_ends_at', label: 'Trial end' },
+        { key: 'paid_test_starts_at', label: 'Paid test start' },
+        { key: 'paid_test_ends_at', label: 'Paid test end' },
+        { key: 'paid_subscription_starts_at', label: 'Subscription start' },
+        { key: 'paid_subscription_ends_at', label: 'Subscription end' },
+        { key: 'capabilities', label: 'Capabilities JSON', type: 'json' },
+        { key: 'access_summary', label: 'Summary JSON', type: 'json' },
+      ],
+    },
+    {
+      key: 'subscription_plans',
+      title: 'Тарифы',
+      description: 'bot_subscription_plans: доступные тарифы для покупки/продления.',
+      labelKey: 'name',
+      subLabelKey: 'plan_code',
+      fields: [
+        { key: 'plan_code', label: 'Code', readonly: true },
+        { key: 'name', label: 'Название', readonly: true },
+        { key: 'billing_period', label: 'Период', readonly: true },
+        { key: 'price_amount', label: 'Цена', type: 'number', readonly: true },
+        { key: 'currency', label: 'Валюта', readonly: true },
+        { key: 'is_active', label: 'Активен', type: 'toggle', readonly: true },
+        { key: 'features', label: 'Features JSON', type: 'json', readonly: true },
+        { key: 'limits', label: 'Limits JSON', type: 'json', readonly: true },
+      ],
+    },
+    {
+      key: 'billing_events',
+      title: 'История биллинга',
+      description: 'a1_billing_events: события оплат и провайдеров для выбранной компании.',
+      labelKey: 'status',
+      subLabelKey: 'provider',
+      fields: [
+        { key: 'provider', label: 'Provider', readonly: true },
+        { key: 'status', label: 'Статус', readonly: true },
+        { key: 'amount', label: 'Сумма', type: 'number', readonly: true },
+        { key: 'currency', label: 'Валюта', readonly: true },
+        { key: 'invoice_id', label: 'Invoice', readonly: true },
+        { key: 'payment_id', label: 'Payment', readonly: true },
+        { key: 'created_at', label: 'Создано', readonly: true },
+        { key: 'payload', label: 'Payload JSON', type: 'json', readonly: true },
+      ],
+    },
+    {
+      key: 'payments',
+      title: 'Платежи',
+      description: 'bot_payments: созданные платежи и checkout URL.',
+      labelKey: 'status',
+      subLabelKey: 'plan_code',
+      fields: [
+        { key: 'payment_type', label: 'Тип', readonly: true },
+        { key: 'plan_code', label: 'Тариф', readonly: true },
+        { key: 'amount', label: 'Сумма', type: 'number', readonly: true },
+        { key: 'currency', label: 'Валюта', readonly: true },
+        { key: 'status', label: 'Статус', readonly: true },
+        { key: 'checkout_url', label: 'Checkout URL', readonly: true },
+        { key: 'paid_at', label: 'Оплачено', readonly: true },
+      ],
+    },
+  ],
 }
 
 const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef[]> = {
@@ -353,6 +749,20 @@ const SECTIONS: SettingsSection[] = [
     ],
   },
   {
+    id: 'dashboard',
+    title: 'Дашборд',
+    description: 'Свой дашборд: набор виджетов, KPI, отчетов и период по умолчанию.',
+    icon: BarChart3,
+    fields: [],
+  },
+  {
+    id: 'subscription',
+    title: 'Подписка',
+    description: 'Активная подписка, тариф, сроки доступа и история платежей.',
+    icon: CreditCard,
+    fields: [],
+  },
+  {
     id: 'policies',
     title: 'Политики',
     description: 'Правила согласования, эскалации, хранения данных и риск-контроля COO.',
@@ -561,8 +971,12 @@ function normalizeIntegrations(data: Record<string, unknown> | null, config: Com
       return {
         provider,
         name: cell(row.title ?? row.name ?? PROVIDER_LABELS[provider] ?? provider),
+        family: cell(row.family ?? row.provider_family),
         status: cell(row.status ?? row.connection_status ?? 'unknown'),
         health: cell(row.health ?? row.health_status ?? row.ok),
+        authMode: cell(row.auth_mode ?? row.authMode ?? (Array.isArray(row.auth_modes) ? row.auth_modes[0] : undefined)),
+        entities: Array.isArray(row.supported_entities) ? row.supported_entities.join(', ') : cell(row.supported_entities ?? row.entities),
+        lastConnected: cell(row.last_connected_at ?? row.lastConnectedAt),
         lastSync: cell(row.last_sync_at ?? row.lastSyncAt ?? row.updated_at),
         error: cell(row.error ?? row.last_error),
       }
@@ -577,8 +991,12 @@ function normalizeIntegrations(data: Record<string, unknown> | null, config: Com
     return {
       provider,
       name: PROVIDER_LABELS[provider] ?? provider,
+      family: cell(record.family ?? record.provider_family ?? 'custom'),
       status: cell(record.status ?? 'unknown'),
       health: cell(record.health ?? record.ok ?? '-'),
+      authMode: cell(record.auth_mode ?? record.authMode ?? '-'),
+      entities: cell(record.supported_entities ?? record.entities ?? '-'),
+      lastConnected: cell(record.last_connected_at),
       lastSync: cell(record.last_sync_at ?? configured.last_sync_at),
       error: cell(record.error ?? record.last_error),
     }
@@ -613,6 +1031,206 @@ function collectionItems(config: CompanyConfig, def: ManagedCollectionDef): Data
   return []
 }
 
+function realRows(data: SettingsDomainData | null, key: string): DataRow[] {
+  return data?.collections?.[key]?.rows?.filter((row): row is DataRow => !!row && typeof row === 'object' && !Array.isArray(row)) ?? []
+}
+
+function realLabel(row: DataRow, def: RealCollectionDef): string {
+  return cell(row[def.labelKey] ?? row.name ?? row.title ?? row.id ?? 'Новая запись')
+}
+
+function realSubLabel(row: DataRow, def: RealCollectionDef): string {
+  return cell((def.subLabelKey ? row[def.subLabelKey] : undefined) ?? row.status ?? row.updated_at ?? '')
+}
+
+function valueToInput(value: unknown, type?: RealFieldType): string {
+  if (value === null || value === undefined) return ''
+  if (type === 'tags' && Array.isArray(value)) return value.join('\n')
+  if (type === 'json') return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+  if (typeof value === 'object') return JSON.stringify(value, null, 2)
+  return String(value)
+}
+
+function parseRealValue(raw: string | boolean, field: RealFieldDef): unknown {
+  if (field.type === 'toggle') return Boolean(raw)
+  if (field.type === 'number') {
+    const n = Number(String(raw).replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  }
+  if (field.type === 'tags') {
+    return String(raw).split(/[\n,;]/).map((item) => item.trim()).filter(Boolean)
+  }
+  if (field.type === 'json') {
+    try {
+      return JSON.parse(String(raw || 'null'))
+    } catch {
+      return raw
+    }
+  }
+  return raw === '' ? null : raw
+}
+
+function DomainCollectionsPanel({
+  domain,
+  data,
+  loading,
+  error,
+  onReload,
+  canEdit = true,
+}: {
+  domain: string
+  data: SettingsDomainData | null
+  loading: boolean
+  error: string | null
+  onReload: () => void
+  canEdit?: boolean
+}) {
+  const defs = DOMAIN_COLLECTIONS[domain] ?? []
+  const [activeCollection, setActiveCollection] = useState(defs[0]?.key ?? '')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [form, setForm] = useState<DataRow>({})
+  const [savingRecord, setSavingRecord] = useState(false)
+  const [recordError, setRecordError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const nextCollection = defs[0]?.key ?? ''
+    setActiveCollection((current) => defs.some((def) => def.key === current) ? current : nextCollection)
+    setSelectedId(null)
+  }, [domain])
+
+  const collectionDef = defs.find((def) => def.key === activeCollection) ?? defs[0]
+  const rows = collectionDef ? realRows(data, collectionDef.key) : []
+  const selected = useMemo(() => {
+    if (!collectionDef) return null
+    if (selectedId === '__new__') return collectionDef.emptyItem ? { ...collectionDef.emptyItem } : {}
+    return rows.find((row) => String(row.id ?? '') === selectedId) ?? rows[0] ?? null
+  }, [collectionDef, rows, selectedId])
+
+  useEffect(() => {
+    setForm(selected ? { ...selected } : {})
+  }, [selected])
+
+  const selectRow = (row: DataRow) => setSelectedId(String(row.id ?? ''))
+  const addRow = () => {
+    if (!canEdit || !collectionDef?.emptyItem) return
+    setSelectedId('__new__')
+    setForm({ ...collectionDef.emptyItem })
+  }
+
+  const updateRealField = (field: RealFieldDef, raw: string | boolean) => {
+    setForm((current) => ({ ...current, [field.key]: parseRealValue(raw, field) }))
+  }
+
+  const saveRecord = () => {
+    if (!collectionDef || !canEdit) return
+    setSavingRecord(true)
+    setRecordError(null)
+    const id = selectedId === '__new__' ? undefined : String(form.id ?? selected?.id ?? '')
+    updateSettingsRecord(collectionDef.key, id, form)
+      .then(() => {
+        setSelectedId(null)
+        onReload()
+      })
+      .catch((e) => setRecordError(e instanceof Error ? e.message : 'Ошибка сохранения записи'))
+      .finally(() => setSavingRecord(false))
+  }
+
+  if (loading) return <div className={styles.state}>Загружаем данные из prod...</div>
+  if (error) return <div className={styles.error}>{error}</div>
+  if (!collectionDef) return null
+
+  return (
+    <div className={styles.domainPanel}>
+      <div className={styles.runtimeHead}>
+        <div>
+          <h3>Данные из prod DB</h3>
+          <p>Секции ниже читают реальные таблицы и сохраняют изменения через signed n8n webhook.</p>
+          {domain === 'subscription' && !canEdit && <p>Покупка и продление будут подключены позже. Сейчас доступен просмотр текущей подписки и тарифов.</p>}
+        </div>
+        <button type="button" onClick={onReload}>
+          <RefreshCw aria-hidden />
+          Обновить
+        </button>
+      </div>
+
+      <div className={styles.collectionTabs}>
+        {defs.map((def) => (
+          <button key={def.key} type="button" className={def.key === collectionDef.key ? styles.collectionTabActive : ''} onClick={() => { setActiveCollection(def.key); setSelectedId(null) }}>
+            {def.title}
+            <span>{realRows(data, def.key).length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className={styles.recordWorkbench}>
+        <aside className={styles.recordList}>
+          <div className={styles.recordListHead}>
+            <strong>{collectionDef.title}</strong>
+            {canEdit && collectionDef.emptyItem && <button type="button" onClick={addRow}>Добавить</button>}
+          </div>
+          {rows.length === 0 && selectedId !== '__new__' ? (
+            <div className={styles.recordEmpty}>Записей нет</div>
+          ) : (
+            rows.map((row) => (
+              <button key={String(row.id ?? realLabel(row, collectionDef))} type="button" className={String(row.id ?? '') === String(selected?.id ?? '') && selectedId !== '__new__' ? styles.recordActive : ''} onClick={() => selectRow(row)}>
+                <strong>{realLabel(row, collectionDef)}</strong>
+                <span>{realSubLabel(row, collectionDef)}</span>
+              </button>
+            ))
+          )}
+        </aside>
+
+        <section className={styles.recordCard}>
+          <div className={styles.recordCardHead}>
+            <div>
+              <h3>{selectedId === '__new__' ? 'Новая запись' : realLabel(form, collectionDef)}</h3>
+              <p>{collectionDef.description}</p>
+            </div>
+            {canEdit ? (
+              <button type="button" className={styles.saveBtn} onClick={saveRecord} disabled={savingRecord || !Object.keys(form).length}>
+                <Save aria-hidden />
+                {savingRecord ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            ) : domain === 'subscription' ? (
+              <button type="button" className={styles.saveBtn} onClick={() => setRecordError('Оплата и продление будут подключены на следующем этапе.')} disabled={collectionDef.key !== 'subscription_access'}>
+                <CreditCard aria-hidden />
+                Продлить / купить
+              </button>
+            ) : null}
+          </div>
+          {recordError && <div className={styles.error}>{recordError}</div>}
+          <div className={styles.realForm}>
+            {collectionDef.fields.map((field) => {
+              const value = form[field.key]
+              const inputValue = valueToInput(value, field.type)
+              const wide = field.type === 'textarea' || field.type === 'json' || field.type === 'tags'
+              const readonly = field.readonly || !canEdit
+              return (
+                <label key={field.key} className={wide ? styles.realFieldWide : undefined}>
+                  <span>{field.label}{field.required ? ' *' : ''}</span>
+                  {field.type === 'toggle' ? (
+                    <button type="button" className={`${styles.switch} ${value ? styles.switchOn : ''}`} onClick={() => updateRealField(field, !Boolean(value))} disabled={readonly}>
+                      <span />
+                    </button>
+                  ) : field.type === 'select' ? (
+                    <select value={inputValue} onChange={(event) => updateRealField(field, event.target.value)} disabled={readonly}>
+                      {(field.options ?? []).map((option) => <option key={option} value={option}>{option || '-'}</option>)}
+                    </select>
+                  ) : field.type === 'textarea' || field.type === 'json' || field.type === 'tags' ? (
+                    <textarea value={inputValue} onChange={(event) => updateRealField(field, event.target.value)} rows={field.type === 'json' ? 7 : 4} readOnly={readonly} />
+                  ) : (
+                    <input type={field.type === 'number' ? 'number' : 'text'} value={inputValue} onChange={(event) => updateRealField(field, event.target.value)} readOnly={readonly} />
+                  )}
+                </label>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
 export function Settings({ initialSection }: SettingsProps = {}) {
   const [activeSection, setActiveSection] = useState(() => normalizeSectionId(initialSection))
   const [config, setConfig] = useState<CompanyConfig>({})
@@ -632,6 +1250,13 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const [statusAction, setStatusAction] = useState<string | null>(null)
   const [inviteAction, setInviteAction] = useState(false)
   const [inviteForm, setInviteForm] = useState({ email: '', fullName: '', role: 'member' })
+  const [domainData, setDomainData] = useState<SettingsDomainData | null>(null)
+  const [domainLoading, setDomainLoading] = useState(false)
+  const [domainError, setDomainError] = useState<string | null>(null)
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -671,6 +1296,23 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   useEffect(() => {
     if (activeSection === 'integrations' && !integrationsData && !integrationsLoading) loadIntegrations()
     if (activeSection === 'access' && !usersData && !usersLoading) loadUsers()
+  }, [activeSection])
+
+  const loadDomainData = () => {
+    if (!DOMAIN_COLLECTIONS[activeSection]) return
+    setDomainLoading(true)
+    setDomainError(null)
+    getSettingsDomain(activeSection)
+      .then((res) => setDomainData(res))
+      .catch((e) => setDomainError(e instanceof Error ? e.message : 'Ошибка загрузки данных раздела'))
+      .finally(() => setDomainLoading(false))
+  }
+
+  useEffect(() => {
+    if (DOMAIN_COLLECTIONS[activeSection]) {
+      setDomainData(null)
+      loadDomainData()
+    }
   }, [activeSection])
 
   const section = useMemo(() => SECTIONS.find((item) => item.id === activeSection) ?? SECTIONS[0], [activeSection])
@@ -742,6 +1384,34 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       .finally(() => setInviteAction(false))
   }
 
+  const submitPasswordChange = () => {
+    const currentPassword = passwordForm.current.trim()
+    const nextPassword = passwordForm.next
+    const confirmPassword = passwordForm.confirm
+    setPasswordError(null)
+    setPasswordMessage(null)
+    if (!currentPassword) {
+      setPasswordError('Введите текущий пароль')
+      return
+    }
+    if (nextPassword.length < 8) {
+      setPasswordError('Новый пароль должен быть не короче 8 символов')
+      return
+    }
+    if (nextPassword !== confirmPassword) {
+      setPasswordError('Новый пароль и подтверждение не совпадают')
+      return
+    }
+    setPasswordSaving(true)
+    changeOwnPassword(currentPassword, nextPassword)
+      .then(() => {
+        setPasswordForm({ current: '', next: '', confirm: '' })
+        setPasswordMessage('Пароль обновлен')
+      })
+      .catch((e) => setPasswordError(e instanceof Error ? e.message : 'Не удалось сменить пароль'))
+      .finally(() => setPasswordSaving(false))
+  }
+
   const toggleUserStatus = (row: DataRow) => {
     const userId = rowId(row)
     if (!userId || userId === '-') return
@@ -779,6 +1449,9 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const integrationRows = useMemo(() => normalizeIntegrations(integrationsData, draft), [integrationsData, draft])
   const userRows = useMemo(() => normalizeUsers(usersData), [usersData])
   const collectionDefs = MANAGED_COLLECTIONS[section.id] ?? []
+  const hasRealDomain = Boolean(DOMAIN_COLLECTIONS[section.id])
+  const session = getSession()
+  const canEditDomain = section.id !== 'subscription' || session?.user_id?.toLowerCase() === '1lab@1true.ru'
   const managedRowsByPath = useMemo(
     () => Object.fromEntries(collectionDefs.map((def) => [def.path, collectionItems(draft, def)])),
     [collectionDefs, draft],
@@ -809,15 +1482,74 @@ export function Settings({ initialSection }: SettingsProps = {}) {
             <h2>{section.title}</h2>
             <p>{section.description}</p>
           </div>
-          <button type="button" className={styles.saveBtn} onClick={save} disabled={!dirty || saving || loading}>
-            <Save aria-hidden />
-            {saving ? 'Сохраняем...' : dirty ? 'Сохранить' : 'Сохранено'}
-          </button>
+          {!hasRealDomain && (
+            <button type="button" className={styles.saveBtn} onClick={save} disabled={!dirty || saving || loading}>
+              <Save aria-hidden />
+              {saving ? 'Сохраняем...' : dirty ? 'Сохранить' : 'Сохранено'}
+            </button>
+          )}
         </div>
 
         {loading && <div className={styles.state}>Загружаем настройки...</div>}
         {error && <div className={styles.error}>{error}</div>}
         {savedAt && !dirty && <div className={styles.saved}>Сохранено в {savedAt}</div>}
+
+        {!loading && section.id === 'security' && (
+          <div className={styles.runtimePanel}>
+            <div className={styles.runtimeHead}>
+              <div>
+                <h3>Смена пароля</h3>
+                <p>Пароль меняется только для текущего аккаунта. После смены временный токен входа больше не используется.</p>
+              </div>
+            </div>
+            {passwordError && <div className={styles.error}>{passwordError}</div>}
+            {passwordMessage && <div className={styles.saved}>{passwordMessage}</div>}
+            <div className={styles.passwordForm}>
+              <label>
+                <span>Текущий пароль</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={passwordForm.current}
+                  onChange={(event) => setPasswordForm((current) => ({ ...current, current: event.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Новый пароль</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={passwordForm.next}
+                  onChange={(event) => setPasswordForm((current) => ({ ...current, next: event.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Повторите новый пароль</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={passwordForm.confirm}
+                  onChange={(event) => setPasswordForm((current) => ({ ...current, confirm: event.target.value }))}
+                />
+              </label>
+              <button type="button" onClick={submitPasswordChange} disabled={passwordSaving}>
+                <KeyRound aria-hidden />
+                {passwordSaving ? 'Меняем...' : 'Сменить пароль'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading && DOMAIN_COLLECTIONS[section.id] && (
+          <DomainCollectionsPanel
+            domain={section.id}
+            data={domainData}
+            loading={domainLoading}
+            error={domainError}
+            onReload={loadDomainData}
+            canEdit={canEditDomain}
+          />
+        )}
 
         {!loading && section.id === 'integrations' && (
           <div className={styles.runtimePanel}>
@@ -839,11 +1571,14 @@ export function Settings({ initialSection }: SettingsProps = {}) {
                     <PlugZap aria-hidden />
                     <div>
                       <strong>{item.name}</strong>
+                      <small>{item.family} · {item.authMode}</small>
                       <span className={styles.statusPill}>{item.status}</span>
                     </div>
                   </div>
                   <dl>
                     <div><dt>Проверка</dt><dd>{item.health}</dd></div>
+                    <div><dt>Данные</dt><dd>{item.entities}</dd></div>
+                    <div><dt>Подключение</dt><dd>{item.lastConnected}</dd></div>
                     <div><dt>Синхронизация</dt><dd>{item.lastSync}</dd></div>
                     <div><dt>Ошибка</dt><dd>{item.error}</dd></div>
                   </dl>
@@ -958,7 +1693,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
           </div>
         )}
 
-        {!loading && collectionDefs.map((collectionDef) => {
+        {!loading && !hasRealDomain && collectionDefs.map((collectionDef) => {
           const managedRows = managedRowsByPath[collectionDef.path] ?? []
           return (
             <div key={collectionDef.path} className={styles.managedPanel}>
@@ -1011,7 +1746,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
           )
         })}
 
-        {!loading && (
+        {!loading && !hasRealDomain && (
           <div className={styles.formGrid}>
             {section.fields.map((field) => {
               const value = fieldValue(draft, field)

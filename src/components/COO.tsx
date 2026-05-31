@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { Mic, Paperclip, RefreshCw, RotateCcw, Send, Square, Trash2 } from 'lucide-react'
 import { AnimatedHead } from './AnimatedHead'
 import { MessageList } from './MessageList'
 import { useN8n } from '../hooks/useN8n'
@@ -80,6 +81,9 @@ export function COO() {
   const [isListening, setIsListening] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isDateEditing, setIsDateEditing] = useState(false)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [pollError, setPollError] = useState<string | null>(null)
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
   const afterIdRef = useRef<string | undefined>(undefined)
   const didResetCursorRef = useRef(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -101,6 +105,16 @@ export function COO() {
     }
     return list.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
   }, [fullHistory, cleared, clearTimestamp, dateFrom, dateTo])
+
+  const stats = useMemo(() => {
+    const attachments = displayedMessages.reduce((sum, message) => sum + (message.attachments?.length ?? 0), 0)
+    return {
+      total: displayedMessages.length,
+      user: displayedMessages.filter((message) => message.role === 'user').length,
+      assistant: displayedMessages.filter((message) => message.role === 'assistant').length,
+      attachments,
+    }
+  }, [displayedMessages])
 
   useEffect(() => {
     saveMessages(fullHistory)
@@ -135,6 +149,13 @@ export function COO() {
     setDateTo('')
   }, [])
 
+  const refreshDialog = useCallback(() => {
+    afterIdRef.current = undefined
+    didResetCursorRef.current = false
+    setPollError(null)
+    setRefreshTick((value) => value + 1)
+  }, [])
+
   // Опрос входящих сообщений от n8n (push).
   useEffect(() => {
     let cancelled = false
@@ -142,7 +163,10 @@ export function COO() {
       if (cancelled) return
       try {
         const { messages: incoming } = await getCOOIncomingMessages(afterIdRef.current)
-        if (cancelled || !incoming?.length) return
+        if (cancelled) return
+        setPollError(null)
+        setLastSyncAt(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))
+        if (!incoming?.length) return
         // Не сохраняем и не показываем сообщения processing и пустые — пусть «печатает» до прихода ответа
         const assistant: N8nMessage[] = incoming
           .filter((m) => {
@@ -220,6 +244,7 @@ export function COO() {
           return [...merged, ...toAdd].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
         })
       } catch (e) {
+        setPollError(e instanceof Error ? e.message : 'Не удалось обновить сообщения')
         if (import.meta.env.DEV) {
           // eslint-disable-next-line no-console
           console.error('[COO poll] failed:', e)
@@ -239,7 +264,7 @@ export function COO() {
       cancelled = true
       clearInterval(t)
     }
-  }, [])
+  }, [refreshTick])
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -329,16 +354,29 @@ export function COO() {
             </div>
             <p className={styles.welcomeText}>{WELCOME_TEXT}</p>
             <p className={styles.welcomeHint}>Напишите или нажмите микрофон</p>
+            <button type="button" className={styles.refreshBtn} onClick={refreshDialog}>
+              <RefreshCw aria-hidden />
+              Обновить входящие
+            </button>
           </div>
         ) : (
           <div className={styles.chatArea}>
             <div className={styles.chatToolbar}>
               <button type="button" className={styles.clearBtn} onClick={clearDialog} title="Очистить диалог">
-                Очистить диалог
+                <Trash2 aria-hidden />
+                Очистить
               </button>
               <button type="button" className={styles.showAllBtn} onClick={showAllMessages} title="Показать все сообщения">
-                Показать все сообщения
+                <RotateCcw aria-hidden />
+                Все сообщения
               </button>
+              <button type="button" className={styles.refreshBtn} onClick={refreshDialog} title="Обновить из n8n">
+                <RefreshCw aria-hidden />
+                Обновить
+              </button>
+              <span className={styles.statPill}>Всего {stats.total}</span>
+              <span className={styles.statPill}>COO {stats.assistant}</span>
+              <span className={styles.statPill}><Paperclip aria-hidden /> {stats.attachments}</span>
               <span className={styles.filterLabel}>Период:</span>
               <input
                 type="date"
@@ -360,6 +398,11 @@ export function COO() {
                 title="Дата по"
               />
             </div>
+            {(pollError || lastSyncAt) && (
+              <div className={pollError ? styles.pollError : styles.pollOk}>
+                {pollError || `Синхронизировано ${lastSyncAt}`}
+              </div>
+            )}
             <div className={styles.chatScroll} ref={chatScrollRef}>
               <MessageList messages={displayedMessages} isLoading={isLoading} />
             </div>
@@ -373,7 +416,7 @@ export function COO() {
             onClick={toggleVoice}
             title="Голосовой ввод"
           >
-            {isListening ? '⏹' : '🎤'}
+            {isListening ? <Square aria-hidden /> : <Mic aria-hidden />}
           </button>
           <textarea
             ref={inputRef}
@@ -386,7 +429,7 @@ export function COO() {
             disabled={isLoading}
           />
           <button type="submit" className={styles.sendBtn} disabled={isLoading || !inputValue.trim()}>
-            →
+            <Send aria-hidden />
           </button>
         </form>
       </div>
