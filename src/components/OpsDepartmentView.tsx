@@ -3,6 +3,7 @@ import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw,
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { getOpsDepartment, type PeriodPreset } from '../api/n8n'
 import { useActionRunner } from '../hooks/useActionRunner'
+import { actionName, actionDescription } from '../config/actionLabels'
 import styles from './OpsDepartmentView.module.css'
 
 type Row = Record<string, unknown>
@@ -189,13 +190,12 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
             {actions.length > 0 ? actions.map((action) => (
               <article key={display(action.id ?? action.action_key)} className={styles.actionCard}>
                 <div>
-                  <strong>{display(action.action_name ?? action.action_key)}</strong>
-                  <p>{display(action.description)}</p>
+                  <strong>{actionName(String(action.action_key ?? ''), display(action.action_name ?? action.action_key))}</strong>
+                  <p>{actionDescription(String(action.action_key ?? ''), display(action.description))}</p>
                 </div>
                 <dl>
-                  <div><dt>Тип</dt><dd>{display(action.handler_type)}</dd></div>
-                  <div><dt>Риск</dt><dd>{display(action.risk_level)}</dd></div>
-                  <div><dt>Approval</dt><dd>{display(action.requires_human_approval)}</dd></div>
+                  <div><dt>Риск</dt><dd>{RISK_LABELS[display(action.risk_level).toLowerCase()] ?? display(action.risk_level)}</dd></div>
+                  <div><dt>Подтверждение</dt><dd>{isTruthy(action.requires_human_approval) ? 'требуется' : 'нет'}</dd></div>
                 </dl>
                 <button
                   type="button"
