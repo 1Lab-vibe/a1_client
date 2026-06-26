@@ -21,9 +21,9 @@ export const SALES_MODES: ActionMode[] = [
       { name: 'deal_id', label: 'Сделка', type: 'db-select', source: 'deals', optionValue: 'id', optionLabel: 'title', help: 'Из воронки' },
       { name: 'instruction', label: 'Что сделать', type: 'textarea', required: true, placeholder: 'Подготовь следующий шаг и черновик ответа клиенту' },
     ],
-    buildMessage: (v) => {
+    buildMessage: (v, labels) => {
       const parts = ['Обработай сделку как Sales Manager']
-      if (v.deal_id) parts.push(`deal_id ${v.deal_id}`)
+      if (labels?.deal_id) parts.push(`сделка «${labels.deal_id}»`)
       let s = parts.join(', ') + '.'
       if (v.instruction) s += ' ' + v.instruction
       return s
@@ -41,9 +41,9 @@ export const SALES_MODES: ActionMode[] = [
       { name: 'lead_id', label: 'Лид', type: 'db-select', source: 'leads', optionValue: 'id', optionLabel: 'title' },
       { name: 'note', label: 'Контекст / повод', type: 'textarea', placeholder: 'Скидка к концу месяца, новый кейс и т.п.' },
     ],
-    buildMessage: (v) => {
+    buildMessage: (v, labels) => {
       const parts = ['Реактивируй лид (recovery)']
-      if (v.lead_id) parts.push(`lead_id ${v.lead_id}`)
+      if (labels?.lead_id) parts.push(`лид «${labels.lead_id}»`)
       let s = parts.join(', ') + '.'
       if (v.note) s += ' Повод: ' + v.note
       return s

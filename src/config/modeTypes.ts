@@ -31,6 +31,10 @@ export interface ActionMode {
   /** требует подтверждения перед запуском (реальный платёж / отправка) */
   confirm?: boolean
   fields: FieldDef[]
-  /** для LLM-хендлеров: собрать текст-запрос из значений формы (кладётся в params.user_message) */
-  buildMessage?: (v: Record<string, string>) => string
+  /**
+   * Собрать текст-запрос из значений формы. Запрос уходит в пайплайн через ms_in_take,
+   * результат приходит в окно COO и в Telegram. labels — отображаемые названия выбранных
+   * из БД записей (по db-select полям), чтобы в тексте были имена, а не id.
+   */
+  buildMessage?: (v: Record<string, string>, labels?: Record<string, string>) => string
 }

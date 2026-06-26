@@ -580,6 +580,39 @@ function toActionRunResult(raw: unknown): ActionRunResult {
   }
 }
 
+export interface IntakeSubmitResult {
+  request_id?: string
+  status?: string
+  /** немедленный текст ответа, если пайплайн ответил сразу */
+  text?: string
+}
+
+/**
+ * Отправить запрос в пайплайн через ms_in_take (как сообщение COO, без action).
+ * Пайплайн исполняет с полным контекстом и доставляет результат в окно COO (getCOOIncomingMessages)
+ * и в Telegram отправителю. Это правильный способ запускать действия отделов (в отличие от прямого вызова workflow).
+ */
+export async function sendIntakeMessage(text: string): Promise<IntakeSubmitResult> {
+  const session = getSession()
+  const body: Record<string, unknown> = { message: text, timestamp: Date.now() }
+  if (session) {
+    body.company_id = session.company_id
+    body.token = session.token
+    body.user_id = session.user_id
+  }
+  const raw = await request<Record<string, unknown>>(body)
+  const data = unwrapData(raw as ApiEnvelope<Record<string, unknown>>)
+  const obj = isObjectRecord(data) ? data : {}
+  const event = isObjectRecord(obj.event) ? obj.event : {}
+  const meta = isObjectRecord(event.meta) ? event.meta : {}
+  const request_id = String(event.request_id ?? meta.request_id ?? obj.request_id ?? '') || undefined
+  const status = String(meta.status ?? obj.status ?? 'processing')
+  const immediate = [obj.text, obj.message, obj.output, obj.final_response]
+    .map((v) => (typeof v === 'string' ? v : ''))
+    .find((v) => v.trim().length > 0)
+  return { request_id, status, text: immediate }
+}
+
 /** Запустить действие отдела. Поддерживает синхронный и отложенный (processing + request_id) ответ. */
 export async function runAction(input: ActionRunInput): Promise<ActionRunResult> {
   const payload: Record<string, unknown> = {

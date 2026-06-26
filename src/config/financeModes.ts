@@ -41,6 +41,17 @@ export const FINANCE_MODES: ActionMode[] = [
       { name: 'to_email', label: 'Email для отправки (опц.)', type: 'text', placeholder: 'client@example.com' },
       { name: 'send_now', label: 'Отправить клиенту сразу', type: 'checkbox', default: '' },
     ],
+    buildMessage: (v, labels) => {
+      const cur = v.currency || 'RUB'
+      const parts = [`Выставь счёт на сумму ${num(v.amount)} ${cur}`]
+      if (labels?.customer_id) parts.push(`клиенту «${labels.customer_id}»`)
+      if (labels?.deal_id) parts.push(`по сделке «${labels.deal_id}»`)
+      if (v.title) parts.push(`назначение: ${v.title}`)
+      if (v.due_date) parts.push(`срок оплаты ${v.due_date}`)
+      let s = parts.join(', ') + '.'
+      if (v.send_now === 'on') s += v.to_email ? ` Отправь клиенту на ${v.to_email}.` : ' Отправь счёт клиенту.'
+      return s
+    },
   },
   {
     id: 'yookassa_payment',
@@ -60,6 +71,13 @@ export const FINANCE_MODES: ActionMode[] = [
       { name: 'customer_email', label: 'Email клиента', type: 'text', placeholder: 'client@example.com' },
       { name: 'return_url', label: 'URL возврата', type: 'text', default: 'https://a1.a1os.ru/payment/return' },
     ],
+    buildMessage: (v) => {
+      const cur = v.currency || 'RUB'
+      const parts = [`Создай платёж в YooKassa на сумму ${num(v.amount)} ${cur}`]
+      if (v.description) parts.push(`описание: ${v.description}`)
+      if (v.customer_email) parts.push(`email клиента ${v.customer_email}`)
+      return parts.join(', ') + '. Верни ссылку на оплату.'
+    },
   },
   {
     id: 'record_transaction',
