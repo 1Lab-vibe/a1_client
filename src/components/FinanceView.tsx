@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { getOpsDepartment, type PeriodPreset } from '../api/n8n'
-import { ActionModes } from './ActionModes'
-import { FINANCE_MODES } from '../config/financeModes'
+import { ScenarioModes } from './ScenarioModes'
 import styles from './FinanceView.module.css'
 
 type Row = Record<string, unknown>
@@ -15,11 +14,6 @@ function numberValue(value: unknown): number {
 function rows(value: unknown): Row[] {
   return Array.isArray(value) ? value.filter((i): i is Row => !!i && typeof i === 'object' && !Array.isArray(i)) : []
 }
-
-const GROUPS = [
-  { id: 'write', title: 'Операции' },
-  { id: 'report', title: 'Отчёты' },
-]
 
 export function FinanceView() {
   const [kpis, setKpis] = useState<Row[]>([])
@@ -43,7 +37,7 @@ export function FinanceView() {
       <div className={styles.header}>
         <div>
           <h2>Финансы</h2>
-          <p>Рабочие режимы: счета, платежи, транзакции, обязательства и отчёты. Параметры заполняются формой и уходят в реальные хендлеры n8n.</p>
+          <p>Рабочие режимы: счета, платежи, транзакции, обязательства и отчёты. Выберите режим, подставьте свои значения в запрос — он уйдёт в пайплайн, а ответ придёт в COO и Telegram.</p>
         </div>
         <button type="button" onClick={load} disabled={loading}><RefreshCw aria-hidden /> Обновить</button>
       </div>
@@ -59,7 +53,8 @@ export function FinanceView() {
         ))}
       </section>
 
-      <ActionModes modes={FINANCE_MODES} department="finances" groups={GROUPS} />
+      <h3 className={styles.sectionTitle}>Режимы</h3>
+      <ScenarioModes domain="finance" />
     </div>
   )
 }

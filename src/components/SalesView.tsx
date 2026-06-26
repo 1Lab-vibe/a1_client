@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { getOpsDepartment, getReport, type PeriodPreset } from '../api/n8n'
-import { ActionModes } from './ActionModes'
+import { ScenarioModes } from './ScenarioModes'
 import { Deals } from './Deals'
-import { SALES_MODES } from '../config/salesModes'
 import styles from './SalesView.module.css'
 
 type Row = Record<string, unknown>
@@ -17,11 +16,6 @@ function numberValue(value: unknown): number {
 function rows(value: unknown): Row[] {
   return Array.isArray(value) ? value.filter((i): i is Row => !!i && typeof i === 'object' && !Array.isArray(i)) : []
 }
-
-const GROUPS = [
-  { id: 'work', title: 'Операции' },
-  { id: 'report', title: 'Отчёты' },
-]
 
 /** KPI продаж: берём leads/deals/revenue/customers из getReport, дополняем счётчиками из getOpsDepartment. */
 function pickSalesKpis(report: Row, dept: Row): Row[] {
@@ -79,7 +73,7 @@ export function SalesView() {
       </div>
 
       {tab === 'operations' ? (
-        <ActionModes modes={SALES_MODES} department="sales" groups={GROUPS} />
+        <ScenarioModes domain="sales" />
       ) : (
         <div className={styles.pipelineWrap}>
           <Deals />
