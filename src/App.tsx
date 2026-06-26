@@ -16,6 +16,7 @@ import { Onboarding } from './components/Onboarding'
 import { DomainView } from './components/DomainView'
 import { OpsDepartmentView } from './components/OpsDepartmentView'
 import { FinanceView } from './components/FinanceView'
+import { SalesView } from './components/SalesView'
 import type { ViewId } from './types'
 
 const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
@@ -50,6 +51,9 @@ function App() {
   switch (viewId) {
     case 'coo':
       content = <COO />
+      break
+    case 'sales':
+      content = <SalesView />
       break
     case 'crm/dashboard':
       content = <Dashboard />

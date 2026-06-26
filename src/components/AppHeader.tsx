@@ -5,6 +5,7 @@ import styles from './AppHeader.module.css'
 
 const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
   coo: { title: 'COO', subtitle: 'Операционный ассистент и входящие сообщения' },
+  sales: { title: 'Продажи', subtitle: 'Воронка сделок и режимы Sales Manager' },
   'crm/dashboard': { title: 'Дашборд CRM', subtitle: 'Продажи, лиды, клиенты и активность за период' },
   'crm/leads': { title: 'Лиды', subtitle: 'Воронка и история обработки обращений' },
   'crm/deals': { title: 'Сделки', subtitle: 'Стадии, суммы и следующие действия' },

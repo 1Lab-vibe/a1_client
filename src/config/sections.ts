@@ -14,6 +14,7 @@ export const DEFAULT_SECTIONS: NavSection[] = [
       { id: 'invoices', label: 'Счета' },
     ],
   },
+  { id: 'sales', label: 'Продажи', icon: 'sales' },
   { id: 'reports', label: 'Отчеты', icon: 'reports' },
   {
     id: 'ops',

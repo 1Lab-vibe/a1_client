@@ -1,0 +1,93 @@
+.wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.header h2 { margin: 0; color: var(--text); font-size: 1.08rem; }
+.header p { max-width: 760px; margin: 5px 0 0; color: var(--text-soft); font-size: 0.86rem; line-height: 1.45; }
+
+.header button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.header svg { width: 16px; height: 16px; }
+
+.error {
+  padding: 14px;
+  border: 1px solid rgba(255, 123, 123, 0.36);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--danger);
+  margin-bottom: 14px;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kpis article {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.kpis span { display: block; color: var(--text-soft); font-size: 0.8rem; }
+.kpis strong { display: block; margin-top: 6px; color: var(--text); font-size: 1.5rem; }
+
+.tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 5px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.tabs .active {
+  color: #080c14;
+  background: linear-gradient(135deg, #f8e2a4, var(--accent));
+}
+
+/* Воронка (Deals) встроена — гасим её внешние отступы */
+.pipelineWrap {
+  margin: 0 -24px -24px;
+}
+
+@media (max-width: 900px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}

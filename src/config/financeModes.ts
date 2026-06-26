@@ -7,39 +7,9 @@
  * workflow_id берутся из карточек действий getOpsDepartment (отдел finances), см. docs/N8N_ACTION_RUNNER.md.
  */
 
-export type FieldType = 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox'
-
-export interface FieldDef {
-  name: string
-  label: string
-  type: FieldType
-  required?: boolean
-  placeholder?: string
-  help?: string
-  default?: string
-  /** для select */
-  options?: { value: string; label: string }[]
-  /** для db-select: источник списка */
-  source?: 'clients' | 'deals' | 'invoices'
-  /** какое поле записи показывать / использовать как значение */
-  optionLabel?: string
-  optionValue?: string
-}
-
-export interface FinanceMode {
-  id: string
-  label: string
-  description: string
-  group: 'write' | 'report'
-  action_key: string
-  workflow_id: string
-  operation?: string
-  /** требует подтверждения перед запуском (реальный платёж / отправка) */
-  confirm?: boolean
-  fields: FieldDef[]
-  /** для LLM-хендлера ops_finance: собрать текст-запрос из значений формы */
-  buildMessage?: (v: Record<string, string>) => string
-}
+import type { ActionMode } from './modeTypes'
+export type { FieldDef } from './modeTypes'
+export type FinanceMode = ActionMode
 
 // workflow_id финансовых хендлеров (prod)
 const WF = {
@@ -50,7 +20,7 @@ const WF = {
 
 const num = (v: string) => String(v ?? '').replace(/\s/g, '').replace(',', '.')
 
-export const FINANCE_MODES: FinanceMode[] = [
+export const FINANCE_MODES: ActionMode[] = [
   {
     id: 'issue_invoice',
     label: 'Выписать счёт',
