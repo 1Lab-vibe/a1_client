@@ -518,6 +518,89 @@ export async function getOpsDepartment(department: string, period?: PeriodFilter
   return unwrapData(data) || {}
 }
 
+// ——— Запуск действий отдела (action handlers) через workflow a1_action_runner ———
+export interface ActionRunInput {
+  /** Ключ действия из action handlers (например, ops_finance, issue_invoice) */
+  action_key: string
+  /** ID workflow-обработчика (из карточки действия) — для прямого dispatch */
+  workflow_id?: string
+  /** Отдел (finances, sales, ...) — для маршрутизации и фильтрации */
+  department?: string
+  /** Операция внутри хендлера (например, create_payment для yookassa) */
+  operation?: string
+  /** Дополнительные параметры действия (форма запуска) */
+  params?: Record<string, unknown>
+  /** Подтверждение пользователя для действий с requires_human_approval / высоким риском */
+  confirmed?: boolean
+  /** Ключ идемпотентности, чтобы повтор не создавал дублей */
+  idempotency_key?: string
+}
+
+export type ActionRunStatus = 'done' | 'processing' | 'needs_approval' | 'error'
+
+export interface ActionRunResult {
+  status: ActionRunStatus
+  /** Для отложенного выполнения — опрашиваем getActionResult по этому id */
+  request_id?: string
+  /** Произвольный результат обработчика */
+  result?: Record<string, unknown>
+  /** Человекочитаемый текст результата (показываем в тосте) */
+  text?: string
+  attachments?: N8nAttachment[]
+  /** Сообщение (например, почему нужно подтверждение) */
+  message?: string
+  /** Текст ошибки при status: 'error' */
+  error?: string
+}
+
+/** Нормализует разные формы ответа n8n к ActionRunResult. */
+function toActionRunResult(raw: unknown): ActionRunResult {
+  const data = unwrapData(raw as ApiEnvelope<Record<string, unknown>>)
+  const obj = isObjectRecord(data) ? data : {}
+  const statusRaw = String(obj.status ?? (obj.ok === false ? 'error' : 'done')).toLowerCase()
+  const status: ActionRunStatus =
+    statusRaw === 'processing' || statusRaw === 'pending' || statusRaw === 'queued'
+      ? 'processing'
+      : statusRaw === 'needs_approval' || statusRaw === 'approval_required'
+        ? 'needs_approval'
+        : statusRaw === 'error' || statusRaw === 'failed' || obj.ok === false
+          ? 'error'
+          : 'done'
+  const text = [obj.text, obj.message, obj.output]
+    .map((v) => (typeof v === 'string' ? v : ''))
+    .find((v) => v.trim().length > 0)
+  return {
+    status,
+    request_id: typeof obj.request_id === 'string' ? obj.request_id : undefined,
+    result: isObjectRecord(obj.result) ? obj.result : undefined,
+    text: status === 'error' ? undefined : text,
+    attachments: Array.isArray(obj.attachments) ? (obj.attachments as N8nAttachment[]) : Array.isArray(obj.files) ? (obj.files as N8nAttachment[]) : undefined,
+    message: typeof obj.message === 'string' ? obj.message : undefined,
+    error: status === 'error' ? String(obj.error ?? obj.message ?? text ?? 'Не удалось выполнить действие') : undefined,
+  }
+}
+
+/** Запустить действие отдела. Поддерживает синхронный и отложенный (processing + request_id) ответ. */
+export async function runAction(input: ActionRunInput): Promise<ActionRunResult> {
+  const payload: Record<string, unknown> = {
+    action_key: input.action_key,
+    workflow_id: input.workflow_id,
+    department: input.department,
+    operation: input.operation,
+    params: input.params ?? {},
+    confirmed: input.confirmed ?? false,
+    idempotency_key: input.idempotency_key ?? crypto.randomUUID(),
+  }
+  const raw = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('runAction', payload))
+  return toActionRunResult(raw)
+}
+
+/** Опрос результата отложенного действия по request_id. */
+export async function getActionResult(requestId: string): Promise<ActionRunResult> {
+  const raw = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getActionResult', { request_id: requestId }))
+  return toActionRunResult(raw)
+}
+
 // ——— Дашборд: данные по шаблону ———
 export type PeriodPreset = 'today' | '7d' | '30d' | 'month' | 'quarter' | 'custom'
 

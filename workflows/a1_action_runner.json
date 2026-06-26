@@ -1,0 +1,269 @@
+{
+  "name": "a1_action_runner",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b1a00000-0000-4000-8000-000000000001",
+      "name": "When called by router",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Нормализуем вход. Главный роутер (Code in JavaScript1) кладёт исходное тело в raw_payload,\n// а company_id/token/user_id поднимает на верхний уровень. Поддерживаем и прямой вызов.\nconst input = items[0]?.json ?? {};\nconst isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);\nconst rp = isObj(input.raw_payload) ? input.raw_payload : input;\nconst src = isObj(rp.payload) ? rp.payload : rp;\nconst pick = (k) => input[k] ?? src[k] ?? rp[k] ?? null;\n\nconst session = {\n  company_id: pick('company_id'),\n  token: pick('token'),\n  user_id: pick('user_id'),\n};\n\nconst action_key = String(src.action_key ?? '').trim();\nconst workflow_id = src.workflow_id ? String(src.workflow_id).trim() : '';\nconst department = src.department ? String(src.department).trim() : '';\nconst operation = String(src.operation ?? '').trim();\nconst params = isObj(src.params) ? src.params : {};\nconst confirmed = src.confirmed === true || src.confirmed === 'true';\nconst idempotency_key = src.idempotency_key ?? (require('crypto').randomUUID());\nconst requires_approval = src.requires_human_approval === true || src.requires_human_approval === 'true';\n\nlet _gate = 'run';\nif (!action_key && !workflow_id) _gate = 'error';\nelse if (requires_approval && !confirmed) _gate = 'approval';\nelse if (!workflow_id) _gate = 'error';\n\nreturn [{ json: { _gate, action_key, workflow_id, department, operation, params, confirmed, idempotency_key, ...session } }];"
+      },
+      "id": "b1a00000-0000-4000-8000-000000000002",
+      "name": "Normalize input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c0000000-0000-4000-8000-0000000000a1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json._gate }}",
+                    "rightValue": "run"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "run"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c0000000-0000-4000-8000-0000000000a2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json._gate }}",
+                    "rightValue": "approval"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "approval"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c0000000-0000-4000-8000-0000000000a3",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json._gate }}",
+                    "rightValue": "error"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1a00000-0000-4000-8000-000000000003",
+      "name": "Gate",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Оборачиваем параметры режима в конверт, который ждут хендлеры.\n// issue_invoice читает action.params.payload; yookassa — payload.operation + payload поля; ops_finance — payload.user_message.\nconst j = items[0]?.json ?? {};\nconst params = (j.params && typeof j.params === 'object') ? j.params : {};\nconst operation = j.operation || params.operation || '';\nconst payload = { ...params };\nif (operation) payload.operation = operation;\nconst company_id = j.company_id || null;\nconst user_id = j.user_id || null;\nconst token = j.token || null;\nconst envelope = {\n  // важно сохранить для ноды запуска (берёт workflow_id из выражения)\n  workflow_id: j.workflow_id,\n  company_id, user_id, token,\n  action_key: j.action_key,\n  operation,\n  action: { action_key: j.action_key, company_id, params: { operation, payload } },\n  params: { operation, payload },\n  payload,\n  paymentRequest: payload,\n  idempotency_key: j.idempotency_key,\n};\nreturn [{ json: envelope }];"
+      },
+      "id": "b1a00000-0000-4000-8000-000000000008",
+      "name": "Build handler envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.workflow_id }}"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "b1a00000-0000-4000-8000-000000000004",
+      "name": "Run handler workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        380,
+        180
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Приводим результат обработчика к контракту клиента.\nconst out = items[0]?.json ?? {};\nif (out.error) {\n  return [{ json: { ok: false, status: 'error', error: String(out.error?.message ?? out.error) } }];\n}\nconst result = out.data ?? out.result ?? out;\nconst lo = result?.llm_output ?? out.llm_output ?? {};\nconst text = out.text ?? out.message ?? result?.text ?? result?.message\n  ?? lo.final_response ?? result?.final_response ?? result?.summary\n  ?? out.final_response ?? 'Действие выполнено';\nreturn [{ json: { ok: true, status: 'done', result, text: String(text) } }];"
+      },
+      "id": "b1a00000-0000-4000-8000-000000000005",
+      "name": "Shape result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, status: 'needs_approval', message: 'Действие требует подтверждения человеком. Подтвердите запуск в интерфейсе.' } }];"
+      },
+      "id": "b1a00000-0000-4000-8000-000000000006",
+      "name": "Needs approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, status: 'error', error: 'Не указан workflow_id или action_key для запуска действия' } }];"
+      },
+      "id": "b1a00000-0000-4000-8000-000000000007",
+      "name": "Bad request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "When called by router": {
+      "main": [
+        [
+          {
+            "node": "Normalize input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize input": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Build handler envelope",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bad request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build handler envelope": {
+      "main": [
+        [
+          {
+            "node": "Run handler workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run handler workflow": {
+      "main": [
+        [
+          {
+            "node": "Shape result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "lZKZI0PeOipepg7c"
+}

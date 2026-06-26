@@ -1,11 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, CheckCircle2, PlayCircle, RefreshCw, Table2 } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw, Table2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { getOpsDepartment, type PeriodPreset } from '../api/n8n'
+import { useActionRunner } from '../hooks/useActionRunner'
 import styles from './OpsDepartmentView.module.css'
 
 type Row = Record<string, unknown>
 type OpsTab = 'main' | 'reports' | 'tasks'
+
+/** requires_human_approval может прийти булевым или строкой ("true"/"1"/"yes") */
+function isTruthy(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') return ['true', '1', 'yes', 'да'].includes(value.trim().toLowerCase())
+  return false
+}
+
+const RISK_LABELS: Record<string, string> = { low: 'низкий', medium: 'средний', high: 'высокий' }
+
+interface PendingAction {
+  action_key: string
+  action_name: string
+  workflow_id?: string
+  department: string
+  risk_level: string
+  requires_approval: boolean
+}
 
 const PERIODS: Array<{ id: PeriodPreset; label: string }> = [
   { id: 'today', label: 'Сегодня' },
@@ -57,6 +77,8 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   const [data, setData] = useState<Row>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<PendingAction | null>(null)
+  const { runningKey, lastResult, run, clearResult } = useActionRunner()
 
   const load = () => {
     setLoading(true)
@@ -77,6 +99,38 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
     label: display(row.label ?? row.status ?? row.name),
     value: numberValue(row.value ?? row.count ?? row.total),
   })).filter((row) => row.value > 0), [reports])
+
+  const launch = (action: Row) => {
+    const requiresApproval = isTruthy(action.requires_human_approval)
+    const riskLevel = display(action.risk_level).toLowerCase()
+    const meta: PendingAction = {
+      action_key: String(action.action_key ?? action.id ?? ''),
+      action_name: display(action.action_name ?? action.action_key),
+      workflow_id: action.workflow_id != null ? String(action.workflow_id) : undefined,
+      department,
+      risk_level: riskLevel,
+      requires_approval: requiresApproval,
+    }
+    if (!meta.action_key) return
+    // Подтверждение для действий с approval или высоким риском
+    if (requiresApproval || riskLevel === 'high') {
+      setPending(meta)
+      return
+    }
+    void doRun(meta)
+  }
+
+  const doRun = async (meta: PendingAction) => {
+    setPending(null)
+    const result = await run({
+      action_key: meta.action_key,
+      workflow_id: meta.workflow_id,
+      department: meta.department,
+      confirmed: meta.requires_approval || meta.risk_level === 'high',
+    })
+    // После успешного выполнения обновляем данные отдела
+    if (result.status === 'done') load()
+  }
 
   return (
     <div className={styles.wrap}>
@@ -143,9 +197,15 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
                   <div><dt>Риск</dt><dd>{display(action.risk_level)}</dd></div>
                   <div><dt>Approval</dt><dd>{display(action.requires_human_approval)}</dd></div>
                 </dl>
-                <button type="button" disabled title="Запуск подключается через backend action queue">
-                  <PlayCircle aria-hidden />
-                  Запуск
+                <button
+                  type="button"
+                  className={styles.runBtn}
+                  onClick={() => launch(action)}
+                  disabled={runningKey != null}
+                  title={isTruthy(action.requires_human_approval) ? 'Требует подтверждения перед запуском' : 'Запустить действие'}
+                >
+                  {runningKey === display(action.action_key ?? action.id) ? <Loader2 className={styles.spin} aria-hidden /> : <PlayCircle aria-hidden />}
+                  {runningKey === display(action.action_key ?? action.id) ? 'Выполняется…' : 'Запуск'}
                 </button>
               </article>
             )) : (
@@ -216,6 +276,37 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
             </tbody>
           </table>
         </section>
+      )}
+
+      {pending && (
+        <div className={styles.modalOverlay} onClick={() => setPending(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHead}>
+              <AlertTriangle aria-hidden />
+              <h3>Подтвердите запуск</h3>
+            </div>
+            <p>
+              Действие <strong>{pending.action_name}</strong> будет выполнено на проде.
+              {pending.requires_approval && ' Оно отмечено как требующее подтверждения человеком.'}
+              {pending.risk_level === 'high' && ` Уровень риска: ${RISK_LABELS[pending.risk_level] ?? pending.risk_level}.`}
+            </p>
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.btnGhost} onClick={() => setPending(null)}>Отмена</button>
+              <button type="button" className={styles.btnPrimary} onClick={() => void doRun(pending)}>Запустить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {lastResult && (
+        <div className={`${styles.toast} ${lastResult.status === 'error' ? styles.toastError : styles.toastOk}`} role="status">
+          <span>
+            {lastResult.status === 'error'
+              ? (lastResult.error ?? 'Не удалось выполнить действие')
+              : (lastResult.text ?? 'Действие выполнено')}
+          </span>
+          <button type="button" onClick={clearResult} aria-label="Закрыть"><X aria-hidden /></button>
+        </div>
       )}
     </div>
   )

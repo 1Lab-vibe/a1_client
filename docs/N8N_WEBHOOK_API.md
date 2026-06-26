@@ -451,6 +451,8 @@
 | `updateInvoice` | счёт |
 | `getBlockData` | `{ viewId }` |
 | `getDashboard` | `{ template }` |
+| `runAction` | `{ action_key, workflow_id?, department?, params?, confirmed?, idempotency_key? }` — запуск действия отдела. См. `docs/N8N_ACTION_RUNNER.md` |
+| `getActionResult` | `{ request_id }` — опрос отложенного `runAction` |
 | `getChatData` | нет |
 | `getChatMessages` | `{ chatId, chatType }` |
 | `sendChatMessage` | `{ chatId, chatType, text, attachments? }` |

@@ -184,6 +184,144 @@
   opacity: 0.55;
 }
 
+.runBtn {
+  justify-content: center;
+  cursor: pointer;
+}
+
+.runBtn:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.spin {
+  animation: opsSpin 0.9s linear infinite;
+}
+
+@keyframes opsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Модалка подтверждения запуска */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 7, 13, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.modalHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modalHead svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+
+.modalHead h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.modal p {
+  margin: 0 0 18px;
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnGhost,
+.btnPrimary {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.btnGhost {
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.btnPrimary {
+  border: none;
+  color: #080c14;
+  background: linear-gradient(135deg, #f8e2a4, var(--accent));
+}
+
+/* Тост результата */
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.86rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.toastOk {
+  border-color: rgba(120, 220, 150, 0.4);
+}
+
+.toastError {
+  border-color: rgba(255, 123, 123, 0.4);
+  color: var(--danger);
+}
+
+.toast button {
+  display: inline-flex;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.toast svg {
+  width: 16px;
+  height: 16px;
+}
+
 .reportGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.7fr);
