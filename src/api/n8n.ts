@@ -518,6 +518,41 @@ export async function getOpsDepartment(department: string, period?: PeriodFilter
   return unwrapData(data) || {}
 }
 
+// ——— MIS (управленческая аналитика: события, отклонения, динамика) ———
+export interface MisDriver { event_type: string; title: string; category?: string; pct?: number; why?: string }
+export interface MisDeviation { day: string; metric: string; severity?: string; delta?: number; delta_pct?: number; z?: number; narrative?: string; drivers?: MisDriver[] }
+export interface MisEvent { at: string; type: string; category?: string; domain?: string; title: string; magnitude?: string }
+export interface MisKpi { key: string; label: string; unit?: string; value: number; direction?: string }
+export interface MisPlaybook { event_type: string; metric: string; pos?: number; pct?: number; conf?: number }
+export interface MisDashboard {
+  company_id?: string
+  period_days?: number
+  kpis: MisKpi[]
+  cash_series: { d: string; v: number; b?: number }[]
+  leads_series: { d: string; v: number; b?: number }[]
+  events_positive: MisDeviation[]
+  events_negative: MisDeviation[]
+  events: MisEvent[]
+  playbook: MisPlaybook[]
+}
+
+export async function getMisDashboard(period?: PeriodFilter): Promise<MisDashboard> {
+  const data = await request<ApiEnvelope<Partial<MisDashboard>>>(buildBody('getMisDashboard', { period }))
+  const d = (unwrapData(data) || {}) as Partial<MisDashboard>
+  const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
+  return {
+    company_id: d.company_id,
+    period_days: d.period_days,
+    kpis: arr<MisKpi>(d.kpis),
+    cash_series: arr(d.cash_series),
+    leads_series: arr(d.leads_series),
+    events_positive: arr<MisDeviation>(d.events_positive),
+    events_negative: arr<MisDeviation>(d.events_negative),
+    events: arr<MisEvent>(d.events),
+    playbook: arr<MisPlaybook>(d.playbook),
+  }
+}
+
 // ——— Запуск действий отдела (action handlers) через workflow a1_action_runner ———
 export interface ActionRunInput {
   /** Ключ действия из action handlers (например, ops_finance, issue_invoice) */

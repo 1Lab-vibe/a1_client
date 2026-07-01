@@ -17,6 +17,7 @@ import { DomainView } from './components/DomainView'
 import { OpsDepartmentView } from './components/OpsDepartmentView'
 import { FinanceView } from './components/FinanceView'
 import { SalesView } from './components/SalesView'
+import { MISView } from './components/MISView'
 import type { ViewId } from './types'
 
 const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
@@ -75,6 +76,9 @@ function App() {
       break
     case 'ops/tasks':
       content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
+      break
+    case 'ops/mis':
+      content = <MISView />
       break
     case 'ops/finances':
       content = <FinanceView />

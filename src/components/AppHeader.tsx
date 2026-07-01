@@ -13,6 +13,7 @@ const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
   'crm/invoices': { title: 'Счета', subtitle: 'Статусы выставления и оплаты' },
   reports: { title: 'Отчеты', subtitle: 'Периоды, графики и управленческие срезы' },
   'ops/tasks': { title: 'Задачи', subtitle: 'Операционные задачи и статусы исполнения' },
+  'ops/mis': { title: 'MIS', subtitle: 'Динамика показателей, отклонения и влияющие события' },
   'ops/finances': { title: 'Финансы', subtitle: 'Денежные показатели и контроль платежей' },
   'ops/marketing': { title: 'Маркетинг', subtitle: 'Кампании, источники и интеграции' },
   'ops/accounting': { title: 'Бухгалтерия', subtitle: 'Документы, счета и сверки' },

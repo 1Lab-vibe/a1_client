@@ -22,6 +22,7 @@ export const DEFAULT_SECTIONS: NavSection[] = [
     icon: 'ops',
     children: [
       { id: 'tasks', label: 'Задачи' },
+      { id: 'mis', label: 'MIS' },
       { id: 'finances', label: 'Финансы' },
       { id: 'marketing', label: 'Маркетинг' },
       { id: 'accounting', label: 'Бухгалтерия' },
