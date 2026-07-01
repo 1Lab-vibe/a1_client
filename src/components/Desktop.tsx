@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Settings,
   TrendingUp,
+  Activity,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import type { NavSection, ViewId } from '../types'
@@ -23,6 +24,7 @@ interface DesktopProps {
 
 const ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   bot: Bot,
+  mis: Activity,
   chart: BarChart3,
   sales: TrendingUp,
   reports: ClipboardList,

@@ -77,7 +77,7 @@ function App() {
     case 'ops/tasks':
       content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
       break
-    case 'ops/mis':
+    case 'mis':
       content = <MISView />
       break
     case 'ops/finances':

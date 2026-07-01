@@ -2,6 +2,7 @@ import type { NavSection } from '../types'
 
 export const DEFAULT_SECTIONS: NavSection[] = [
   { id: 'coo', label: 'COO', icon: 'bot' },
+  { id: 'mis', label: 'MIS', icon: 'mis' },
   {
     id: 'crm',
     label: 'CRM',
@@ -22,7 +23,6 @@ export const DEFAULT_SECTIONS: NavSection[] = [
     icon: 'ops',
     children: [
       { id: 'tasks', label: 'Задачи' },
-      { id: 'mis', label: 'MIS' },
       { id: 'finances', label: 'Финансы' },
       { id: 'marketing', label: 'Маркетинг' },
       { id: 'accounting', label: 'Бухгалтерия' },
@@ -61,7 +61,7 @@ export const DEFAULT_SECTIONS: NavSection[] = [
   },
 ]
 
-const STORAGE_KEY = 'a1_nav_sections'
+const STORAGE_KEY = 'a1_nav_sections_v2'
 
 export function loadSectionsOrder(): NavSection[] {
   try {

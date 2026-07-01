@@ -6,6 +6,7 @@ import styles from './AppHeader.module.css'
 const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
   coo: { title: 'COO', subtitle: 'Операционный ассистент и входящие сообщения' },
   sales: { title: 'Продажи', subtitle: 'Воронка сделок и режимы Sales Manager' },
+  mis: { title: 'MIS', subtitle: 'Динамика показателей, отклонения и влияющие события' },
   'crm/dashboard': { title: 'Дашборд CRM', subtitle: 'Продажи, лиды, клиенты и активность за период' },
   'crm/leads': { title: 'Лиды', subtitle: 'Воронка и история обработки обращений' },
   'crm/deals': { title: 'Сделки', subtitle: 'Стадии, суммы и следующие действия' },
@@ -13,7 +14,6 @@ const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
   'crm/invoices': { title: 'Счета', subtitle: 'Статусы выставления и оплаты' },
   reports: { title: 'Отчеты', subtitle: 'Периоды, графики и управленческие срезы' },
   'ops/tasks': { title: 'Задачи', subtitle: 'Операционные задачи и статусы исполнения' },
-  'ops/mis': { title: 'MIS', subtitle: 'Динамика показателей, отклонения и влияющие события' },
   'ops/finances': { title: 'Финансы', subtitle: 'Денежные показатели и контроль платежей' },
   'ops/marketing': { title: 'Маркетинг', subtitle: 'Кампании, источники и интеграции' },
   'ops/accounting': { title: 'Бухгалтерия', subtitle: 'Документы, счета и сверки' },
