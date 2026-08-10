@@ -1,17 +1,17 @@
 /**
  * API для работы с n8n. Один webhook URL, маршрутизация по action в теле запроса.
- * В каждый запрос (кроме login, requestDemo, requestPasswordReset) добавляются company_id, token и user_id из сессии.
- * При наличии VITE_A1_WEBHOOK_SECRET запросы и ответы подписываются HMAC (body_b64 + заголовки timestamp, nonce, signature).
+ * В каждый защищённый запрос добавляются company_id, token и user_id из сессии.
+ * Клиент отправляет обычный JSON на same-origin /api. HMAC добавляет серверный proxy;
+ * transport-secret никогда не передаётся в браузер и не определяет tenant.
  */
 
 import { getSession } from '../session'
-import { signPayload, verifySignedResponse, base64ToStr } from '../utils/webhookSignature'
 import type { Task, Client, Lead, LeadStage, LeadEvent, Deal, Invoice, ChatChannel, ChatUser, ChatMessage, ChatAttachment, DemoRequest, COOIncomingMessage, AuthCompany, N8nAttachment } from '../types'
 
 /** Runtime-конфиг: из window.__A1_CONFIG__ (config.js) или подгружен по fetch из /config.json */
-function getRuntimeConfig(): { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } | undefined {
+function getRuntimeConfig(): { VITE_N8N_WEBHOOK_URL?: string } | undefined {
   if (typeof window === 'undefined') return undefined
-  const w = window as unknown as { __A1_CONFIG__?: { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } }
+  const w = window as unknown as { __A1_CONFIG__?: { VITE_N8N_WEBHOOK_URL?: string } }
   return w.__A1_CONFIG__
 }
 
@@ -20,23 +20,15 @@ let configFetchPromise: Promise<void> | null = null
 /** Один раз подгружаем /config.json (Docker), декодируем base64 и пишем в __A1_CONFIG__. Обход кэша и порядка скриптов. */
 async function ensureConfigLoaded(): Promise<void> {
   if (typeof window === 'undefined') return
-  const w = window as unknown as { __A1_CONFIG__?: { VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string } }
-  if (w.__A1_CONFIG__?.VITE_A1_WEBHOOK_SECRET || w.__A1_CONFIG__?.VITE_N8N_WEBHOOK_URL) return
+  const w = window as unknown as { __A1_CONFIG__?: { VITE_N8N_WEBHOOK_URL?: string } }
+  if (w.__A1_CONFIG__?.VITE_N8N_WEBHOOK_URL) return
   if (configFetchPromise) return configFetchPromise
   configFetchPromise = (async () => {
     try {
       const r = await fetch(`${window.location.origin}/config.json`, { cache: 'no-store' })
       if (!r.ok) return
-      const data = (await r.json()) as { VITE_A1_WEBHOOK_SECRET_B64?: string; VITE_N8N_WEBHOOK_URL_B64?: string; VITE_A1_WEBHOOK_SECRET?: string; VITE_N8N_WEBHOOK_URL?: string }
-      let secret = data.VITE_A1_WEBHOOK_SECRET
+      const data = (await r.json()) as { VITE_N8N_WEBHOOK_URL_B64?: string; VITE_N8N_WEBHOOK_URL?: string }
       let url = data.VITE_N8N_WEBHOOK_URL
-      if (data.VITE_A1_WEBHOOK_SECRET_B64) {
-        try {
-          secret = atob(data.VITE_A1_WEBHOOK_SECRET_B64)
-        } catch {
-          secret = ''
-        }
-      }
       if (data.VITE_N8N_WEBHOOK_URL_B64) {
         try {
           url = atob(data.VITE_N8N_WEBHOOK_URL_B64)
@@ -44,21 +36,13 @@ async function ensureConfigLoaded(): Promise<void> {
           url = ''
         }
       }
-      w.__A1_CONFIG__ = { ...w.__A1_CONFIG__, VITE_A1_WEBHOOK_SECRET: secret ?? '', VITE_N8N_WEBHOOK_URL: url ?? '' }
+      w.__A1_CONFIG__ = { ...w.__A1_CONFIG__, VITE_N8N_WEBHOOK_URL: url ?? '' }
       setSigningDiagnostics()
     } catch {
       // ignore
     }
   })()
   return configFetchPromise
-}
-
-function getWebhookSecret(): string {
-  const cfg = getRuntimeConfig()
-  const fromConfig = cfg?.VITE_A1_WEBHOOK_SECRET
-  if (typeof fromConfig === 'string' && fromConfig.trim()) return fromConfig.trim()
-  const env = import.meta.env.VITE_A1_WEBHOOK_SECRET
-  return typeof env === 'string' ? env.trim() : ''
 }
 
 const getWebhookUrl = (): string => {
@@ -70,15 +54,14 @@ const getWebhookUrl = (): string => {
   return '/api'
 }
 
-/** Диагностика HMAC: в консоли браузера введите __A1_DEBUG — покажет, включена ли подпись и откуда конфиг */
+/** Диагностика transport: подпись выполняется только server-side proxy. */
 function setSigningDiagnostics(): void {
   if (typeof window === 'undefined') return
   const cfg = getRuntimeConfig()
-  const secret = getWebhookSecret()
   const url = getWebhookUrl()
   ;(window as unknown as { __A1_DEBUG?: Record<string, unknown> }).__A1_DEBUG = {
-    signing: secret.length > 0,
-    configSource: cfg ? (cfg.VITE_A1_WEBHOOK_SECRET ? 'runtime (config.js or config.json)' : 'runtime (secret empty)') : (import.meta.env.VITE_A1_WEBHOOK_SECRET ? 'build (env)' : 'none'),
+    signing: 'server-side',
+    configSource: cfg?.VITE_N8N_WEBHOOK_URL ? 'runtime (config.js or config.json)' : (import.meta.env.VITE_N8N_WEBHOOK_URL ? 'build (env)' : 'default same-origin'),
     webhookUrl: url ? `${url.slice(0, 30)}${url.length > 30 ? '…' : ''}` : '(default /api)',
   }
 }
@@ -101,29 +84,12 @@ function buildBody(action: string, payload?: object): object {
 async function request<T = unknown>(body: object): Promise<T> {
   await ensureConfigLoaded()
   const url = getWebhookUrl()
-  const secret = getWebhookSecret()
-
-  let reqBody: string
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-  if (secret) {
-    const { body_b64, timestamp, nonce, signature } = await signPayload(secret, body)
-    reqBody = JSON.stringify({ body_b64 })
-    headers['X-Timestamp'] = String(timestamp)
-    headers['X-Nonce'] = nonce
-    headers['X-Signature'] = signature
-  } else {
-    reqBody = JSON.stringify(body)
-  }
-
-  const signedHeaders = secret ? { ...headers } : headers
-  const signedRes = await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
-    headers: signedHeaders,
-    body: reqBody,
+    headers,
+    body: JSON.stringify(body),
   })
-
-  const res = signedRes
   if (!res.ok) {
     // Попробуем добавить хвост ответа, чтобы понять причину 4xx/5xx в консоли
     let extra = ''
@@ -141,23 +107,6 @@ async function request<T = unknown>(body: object): Promise<T> {
     data = text ? JSON.parse(text) : {}
   } catch {
     return {} as T
-  }
-
-  if (secret && data && typeof data === 'object' && 'body_b64' in data && typeof (data as { body_b64?: string }).body_b64 === 'string') {
-    const body_b64 = (data as { body_b64: string }).body_b64
-    const ts = res.headers.get('X-Timestamp') ?? res.headers.get('x-timestamp') ?? ''
-    const nonce = res.headers.get('X-Nonce') ?? res.headers.get('x-nonce') ?? ''
-    const sig = res.headers.get('X-Signature') ?? res.headers.get('x-signature') ?? ''
-    const verified = await verifySignedResponse(secret, body_b64, ts, nonce, sig)
-    if (verified != null) return verified as T
-    // Fallback: если верификация не прошла (например, сервер не прислал сигнатурные заголовки),
-    // всё равно попробуем расшифровать body_b64 и вернуть данные.
-    try {
-      const jsonStr = base64ToStr(body_b64)
-      return JSON.parse(jsonStr) as T
-    } catch {
-      // ignore; дальше вернём как есть
-    }
   }
 
   return data as T
@@ -1040,6 +989,8 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
 
 // ——— COO: входящие сообщения от n8n (push). Нормализуем ответ: n8n может вернуть { messages } или [{ messages }]. ———
 export async function getCOOIncomingMessages(afterId?: string): Promise<{ messages: COOIncomingMessage[] }> {
+  const session = getSession()
+  if (!session?.company_id || !session.token || !session.user_id) return { messages: [] }
   let raw: ApiEnvelope<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>
   try {
     raw = await request<ApiEnvelope<{ messages?: COOIncomingMessage[] } | Array<{ messages?: COOIncomingMessage[] }>>>(

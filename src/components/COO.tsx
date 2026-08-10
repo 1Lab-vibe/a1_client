@@ -4,6 +4,7 @@ import { AnimatedHead } from './AnimatedHead'
 import { MessageList } from './MessageList'
 import { useN8n } from '../hooks/useN8n'
 import { getCOOIncomingMessages } from '../api/n8n'
+import { getSession } from '../session'
 import { playIncomingMessageSound } from '../utils/playIncomingSound'
 import type { N8nMessage } from '../types'
 import styles from './COO.module.css'
@@ -14,9 +15,14 @@ const COO_MESSAGES_KEY = 'a1_coo_messages'
 const COO_CLEARED_KEY = 'a1_coo_cleared'
 const COO_CLEAR_TIMESTAMP_KEY = 'a1_coo_clear_timestamp'
 
-function loadStoredMessages(): N8nMessage[] {
+function tenantStorageKey(base: string, companyId?: string): string {
+  const tenant = companyId ?? getSession()?.company_id
+  return tenant ? `${base}:${tenant}` : `${base}:anonymous`
+}
+
+function loadStoredMessages(companyId?: string): N8nMessage[] {
   try {
-    const raw = localStorage.getItem(COO_MESSAGES_KEY)
+    const raw = localStorage.getItem(tenantStorageKey(COO_MESSAGES_KEY, companyId))
     if (!raw) return []
     const data = JSON.parse(raw) as N8nMessage[]
     if (!Array.isArray(data)) return []
@@ -26,10 +32,10 @@ function loadStoredMessages(): N8nMessage[] {
   }
 }
 
-function loadClearedState(): { cleared: boolean; clearTimestamp: number | null } {
+function loadClearedState(companyId?: string): { cleared: boolean; clearTimestamp: number | null } {
   try {
-    const cleared = localStorage.getItem(COO_CLEARED_KEY) === '1'
-    const rawTs = localStorage.getItem(COO_CLEAR_TIMESTAMP_KEY)
+    const cleared = localStorage.getItem(tenantStorageKey(COO_CLEARED_KEY, companyId)) === '1'
+    const rawTs = localStorage.getItem(tenantStorageKey(COO_CLEAR_TIMESTAMP_KEY, companyId))
     const clearTimestamp = rawTs != null && rawTs !== '' ? Number(rawTs) : null
     return { cleared, clearTimestamp: Number.isFinite(clearTimestamp) ? clearTimestamp : null }
   } catch {
@@ -39,7 +45,7 @@ function loadClearedState(): { cleared: boolean; clearTimestamp: number | null }
 
 function saveMessages(messages: N8nMessage[]) {
   try {
-    localStorage.setItem(COO_MESSAGES_KEY, JSON.stringify(messages))
+    localStorage.setItem(tenantStorageKey(COO_MESSAGES_KEY), JSON.stringify(messages))
   } catch {
     // ignore
   }
@@ -48,11 +54,11 @@ function saveMessages(messages: N8nMessage[]) {
 function setClearedInStorage(cleared: boolean, clearTimestamp: number | null) {
   try {
     if (cleared && clearTimestamp != null) {
-      localStorage.setItem(COO_CLEARED_KEY, '1')
-      localStorage.setItem(COO_CLEAR_TIMESTAMP_KEY, String(clearTimestamp))
+      localStorage.setItem(tenantStorageKey(COO_CLEARED_KEY), '1')
+      localStorage.setItem(tenantStorageKey(COO_CLEAR_TIMESTAMP_KEY), String(clearTimestamp))
     } else {
-      localStorage.removeItem(COO_CLEARED_KEY)
-      localStorage.removeItem(COO_CLEAR_TIMESTAMP_KEY)
+      localStorage.removeItem(tenantStorageKey(COO_CLEARED_KEY))
+      localStorage.removeItem(tenantStorageKey(COO_CLEAR_TIMESTAMP_KEY))
     }
   } catch {
     // ignore
@@ -89,6 +95,24 @@ export function COO() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const { sendToN8n } = useN8n()
+
+  useEffect(() => {
+    const onCompanySelected = (event: Event) => {
+      const companyId = (event as CustomEvent<{ company_id?: string }>).detail?.company_id
+      if (!companyId) return
+      const clearedState = loadClearedState(companyId)
+      afterIdRef.current = undefined
+      didResetCursorRef.current = false
+      setFullHistory(loadStoredMessages(companyId))
+      setCleared(clearedState.cleared)
+      setClearTimestamp(clearedState.clearTimestamp)
+      setPollError(null)
+      setLastSyncAt(null)
+      setRefreshTick((value) => value + 1)
+    }
+    window.addEventListener('a1:company-selected', onCompanySelected)
+    return () => window.removeEventListener('a1:company-selected', onCompanySelected)
+  }, [])
 
   const displayedMessages = useMemo(() => {
     let list = fullHistory
@@ -161,6 +185,8 @@ export function COO() {
     let cancelled = false
     const poll = async () => {
       if (cancelled) return
+      const session = getSession()
+      if (!session?.company_id || !session.token || !session.user_id) return
       try {
         const { messages: incoming } = await getCOOIncomingMessages(afterIdRef.current)
         if (cancelled) return

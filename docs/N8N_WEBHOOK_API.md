@@ -1,8 +1,18 @@
-# Контракт webhook API (клиент ↔ n8n)
+# Контракт webhook API: браузер → A1 API → n8n
 
-Один **POST** на URL из `VITE_N8N_WEBHOOK_URL` (или `/api` по умолчанию). Маршрутизация: поле **`action`** в JSON (кроме запросов COO без `action` — см. ниже).
+> С 2026-08-10 браузер отправляет plain JSON только на same-origin `POST /api`.
+> A1 API добавляет HMAC server-side и пересылает запрос в n8n. Переменной
+> `VITE_A1_WEBHOOK_SECRET` и browser-side fallback-декодирования больше нет.
+> Tenant определяется только по валидному token в n8n; transport-secret не
+> содержит и не подставляет tenant-контекст. Защищённый вызов без готовой сессии
+> не выполняется клиентом, а backend возвращает контролируемый
+> `auth_context_missing`.
 
-Источник правды в коде: `src/api/n8n.ts`, `src/hooks/useN8n.ts`, `src/utils/webhookSignature.ts`.
+Ниже сохранено описание action payload; раздел старого browser-side HMAC является историческим.
+
+Один **POST** на `/api`. Маршрутизация: поле **`action`** в JSON (кроме запросов COO без `action` — см. ниже).
+
+Источник правды в клиенте: `src/api/n8n.ts` и `src/hooks/useN8n.ts`.
 
 ---
 
@@ -13,7 +23,7 @@
 | Метод | `POST` |
 | `Content-Type` | `application/json` |
 
-Тело: либо **plain JSON** (объект с полями ниже), либо при включённой подписи — обёртка `{ "body_b64": "<base64>" }` (см. раздел HMAC).
+Браузер отправляет **plain JSON**. Обёртку `body_b64` и HMAC-заголовки формирует server-side proxy.
 
 ---
 
@@ -33,20 +43,13 @@
 
 ---
 
-## Режим HMAC (`VITE_A1_WEBHOOK_SECRET`)
+## Server-side HMAC
 
-Если секрет непустой:
-
-**Запрос**
-
-- Тело: `{ "body_b64": "<base64 от canonical JSON исходного объекта>" }`.
-- Заголовки: `X-Timestamp`, `X-Nonce`, `X-Signature` (детали — `src/utils/webhookSignature.ts`).
-
-**Ответ**
-
-- Клиент может получить либо тот же JSON «как есть», либо `{ "body_b64": "..." }` + при возможности проверка по заголовкам; при неудаче верификации выполняется fallback: декод `body_b64` без проверки подписи.
-
-**Поведение при 5xx на подписанном запросе:** один повтор того же логического тела **без** подписи (plain JSON), если повтор вернул успех.
+- `A1_UI_WEBHOOK_SECRET` и upstream URL хранятся в age+sops и доступны только A1 API/n8n.
+- A1 API подписывает `timestamp.nonce.body_b64` и проверяет подписанный ответ.
+- Неподписанный прямой запрос в n8n получает контролируемый `webhook_auth_required`.
+- Ошибка подписи получает контролируемый `webhook_auth_failed`; fallback без подписи запрещён.
+- Transport-secret не выбирает company и не участвует в tenant authorization.
 
 Подробнее: `docs/DOCKER_HMAC_DEBUG.md`.
 
@@ -55,7 +58,7 @@
 ## Формат ответа (общие замечания)
 
 - n8n часто отдаёт **массив** из одного элемента вместо объекта — отдельные эндпоинты это учитывают (`login`, `getCOOIncomingMessages` и т.д.).
-- Ответ может быть обёрнут в `body_b64` при включённом HMAC на сервере.
+- A1 API проверяет и снимает server-side `body_b64` до возврата ответа браузеру.
 - Клиент при ошибке HTTP выбрасывает исключение с кодом статуса и обрезком тела ответа (~300 символов).
 
 ---

@@ -1,94 +1,32 @@
-# Диагностика HMAC на сервере (Docker)
+# Диагностика server-side HMAC
 
-Если на сервере вебхук уходит без подписи, проверьте по шагам.
+Браузер больше не получает и не вычисляет HMAC-secret. Клиент отправляет обычный JSON на same-origin `POST /api`. Маршрут обслуживает A1 API, который подписывает запрос и пересылает его в n8n.
 
-## 1. Env дошли до контейнера
+## Проверка клиента
 
-После `docker compose up -d` откройте в браузере (или `curl`):
-
-```
-https://ваш-домен/config-status.json
-```
-
-Ожидаемый ответ при правильной настройке:
+Откройте в браузере `https://a1.a1os.ru/config-status.json`. Ожидаемый ответ:
 
 ```json
-{"secret_set":true,"secret_length":12,"url_set":true}
+{"signing":"server-side","url_set":false}
 ```
 
-- `secret_set: false` или `secret_length: 0` — в контейнер не передаётся `VITE_A1_WEBHOOK_SECRET`. Проверьте:
-  - Файл `.env` лежит **рядом с docker-compose.yml** в каталоге, откуда запускаете `docker compose`.
-  - В `.env` есть строка `VITE_A1_WEBHOOK_SECRET=ваш_секрет` (без кавычек, без пробелов вокруг `=`).
-  - Перезапуск: `docker compose up -d --force-recreate`.
-- `url_set: false` — не передаётся `VITE_N8N_WEBHOOK_URL` (аналогично проверьте `.env`).
-
-## 2. Браузер подхватил config.js
-
-На сайте откройте консоль (F12 → Console) и введите:
+В консоли браузера `__A1_DEBUG` должен показывать:
 
 ```js
-__A1_DEBUG
+{ signing: "server-side", webhookUrl: "/api" }
 ```
 
-Должно быть примерно:
+В `config.js`, `config.json`, собранных JS-файлах и environment контейнера `a1-client` не должно быть `VITE_A1_WEBHOOK_SECRET`.
 
-```js
-{ signing: true, configSource: "runtime (config.js)", webhookUrl: "https://..." }
-```
+## Проверка API
 
-- `signing: false` — приложение не видит секрет. Часто это кэш: сделайте жёсткое обновление (Ctrl+Shift+R) или откройте сайт в режиме инкогнито.
-- `configSource: "none"` — не загрузились ни `config.js`, ни `config.json` (404 или ошибка). Откройте вкладку Network: запрос к `/config.json` должен быть 200 и вернуть JSON с полями в base64. Проверьте, что при старте контейнера entrypoint создаёт `config.json` (см. п. 1).
-- `configSource: "runtime (secret empty)"` — config загрузился, но секрет пустой: в контейнер не попал `VITE_A1_WEBHOOK_SECRET` (вернитесь к п. 1).
+Переменные `A1_UI_WEBHOOK_SECRET` и `A1_UI_WEBHOOK_URL` хранятся только в server-side age+sops и передаются контейнеру `a1-api` через `sops exec-env`. Их значения нельзя выводить в логи или диагностические ответы.
 
-Приложение сначала подгружает **/config.json** по fetch (с `cache: 'no-store'`), затем при необходимости использует config.js. Так обходится кэш браузера и порядок загрузки скриптов.
+Traefik направляет `Host(a1.a1os.ru) && Path(/api)` в `a1-api`. Остальные пути обслуживает статический контейнер клиента.
 
-## 3. Проверка .env на сервере
+Контрольные сценарии:
 
-Убедитесь, что переменные подхватываются при запуске:
-
-```bash
-cd /путь/к/проекту
-docker compose config
-```
-
-В выводе у сервиса `a1-client` в секции `environment` должны быть непустые `VITE_A1_WEBHOOK_SECRET` и `VITE_N8N_WEBHOOK_URL` (значения подставятся из `.env`).
-
-## 4. Частые причины
-
-| Симптом | Что проверить |
-|--------|----------------|
-| config-status.json: secret_set false | .env не в той папке; имя переменной не `VITE_A1_WEBHOOK_SECRET`; после правки .env не сделан `docker compose up -d --force-recreate` |
-| __A1_DEBUG.signing false при secret_set true | Кэш браузера — Ctrl+Shift+R или инкогнито; или config.js отдаёт 404 (проверить вкладку Network) |
-| Локально работает, на сервере нет | На сервере в .env другие значения или .env не используется при `docker compose up` |
-
----
-
-## 5. Клиент и n8n на одном сервере (разные контейнеры)
-
-Запросы к webhook идут **из браузера пользователя**, а не из контейнера a1-client. Поэтому «один сервер, два контейнера» **не отключает** HMAC и не требует других настроек подписи — нужны только правильный URL и секрет в `.env`.
-
-### Что важно
-
-- В `VITE_N8N_WEBHOOK_URL` должен быть адрес, **доступный из браузера** (то, куда браузер реально шлёт запрос).
-- **Нельзя** указывать внутренний адрес Docker, например `http://n8n:5678/webhook/...` — хост `n8n` не резолвится в браузере.
-- Нужен либо **публичный URL** (отдельный домен/поддомен для n8n), либо **тот же домен** и проксирование пути (например `/api` → контейнер n8n).
-
-### Вариант: один домен, путь /api уходит в n8n
-
-Если клиент открывается как `https://app.example.com`, а n8n должен принимать запросы по тому же домену:
-
-1. В **.env** укажите полный URL (чтобы браузер ходил на тот же хост):
-   ```env
-   VITE_N8N_WEBHOOK_URL=https://app.example.com/api
-   ```
-   Либо оставьте пустым — тогда приложение будет слать запросы на относительный путь `/api` (тот же хост, что и страница).
-
-2. В **Traefik** маршрут `/api` должен вести в контейнер **n8n**, а не в a1-client. Пример для n8n (в его `docker-compose` или labels):
-   ```yaml
-   # Роутер для n8n по пути /api (тот же Host, что и клиент)
-   - "traefik.http.routers.n8n-webhook.rule=Host(`app.example.com`) && PathPrefix(`/api`)"
-   - "traefik.http.routers.n8n-webhook.service=n8n"
-   ```
-   У контейнера a1-client правило должно быть **без** PathPrefix `/api`, чтобы всё, кроме `/api`, отдавал клиент (статику и SPA).
-
-3. **HMAC** настраивается как обычно: в `.env` тот же `VITE_A1_WEBHOOK_SECRET`, что и в n8n; подпись не зависит от того, что клиент и n8n на одном сервере.
+- `POST /api` без server-side конфигурации возвращает `ui_webhook_not_configured`;
+- поддельная подпись ответа n8n возвращает `webhook_response_auth_failed`;
+- защищённый action без token возвращает контролируемый `auth_context_missing`;
+- tenant определяется только по валидному token, а не по transport-secret или `company_id` из payload.

@@ -267,6 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const next = { ...current, token, company_id: company.company_id, companies }
       saveStored(next)
       setSession(company.company_id, token, current.email)
+      window.dispatchEvent(new CustomEvent('a1:company-selected', { detail: { company_id: company.company_id } }))
       return next
     })
   }, [])

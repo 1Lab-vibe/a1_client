@@ -8,12 +8,6 @@ RUN npm ci
 
 COPY . .
 
-# Переменные Vite встраиваются в бандл при сборке — передать через --build-arg или docker-compose args
-ARG VITE_N8N_WEBHOOK_URL=
-ARG VITE_A1_WEBHOOK_SECRET=
-ENV VITE_N8N_WEBHOOK_URL=$VITE_N8N_WEBHOOK_URL
-ENV VITE_A1_WEBHOOK_SECRET=$VITE_A1_WEBHOOK_SECRET
-
 RUN npm run build
 
 # Метка сборки для проверки деплоя (см. /build-info.json)
@@ -29,7 +23,7 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=builder /app/public/config.template.js /etc/nginx/config.template.js
 
-# При старте контейнера генерируем config.js из env (VITE_A1_WEBHOOK_SECRET, VITE_N8N_WEBHOOK_URL)
+# При старте контейнера генерируем config.js только с URL server proxy.
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
