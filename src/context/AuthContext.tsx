@@ -161,6 +161,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    const onAuthInvalid = () => {
+      clearStored()
+      clearSession()
+      setStored(null)
+      setPendingAuth(null)
+      setError('Сессия истекла. Войдите снова.')
+    }
+    window.addEventListener('a1:auth-invalid', onAuthInvalid)
+    return () => window.removeEventListener('a1:auth-invalid', onAuthInvalid)
+  }, [])
+
+  useEffect(() => {
     if (!stored?.email || !stored.token || !stored.company_id) return
     void refreshCompanies().catch(() => {
       // Keep the existing session; company list will refresh on the next successful login.

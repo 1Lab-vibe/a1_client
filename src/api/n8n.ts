@@ -109,6 +109,18 @@ async function request<T = unknown>(body: object): Promise<T> {
     return {} as T
   }
 
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const envelope = data as { ok?: unknown; error?: { code?: unknown; message?: unknown } }
+    if (envelope.ok === false && envelope.error && typeof envelope.error === 'object') {
+      const code = typeof envelope.error.code === 'string' ? envelope.error.code : 'request_failed'
+      const message = typeof envelope.error.message === 'string' ? envelope.error.message : code
+      if (code === 'auth_context_missing' || code === 'tenant_mismatch') {
+        window.dispatchEvent(new CustomEvent('a1:auth-invalid', { detail: { code } }))
+      }
+      throw new Error(message)
+    }
+  }
+
   return data as T
 }
 
