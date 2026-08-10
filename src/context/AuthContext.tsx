@@ -228,7 +228,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
     setPendingAuth(null)
     const { login: apiLogin, reportFailedLogin } = await import('../api/n8n')
-    const res = await apiLogin(email, password)
+    let res: Awaited<ReturnType<typeof apiLogin>>
+    try {
+      res = await apiLogin(email, password)
+    } catch (requestError) {
+      const message = requestError instanceof Error && requestError.message
+        ? requestError.message
+        : 'Не удалось выполнить вход. Попробуйте ещё раз.'
+      setError(message)
+      throw requestError
+    }
     if (!res.access) {
       let blocked = res.blocked ?? false
       let until = res.blockedUntil
