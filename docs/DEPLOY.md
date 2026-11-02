@@ -1,5 +1,20 @@
 # Деплой на сервер (Docker)
 
+## Текущий клиент (2 ноября 2026)
+
+Репозиторий на сервере: `/opt/a1-client`, ветка `master`, сервис `a1-client`, адрес `https://a1.a1os.ru`.
+После переноса HMAC в серверный proxy клиенту не нужны секреты сборки и runtime. Не расшифровывать секреты в plaintext `.env` на сервере; существующий `secrets/a1-client-prod.enc.env` остаётся зашифрованным age/SOPS.
+
+Для этого сервиса достаточно несекретного имени домена. Запускать из `/opt/a1-client`:
+
+```bash
+git pull --ff-only origin master
+TRAEFIK_HOST=a1.a1os.ru docker compose --env-file /dev/null build --no-cache a1-client
+TRAEFIK_HOST=a1.a1os.ru docker compose --env-file /dev/null up -d --no-deps --force-recreate a1-client
+```
+
+Перед заменой сохранить тег текущего образа для отката. После запуска проверить `/health`, `/build-info.json`, `/config-status.json` и загрузку нового JS-модуля снабжения. В `/config-status.json` ожидается `signing: "server-side"`, а не публичный секрет. Снабжение пока работает в явно обозначенной демонстрации; флаг `VITE_PROCUREMENT_GATEWAY_READY` не включать до готовности его серверного контракта.
+
 Чтобы на сервере подхватывались **последние изменения** (меню, шифрование, дашборд и т.д.), сборка и запуск должны идти из актуального кода.
 
 ## Важно: где собирается образ
@@ -46,7 +61,7 @@ docker compose up -d --force-recreate
 
 - **Конфиг (секрет и webhook):**  
   `https://ваш-домен/config-status.json`  
-  Для HMAC должно быть `"secret_set": true`.
+  После переноса подписи на сервер ожидается `"signing": "server-side"`; секрет в публичном конфиге отсутствует.
 
 После деплоя сделайте **жёсткое обновление** страницы, чтобы не использовать кэш браузера:
 

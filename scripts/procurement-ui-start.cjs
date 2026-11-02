@@ -1,0 +1,13 @@
+async (page) => {
+  await page.getByRole('textbox', { name: 'Артикул, название или характеристики' }).fill('000125')
+  await page.getByRole('button', { name: 'Найти', exact: true }).click()
+  await page.getByRole('button', { name: 'Карточка', exact: true }).waitFor()
+  if (await page.locator('main tbody tr').count() !== 1) throw new Error('Exact article search failed')
+  await page.getByRole('button', { name: 'Карточка', exact: true }).click()
+  await page.getByRole('dialog').getByText('000125', { exact: true }).waitFor()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Новая заявка', exact: true }).click()
+  await page.getByRole('button', { name: 'Вставить тестовый пример', exact: true }).click()
+  await page.getByRole('button', { name: 'Распознать список', exact: true }).click()
+  await page.getByText('Проверьте распознанные строки · 4', { exact: true }).waitFor({ timeout: 15000 })
+}

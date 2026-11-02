@@ -8,3 +8,7 @@ secrets/*.env
 *.log
 .DS_Store
 *.tsbuildinfo
+.playwright-cli/
+output/playwright/
+tmp/procurement.test.mjs
+tmp/procurement-examples.mjs

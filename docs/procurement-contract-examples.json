@@ -1,0 +1,1331 @@
+{
+  "note": "Только демонстрационные значения. blob URL в mock заменяется серверной защищённой http(s) ссылкой в live. Idempotency-Key равен request_id для request.parse, analysis.start и analysis.export.",
+  "contract_version": "procurement.v1",
+  "examples": [
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "63d6cb18-268e-4202-b9eb-74f60db2ce7f",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "catalog.facets",
+        "payload": {
+          "query": "",
+          "filters": {
+            "category_ids": [],
+            "brands": [],
+            "source_ids": [],
+            "price": {
+              "min": null,
+              "max": null,
+              "currency": "RUB"
+            },
+            "stock_known": null,
+            "attributes": []
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "63d6cb18-268e-4202-b9eb-74f60db2ce7f",
+          "ok": true,
+          "data": {
+            "kind": "catalog.facets",
+            "categories": [
+              {
+                "path": [
+                  {
+                    "id": "tools",
+                    "label": "Инструмент"
+                  },
+                  {
+                    "id": "grinder",
+                    "label": "УШМ"
+                  }
+                ]
+              },
+              {
+                "path": [
+                  {
+                    "id": "tools",
+                    "label": "Инструмент"
+                  },
+                  {
+                    "id": "wrench",
+                    "label": "Гайковёрты"
+                  }
+                ]
+              }
+            ],
+            "brands": [
+              "ДемоИнструмент"
+            ],
+            "sources": [
+              {
+                "id": "demo-a",
+                "label": "Тестовый прайс А"
+              },
+              {
+                "id": "demo-b",
+                "label": "Тестовый прайс Б"
+              }
+            ],
+            "attributes": [
+              {
+                "key": "disc_diameter_mm",
+                "label": "Диаметр диска",
+                "type": "number",
+                "unit": "мм",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "voltage_v",
+                "label": "Напряжение",
+                "type": "number",
+                "unit": "В",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "power_w",
+                "label": "Мощность",
+                "type": "number",
+                "unit": "Вт",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "battery_count",
+                "label": "Число АКБ",
+                "type": "number",
+                "unit": null,
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "battery_capacity_ah",
+                "label": "Ёмкость АКБ",
+                "type": "number",
+                "unit": "А·ч",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "charger",
+                "label": "Зарядное устройство",
+                "type": "boolean",
+                "unit": null,
+                "operators": [
+                  "eq"
+                ]
+              },
+              {
+                "key": "tightening_torque_nm",
+                "label": "Момент затяжки",
+                "type": "number",
+                "unit": "Н·м",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              },
+              {
+                "key": "breakaway_torque_nm",
+                "label": "Момент срыва",
+                "type": "number",
+                "unit": "Н·м",
+                "operators": [
+                  "eq",
+                  "gte",
+                  "lte"
+                ]
+              }
+            ],
+            "capabilities": {
+              "catalog_search": true,
+              "request_parse": true,
+              "analysis": true,
+              "market_reference": false,
+              "export": true,
+              "upload": {
+                "enabled": true,
+                "extensions": [
+                  ".xlsx",
+                  ".xls",
+                  ".csv"
+                ],
+                "max_size_bytes": 5242880,
+                "max_files": 1
+              },
+              "unavailable_reasons": {
+                "market_reference": "Поиск интернет-цены пока не подключён"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "b7b36c52-9fe7-4c77-a9c6-1b2b8dd3ad89",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "catalog.search",
+        "payload": {
+          "query": "000125",
+          "filters": {
+            "category_ids": [],
+            "brands": [],
+            "source_ids": [],
+            "price": {
+              "min": null,
+              "max": null,
+              "currency": "RUB"
+            },
+            "stock_known": null,
+            "attributes": []
+          },
+          "sort": {
+            "field": "comparable_unit_price",
+            "direction": "asc"
+          },
+          "page": {
+            "limit": 25,
+            "cursor": null
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "b7b36c52-9fe7-4c77-a9c6-1b2b8dd3ad89",
+          "ok": true,
+          "data": {
+            "kind": "catalog.search",
+            "items": [
+              {
+                "product_id": "p2",
+                "name": "УШМ 125 мм, без АКБ — тест",
+                "article": "000125",
+                "brand": "ДемоИнструмент",
+                "category_paths": [
+                  [
+                    {
+                      "id": "tools",
+                      "label": "Инструмент"
+                    },
+                    {
+                      "id": "grinder",
+                      "label": "УШМ"
+                    }
+                  ]
+                ],
+                "attributes": [
+                  {
+                    "key": "disc_diameter_mm",
+                    "label": "Диаметр диска",
+                    "unit": "мм",
+                    "value": 125,
+                    "status": "known"
+                  },
+                  {
+                    "key": "voltage_v",
+                    "label": "Напряжение",
+                    "unit": "В",
+                    "value": 21,
+                    "status": "known"
+                  },
+                  {
+                    "key": "power_w",
+                    "label": "Мощность",
+                    "unit": "Вт",
+                    "value": null,
+                    "status": "unknown"
+                  },
+                  {
+                    "key": "battery_count",
+                    "label": "Число АКБ",
+                    "unit": null,
+                    "value": 0,
+                    "status": "known"
+                  },
+                  {
+                    "key": "battery_capacity_ah",
+                    "label": "Ёмкость АКБ",
+                    "unit": "А·ч",
+                    "value": 4,
+                    "status": "known"
+                  },
+                  {
+                    "key": "charger",
+                    "label": "Зарядное устройство",
+                    "unit": null,
+                    "value": true,
+                    "status": "known"
+                  }
+                ],
+                "offer": {
+                  "offer_id": "offer_p2",
+                  "source_id": "demo-a",
+                  "source_name": "Тестовый прайс А",
+                  "article": "000125",
+                  "price": {
+                    "amount": "4200.00",
+                    "currency": "RUB"
+                  },
+                  "price_role": "Розничная",
+                  "unit": "шт",
+                  "pack_quantity": "1",
+                  "vat_basis": "НДС включён",
+                  "comparable_unit_price": {
+                    "amount": "4200.00",
+                    "currency": "RUB"
+                  },
+                  "comparison_status": "comparable",
+                  "stock": {
+                    "quantity": null,
+                    "unit": "шт",
+                    "as_of": "2026-10-01T09:00:00+03:00"
+                  },
+                  "source_ref": {
+                    "file_name": "Демонстрация.xlsx",
+                    "sheet": "Тестовые товары",
+                    "row": 3,
+                    "observed_at": "2026-10-01T09:00:00+03:00"
+                  },
+                  "issues": []
+                },
+                "issues": []
+              }
+            ],
+            "page": {
+              "limit": 25,
+              "next_cursor": null,
+              "total": 1
+            },
+            "interpreted_query": {
+              "summary": "Тестовый поиск: 000125"
+            },
+            "warnings": []
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "d1004aee-e98c-4d3a-be58-c36097b03882",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "catalog.get",
+        "payload": {
+          "product_id": "p2"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "d1004aee-e98c-4d3a-be58-c36097b03882",
+          "ok": true,
+          "data": {
+            "kind": "catalog.get",
+            "product": {
+              "product_id": "p2",
+              "name": "УШМ 125 мм, без АКБ — тест",
+              "article": "000125",
+              "brand": "ДемоИнструмент",
+              "category_paths": [
+                [
+                  {
+                    "id": "tools",
+                    "label": "Инструмент"
+                  },
+                  {
+                    "id": "grinder",
+                    "label": "УШМ"
+                  }
+                ]
+              ],
+              "attributes": [
+                {
+                  "key": "disc_diameter_mm",
+                  "label": "Диаметр диска",
+                  "unit": "мм",
+                  "value": 125,
+                  "status": "known"
+                },
+                {
+                  "key": "voltage_v",
+                  "label": "Напряжение",
+                  "unit": "В",
+                  "value": 21,
+                  "status": "known"
+                },
+                {
+                  "key": "power_w",
+                  "label": "Мощность",
+                  "unit": "Вт",
+                  "value": null,
+                  "status": "unknown"
+                },
+                {
+                  "key": "battery_count",
+                  "label": "Число АКБ",
+                  "unit": null,
+                  "value": 0,
+                  "status": "known"
+                },
+                {
+                  "key": "battery_capacity_ah",
+                  "label": "Ёмкость АКБ",
+                  "unit": "А·ч",
+                  "value": 4,
+                  "status": "known"
+                },
+                {
+                  "key": "charger",
+                  "label": "Зарядное устройство",
+                  "unit": null,
+                  "value": true,
+                  "status": "known"
+                }
+              ],
+              "offer": {
+                "offer_id": "offer_p2",
+                "source_id": "demo-a",
+                "source_name": "Тестовый прайс А",
+                "article": "000125",
+                "price": {
+                  "amount": "4200.00",
+                  "currency": "RUB"
+                },
+                "price_role": "Розничная",
+                "unit": "шт",
+                "pack_quantity": "1",
+                "vat_basis": "НДС включён",
+                "comparable_unit_price": {
+                  "amount": "4200.00",
+                  "currency": "RUB"
+                },
+                "comparison_status": "comparable",
+                "stock": {
+                  "quantity": null,
+                  "unit": "шт",
+                  "as_of": "2026-10-01T09:00:00+03:00"
+                },
+                "source_ref": {
+                  "file_name": "Демонстрация.xlsx",
+                  "sheet": "Тестовые товары",
+                  "row": 3,
+                  "observed_at": "2026-10-01T09:00:00+03:00"
+                },
+                "issues": []
+              },
+              "issues": []
+            },
+            "offers": [
+              {
+                "offer_id": "offer_p2",
+                "source_id": "demo-a",
+                "source_name": "Тестовый прайс А",
+                "article": "000125",
+                "price": {
+                  "amount": "4200.00",
+                  "currency": "RUB"
+                },
+                "price_role": "Розничная",
+                "unit": "шт",
+                "pack_quantity": "1",
+                "vat_basis": "НДС включён",
+                "comparable_unit_price": {
+                  "amount": "4200.00",
+                  "currency": "RUB"
+                },
+                "comparison_status": "comparable",
+                "stock": {
+                  "quantity": null,
+                  "unit": "шт",
+                  "as_of": "2026-10-01T09:00:00+03:00"
+                },
+                "source_ref": {
+                  "file_name": "Демонстрация.xlsx",
+                  "sheet": "Тестовые товары",
+                  "row": 3,
+                  "observed_at": "2026-10-01T09:00:00+03:00"
+                },
+                "issues": []
+              }
+            ],
+            "attributes": [
+              {
+                "key": "disc_diameter_mm",
+                "label": "Диаметр диска",
+                "unit": "мм",
+                "value": 125,
+                "status": "known"
+              },
+              {
+                "key": "voltage_v",
+                "label": "Напряжение",
+                "unit": "В",
+                "value": 21,
+                "status": "known"
+              },
+              {
+                "key": "power_w",
+                "label": "Мощность",
+                "unit": "Вт",
+                "value": null,
+                "status": "unknown"
+              },
+              {
+                "key": "battery_count",
+                "label": "Число АКБ",
+                "unit": null,
+                "value": 0,
+                "status": "known"
+              },
+              {
+                "key": "battery_capacity_ah",
+                "label": "Ёмкость АКБ",
+                "unit": "А·ч",
+                "value": 4,
+                "status": "known"
+              },
+              {
+                "key": "charger",
+                "label": "Зарядное устройство",
+                "unit": null,
+                "value": true,
+                "status": "known"
+              }
+            ],
+            "source_refs": [
+              {
+                "file_name": "Демонстрация.xlsx",
+                "sheet": "Тестовые товары",
+                "row": 3,
+                "observed_at": "2026-10-01T09:00:00+03:00"
+              }
+            ],
+            "issues": []
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "3e4bd868-0f11-4ece-9eaa-37df76c2b3f0",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "request.parse",
+        "payload": {
+          "text": "AC-AG1252;2;шт\nDEMO-ANALOG;1;шт\nDEMO-CONFLICT;1;шт\nНЕИЗВЕСТНЫЙ;3;шт",
+          "title": "Демонстрационный подбор"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "3e4bd868-0f11-4ece-9eaa-37df76c2b3f0",
+          "ok": true,
+          "data": {
+            "kind": "job.accepted",
+            "job_id": "job_demo_34d3c656-69b1-4a9e-a0b0-fe694b0ec2cc",
+            "job_type": "parse",
+            "status": "queued",
+            "poll_after_ms": 2000
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "095d6f4b-98fa-4bce-8a70-afde97c4ff47",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "job.get",
+        "payload": {
+          "job_id": "job_demo_34d3c656-69b1-4a9e-a0b0-fe694b0ec2cc"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "095d6f4b-98fa-4bce-8a70-afde97c4ff47",
+          "ok": true,
+          "data": {
+            "kind": "job.status",
+            "job_id": "job_demo_34d3c656-69b1-4a9e-a0b0-fe694b0ec2cc",
+            "job_type": "parse",
+            "status": "completed",
+            "stage": "parsing",
+            "progress": {
+              "processed_lines": 0,
+              "total_lines": null
+            },
+            "partial_result_available": false,
+            "poll_after_ms": 2000,
+            "error": null,
+            "parsed_request": {
+              "draft_id": "draft_job_demo_34d3c656-69b1-4a9e-a0b0-fe694b0ec2cc",
+              "revision": 1,
+              "title": "Демонстрационный подбор",
+              "lines": [
+                {
+                  "line_id": "edfc8437-3172-42e9-bf7e-1241a954d1a6",
+                  "position": 1,
+                  "original_text": "AC-AG1252",
+                  "article": "AC-AG1252",
+                  "brand": null,
+                  "quantity": "2",
+                  "unit": "шт",
+                  "required_attributes": [],
+                  "source_ref": null,
+                  "comment": "",
+                  "parse_issues": []
+                },
+                {
+                  "line_id": "e8944bac-ab91-4a00-8d05-dc14ecd19d06",
+                  "position": 2,
+                  "original_text": "DEMO-ANALOG",
+                  "article": null,
+                  "brand": null,
+                  "quantity": "1",
+                  "unit": "шт",
+                  "required_attributes": [],
+                  "source_ref": null,
+                  "comment": "",
+                  "parse_issues": []
+                },
+                {
+                  "line_id": "21bd80fc-0018-4af2-bec8-98409b83271e",
+                  "position": 3,
+                  "original_text": "DEMO-CONFLICT",
+                  "article": "DEMO-CONFLICT",
+                  "brand": null,
+                  "quantity": "1",
+                  "unit": "шт",
+                  "required_attributes": [],
+                  "source_ref": null,
+                  "comment": "",
+                  "parse_issues": []
+                },
+                {
+                  "line_id": "c121e4b5-e0b5-40a1-9cfb-9ba23599d633",
+                  "position": 4,
+                  "original_text": "НЕИЗВЕСТНЫЙ",
+                  "article": null,
+                  "brand": null,
+                  "quantity": "3",
+                  "unit": "шт",
+                  "required_attributes": [],
+                  "source_ref": null,
+                  "comment": "",
+                  "parse_issues": []
+                }
+              ],
+              "warnings": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "d8c29b92-016b-4c2b-b853-3ae0f9db6194",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "analysis.start",
+        "payload": {
+          "draft_id": "draft_job_demo_34d3c656-69b1-4a9e-a0b0-fe694b0ec2cc",
+          "revision": 1,
+          "title": "Демонстрационный подбор",
+          "lines": [
+            {
+              "line_id": "edfc8437-3172-42e9-bf7e-1241a954d1a6",
+              "position": 1,
+              "original_text": "AC-AG1252",
+              "article": "AC-AG1252",
+              "brand": null,
+              "quantity": "2",
+              "unit": "шт",
+              "required_attributes": [],
+              "source_ref": null,
+              "comment": "",
+              "parse_issues": []
+            },
+            {
+              "line_id": "e8944bac-ab91-4a00-8d05-dc14ecd19d06",
+              "position": 2,
+              "original_text": "DEMO-ANALOG",
+              "article": null,
+              "brand": null,
+              "quantity": "1",
+              "unit": "шт",
+              "required_attributes": [],
+              "source_ref": null,
+              "comment": "",
+              "parse_issues": []
+            },
+            {
+              "line_id": "21bd80fc-0018-4af2-bec8-98409b83271e",
+              "position": 3,
+              "original_text": "DEMO-CONFLICT",
+              "article": "DEMO-CONFLICT",
+              "brand": null,
+              "quantity": "1",
+              "unit": "шт",
+              "required_attributes": [],
+              "source_ref": null,
+              "comment": "",
+              "parse_issues": []
+            },
+            {
+              "line_id": "c121e4b5-e0b5-40a1-9cfb-9ba23599d633",
+              "position": 4,
+              "original_text": "НЕИЗВЕСТНЫЙ",
+              "article": null,
+              "brand": null,
+              "quantity": "3",
+              "unit": "шт",
+              "required_attributes": [],
+              "source_ref": null,
+              "comment": "",
+              "parse_issues": []
+            }
+          ],
+          "warnings": [],
+          "options": {
+            "allow_analogs_when_no_exact": true,
+            "market_reference_enabled": true,
+            "max_absolute_price_deviation_percent": null,
+            "sort": "comparable_unit_price_asc"
+          }
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "d8c29b92-016b-4c2b-b853-3ae0f9db6194",
+          "ok": true,
+          "data": {
+            "kind": "job.accepted",
+            "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "job_type": "analysis",
+            "status": "queued",
+            "poll_after_ms": 2000
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "9eb050d4-ded4-4221-9c8a-a54cc15d2b3b",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "job.get",
+        "payload": {
+          "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "9eb050d4-ded4-4221-9c8a-a54cc15d2b3b",
+          "ok": true,
+          "data": {
+            "kind": "job.status",
+            "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "job_type": "analysis",
+            "status": "running",
+            "stage": "exact_search",
+            "progress": {
+              "processed_lines": 0,
+              "total_lines": 4
+            },
+            "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "partial_result_available": true,
+            "poll_after_ms": 2000,
+            "error": null
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "89018d43-45dc-4896-ab3a-1639e75d2ad4",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "job.get",
+        "payload": {
+          "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "89018d43-45dc-4896-ab3a-1639e75d2ad4",
+          "ok": true,
+          "data": {
+            "kind": "job.status",
+            "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "job_type": "analysis",
+            "status": "completed",
+            "stage": "exact_search",
+            "progress": {
+              "processed_lines": 4,
+              "total_lines": 4
+            },
+            "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "partial_result_available": false,
+            "poll_after_ms": 2000,
+            "error": null
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "28520966-9ea4-4a42-bc02-7815d877a63b",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "analysis.result",
+        "payload": {
+          "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+          "page": {
+            "limit": 25,
+            "cursor": null
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "28520966-9ea4-4a42-bc02-7815d877a63b",
+          "ok": true,
+          "data": {
+            "kind": "analysis.result",
+            "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+            "summary": {
+              "total_lines": 4,
+              "exact_found": 1,
+              "analog_found": 1,
+              "needs_review": 1,
+              "not_found": 1,
+              "priced_lines": 2,
+              "unpriced_lines": 2,
+              "priced_total": {
+                "amount": "19800.00",
+                "currency": "RUB"
+              }
+            },
+            "rows": [
+              {
+                "line_id": "edfc8437-3172-42e9-bf7e-1241a954d1a6",
+                "position": 1,
+                "original_text": "AC-AG1252",
+                "quantity": "2",
+                "unit": "шт",
+                "status": "exact_found",
+                "selected": {
+                  "product_id": "p1",
+                  "name": "УШМ 125 мм, 21 В, 2 АКБ — тест",
+                  "article": "AC-AG1252",
+                  "offer": {
+                    "offer_id": "offer_p1",
+                    "source_id": "demo-a",
+                    "source_name": "Тестовый прайс А",
+                    "article": "AC-AG1252",
+                    "price": {
+                      "amount": "7800.00",
+                      "currency": "RUB"
+                    },
+                    "price_role": "Розничная",
+                    "unit": "шт",
+                    "pack_quantity": "1",
+                    "vat_basis": "НДС включён",
+                    "comparable_unit_price": {
+                      "amount": "7800.00",
+                      "currency": "RUB"
+                    },
+                    "comparison_status": "comparable",
+                    "stock": {
+                      "quantity": "0",
+                      "unit": "шт",
+                      "as_of": "2026-10-01T09:00:00+03:00"
+                    },
+                    "source_ref": {
+                      "file_name": "Демонстрация.xlsx",
+                      "sheet": "Тестовые товары",
+                      "row": 2,
+                      "observed_at": "2026-10-01T09:00:00+03:00"
+                    },
+                    "issues": []
+                  },
+                  "match_type": "exact",
+                  "compatibility": "confirmed",
+                  "explanation": "Совпадение тестового артикула и подтверждённых требований.",
+                  "differences": [],
+                  "line_total": {
+                    "amount": "15600.00",
+                    "currency": "RUB"
+                  },
+                  "price_deviation_percent": null
+                },
+                "alternatives": [
+                  {
+                    "product_id": "p1",
+                    "name": "УШМ 125 мм, 21 В, 2 АКБ — тест",
+                    "article": "AC-AG1252",
+                    "offer": {
+                      "offer_id": "offer_p1_b",
+                      "source_id": "demo-b",
+                      "source_name": "Тестовый прайс Б",
+                      "article": "AC-AG1252",
+                      "price": {
+                        "amount": "8200.00",
+                        "currency": "RUB"
+                      },
+                      "price_role": "Розничная",
+                      "unit": "шт",
+                      "pack_quantity": "1",
+                      "vat_basis": "НДС включён",
+                      "comparable_unit_price": {
+                        "amount": "8200.00",
+                        "currency": "RUB"
+                      },
+                      "comparison_status": "comparable",
+                      "stock": {
+                        "quantity": "0",
+                        "unit": "шт",
+                        "as_of": "2026-10-01T09:00:00+03:00"
+                      },
+                      "source_ref": {
+                        "file_name": "Демонстрация.xlsx",
+                        "sheet": "Тестовые товары",
+                        "row": 2,
+                        "observed_at": "2026-10-01T09:00:00+03:00"
+                      },
+                      "issues": []
+                    },
+                    "match_type": "exact",
+                    "compatibility": "confirmed",
+                    "explanation": "Совпадение тестового артикула и подтверждённых требований.",
+                    "differences": [],
+                    "line_total": {
+                      "amount": "16400.00",
+                      "currency": "RUB"
+                    },
+                    "price_deviation_percent": null
+                  }
+                ],
+                "market_reference": {
+                  "status": "unavailable",
+                  "original_product_name": "AC-AG1252",
+                  "mean_price": null,
+                  "unit": "шт",
+                  "independent_source_count": 0,
+                  "checked_at": null,
+                  "sources": []
+                },
+                "issues": [],
+                "explanation": "Совпадение тестового артикула и подтверждённых требований."
+              },
+              {
+                "line_id": "e8944bac-ab91-4a00-8d05-dc14ecd19d06",
+                "position": 2,
+                "original_text": "DEMO-ANALOG",
+                "quantity": "1",
+                "unit": "шт",
+                "status": "analog_found",
+                "selected": {
+                  "product_id": "p2",
+                  "name": "УШМ 125 мм, без АКБ — тест",
+                  "article": "000125",
+                  "offer": {
+                    "offer_id": "offer_p2",
+                    "source_id": "demo-a",
+                    "source_name": "Тестовый прайс А",
+                    "article": "000125",
+                    "price": {
+                      "amount": "4200.00",
+                      "currency": "RUB"
+                    },
+                    "price_role": "Розничная",
+                    "unit": "шт",
+                    "pack_quantity": "1",
+                    "vat_basis": "НДС включён",
+                    "comparable_unit_price": {
+                      "amount": "4200.00",
+                      "currency": "RUB"
+                    },
+                    "comparison_status": "comparable",
+                    "stock": {
+                      "quantity": null,
+                      "unit": "шт",
+                      "as_of": "2026-10-01T09:00:00+03:00"
+                    },
+                    "source_ref": {
+                      "file_name": "Демонстрация.xlsx",
+                      "sheet": "Тестовые товары",
+                      "row": 3,
+                      "observed_at": "2026-10-01T09:00:00+03:00"
+                    },
+                    "issues": []
+                  },
+                  "match_type": "analog",
+                  "compatibility": "confirmed",
+                  "explanation": "Тестовый аналог: поставка без АКБ, отличие явно согласовано в демонстрационном сценарии.",
+                  "differences": [
+                    {
+                      "attribute": "Число АКБ",
+                      "requested": "2",
+                      "offered": "0",
+                      "acceptable": true
+                    }
+                  ],
+                  "line_total": {
+                    "amount": "4200.00",
+                    "currency": "RUB"
+                  },
+                  "price_deviation_percent": null
+                },
+                "alternatives": [],
+                "market_reference": {
+                  "status": "insufficient_sources",
+                  "original_product_name": "DEMO-ANALOG",
+                  "mean_price": null,
+                  "unit": "шт",
+                  "independent_source_count": 1,
+                  "checked_at": "2026-10-01T09:00:00+03:00",
+                  "sources": [
+                    {
+                      "seller": "Тестовый источник (пример)",
+                      "url": "https://example.com/",
+                      "price": {
+                        "amount": "8000.00",
+                        "currency": "RUB"
+                      },
+                      "observed_at": "2026-10-01T09:00:00+03:00",
+                      "included": false,
+                      "exclusion_reason": "Одного тестового источника недостаточно для среднего"
+                    }
+                  ]
+                },
+                "issues": [],
+                "explanation": "Тестовый аналог: поставка без АКБ, отличие явно согласовано в демонстрационном сценарии."
+              },
+              {
+                "line_id": "21bd80fc-0018-4af2-bec8-98409b83271e",
+                "position": 3,
+                "original_text": "DEMO-CONFLICT",
+                "quantity": "1",
+                "unit": "шт",
+                "status": "needs_review",
+                "selected": {
+                  "product_id": "p5",
+                  "name": "УШМ: конфликт диаметра — тест",
+                  "article": "DEMO-CONFLICT",
+                  "offer": {
+                    "offer_id": "offer_p5",
+                    "source_id": "demo-a",
+                    "source_name": "Тестовый прайс А",
+                    "article": "DEMO-CONFLICT",
+                    "price": {
+                      "amount": "7100.00",
+                      "currency": "RUB"
+                    },
+                    "price_role": "Розничная",
+                    "unit": "шт",
+                    "pack_quantity": "1",
+                    "vat_basis": "НДС включён",
+                    "comparable_unit_price": {
+                      "amount": "7100.00",
+                      "currency": "RUB"
+                    },
+                    "comparison_status": "comparable",
+                    "stock": {
+                      "quantity": null,
+                      "unit": "шт",
+                      "as_of": "2026-10-01T09:00:00+03:00"
+                    },
+                    "source_ref": {
+                      "file_name": "Демонстрация.xlsx",
+                      "sheet": "Тестовые товары",
+                      "row": 6,
+                      "observed_at": "2026-10-01T09:00:00+03:00"
+                    },
+                    "issues": []
+                  },
+                  "match_type": "exact",
+                  "compatibility": "needs_review",
+                  "explanation": "Проверьте характеристики, бренд, комплектацию и единицу.",
+                  "differences": [],
+                  "line_total": null,
+                  "price_deviation_percent": null
+                },
+                "alternatives": [],
+                "market_reference": {
+                  "status": "unavailable",
+                  "original_product_name": "DEMO-CONFLICT",
+                  "mean_price": null,
+                  "unit": "шт",
+                  "independent_source_count": 0,
+                  "checked_at": null,
+                  "sources": []
+                },
+                "issues": [
+                  {
+                    "code": "CONFLICT",
+                    "message": "Диаметр в названии и параметрах различается: 125 / 150 мм",
+                    "severity": "warning"
+                  }
+                ],
+                "explanation": "Проверьте характеристики, бренд, комплектацию и единицу."
+              },
+              {
+                "line_id": "c121e4b5-e0b5-40a1-9cfb-9ba23599d633",
+                "position": 4,
+                "original_text": "НЕИЗВЕСТНЫЙ",
+                "quantity": "3",
+                "unit": "шт",
+                "status": "not_found",
+                "selected": null,
+                "alternatives": [],
+                "market_reference": {
+                  "status": "unavailable",
+                  "original_product_name": "НЕИЗВЕСТНЫЙ",
+                  "mean_price": null,
+                  "unit": "шт",
+                  "independent_source_count": 0,
+                  "checked_at": null,
+                  "sources": []
+                },
+                "issues": [],
+                "explanation": "В демонстрационном наборе товар не найден. Строка сохранена."
+              }
+            ],
+            "page": {
+              "limit": 25,
+              "next_cursor": null,
+              "total": 4
+            },
+            "complete": true,
+            "result_revision": 2
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "f1039022-8854-40ce-8683-035ffb3f72c4",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "analysis.history",
+        "payload": {
+          "page": {
+            "limit": 25,
+            "cursor": null
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "f1039022-8854-40ce-8683-035ffb3f72c4",
+          "ok": true,
+          "data": {
+            "kind": "analysis.history",
+            "items": [
+              {
+                "job_id": "job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+                "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+                "title": "Демонстрационный подбор",
+                "created_at": "2026-11-02T11:49:09.949Z",
+                "status": "completed",
+                "summary": {
+                  "total_lines": 4,
+                  "exact_found": 1,
+                  "analog_found": 1,
+                  "needs_review": 1,
+                  "not_found": 1,
+                  "priced_lines": 2,
+                  "unpriced_lines": 2,
+                  "priced_total": {
+                    "amount": "19800.00",
+                    "currency": "RUB"
+                  }
+                }
+              }
+            ],
+            "page": {
+              "limit": 25,
+              "next_cursor": null,
+              "total": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "87527748-a89c-42fb-8445-38beb60150a9",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "analysis.export",
+        "payload": {
+          "analysis_id": "analysis_job_demo_b2883b7f-2182-4cc9-9b3a-79d0268703c4",
+          "result_revision": 2,
+          "format": "xlsx"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "87527748-a89c-42fb-8445-38beb60150a9",
+          "ok": true,
+          "data": {
+            "kind": "job.accepted",
+            "job_id": "job_demo_0dd2a2fa-7639-4a30-bea3-d835edec9c53",
+            "job_type": "export",
+            "status": "queued",
+            "poll_after_ms": 2000
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "15dbd4cd-605a-4be6-ac1c-c03e62088ed4",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "job.get",
+        "payload": {
+          "job_id": "job_demo_0dd2a2fa-7639-4a30-bea3-d835edec9c53"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "15dbd4cd-605a-4be6-ac1c-c03e62088ed4",
+          "ok": true,
+          "data": {
+            "kind": "job.status",
+            "job_id": "job_demo_0dd2a2fa-7639-4a30-bea3-d835edec9c53",
+            "job_type": "export",
+            "status": "completed",
+            "stage": "export",
+            "progress": {
+              "processed_lines": 0,
+              "total_lines": null
+            },
+            "partial_result_available": false,
+            "poll_after_ms": 2000,
+            "error": null,
+            "download": {
+              "url": "blob:nodedata:f6416e81-890d-4c94-aa28-a3f836d23fdd",
+              "expires_at": "2026-11-02T11:54:19.971Z",
+              "filename": "Демонстрация.xlsx",
+              "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+          }
+        }
+      }
+    },
+    {
+      "request": {
+        "contract_version": "procurement.v1",
+        "request_id": "36f6f838-b6a4-43e9-8fa6-484b420c8896",
+        "company_id": "e94295f8-cf1d-4826-83bc-4fda82443891",
+        "action": "catalog.search",
+        "payload": {
+          "query": "DEMO-401",
+          "filters": {
+            "category_ids": [],
+            "brands": [],
+            "source_ids": [],
+            "price": {
+              "min": null,
+              "max": null,
+              "currency": "RUB"
+            },
+            "stock_known": null,
+            "attributes": []
+          },
+          "sort": {
+            "field": "comparable_unit_price",
+            "direction": "asc"
+          },
+          "page": {
+            "limit": 25,
+            "cursor": null
+          }
+        }
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "contract_version": "procurement.v1",
+          "request_id": "36f6f838-b6a4-43e9-8fa6-484b420c8896",
+          "ok": false,
+          "error": {
+            "code": "UNAUTHORIZED",
+            "message": "Сессия истекла. Войдите снова.",
+            "retryable": false
+          }
+        }
+      }
+    },
+    {
+      "upload": {
+        "method": "POST",
+        "path": "/api/a1/procurement/files",
+        "multipart": [
+          "file",
+          "company_id"
+        ],
+        "response": {
+          "status": 201,
+          "body": {
+            "ok": true,
+            "data": {
+              "file_id": "file_demo_001",
+              "name": "Демо.xlsx",
+              "size_bytes": 1024,
+              "status": "uploaded"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

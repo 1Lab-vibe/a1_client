@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useAuth } from './context/AuthContext'
 import { LoginScreen } from './components/LoginScreen'
 import { Desktop } from './components/Desktop'
@@ -19,6 +19,12 @@ import { FinanceView } from './components/FinanceView'
 import { SalesView } from './components/SalesView'
 import { MISView } from './components/MISView'
 import type { ViewId } from './types'
+
+const ProcurementView = lazy(() =>
+  import('./procurement/ProcurementView').then((module) => ({
+    default: module.ProcurementView,
+  })),
+)
 
 const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
   'settings/configuration': 'company',
@@ -42,7 +48,9 @@ const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
 
 function App() {
   const { isLoggedIn, company_id } = useAuth()
-  const [viewId, setViewId] = useState<ViewId>('coo')
+  const [viewId, setViewId] = useState<ViewId>(() =>
+    window.location.hash.startsWith('#/ops/supply') ? 'ops/supply' : 'coo',
+  )
 
   if (!isLoggedIn) {
     return <LoginScreen />
@@ -75,13 +83,22 @@ function App() {
       content = <Reports />
       break
     case 'ops/tasks':
-      content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
+      content = (
+        <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
+      )
       break
     case 'mis':
       content = <MISView />
       break
     case 'ops/finances':
       content = <FinanceView />
+      break
+    case 'ops/supply':
+      content = (
+        <Suspense fallback={<p role="status">Загружаем снабжение…</p>}>
+          <ProcurementView />
+        </Suspense>
+      )
       break
     case 'chat':
       content = <Chat />
@@ -96,7 +113,9 @@ function App() {
       if (viewId.startsWith('settings/')) {
         content = <Settings initialSection={SETTINGS_VIEW_SECTIONS[viewId]} />
       } else if (viewId.startsWith('ops/')) {
-        content = <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
+        content = (
+          <OpsDepartmentView viewId={viewId} title={getViewTitle(viewId)} />
+        )
       } else {
         content = <DomainView viewId={viewId} title={getViewTitle(viewId)} />
       }
@@ -104,12 +123,29 @@ function App() {
 
   return (
     <div className="app">
-      <Desktop currentViewId={viewId} onSelectView={setViewId} />
+      <Desktop
+        currentViewId={viewId}
+        onSelectView={(id) => {
+          setViewId(id)
+          if (
+            id === 'ops/supply' &&
+            !window.location.hash.startsWith('#/ops/supply')
+          )
+            window.history.replaceState(null, '', '#/ops/supply')
+          else if (
+            id !== 'ops/supply' &&
+            window.location.hash.startsWith('#/ops/supply')
+          )
+            window.history.replaceState(
+              null,
+              '',
+              window.location.pathname + window.location.search,
+            )
+        }}
+      />
       <section className="shell-main" key={company_id ?? 'no-company'}>
         <AppHeader viewId={viewId} />
-        <main className="main-window">
-          {content}
-        </main>
+        <main className="main-window">{content}</main>
       </section>
     </div>
   )
