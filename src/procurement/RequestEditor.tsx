@@ -41,6 +41,7 @@ export function RequestEditor({
 }) {
   const [text, setText] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [clearedLines, setClearedLines] = useState<Line[] | null>(null)
   const errors = validateLines(draft.lines) ?? []
   const updateLine = (id: string, patch: Partial<Line>) =>
     change({
@@ -76,7 +77,10 @@ export function RequestEditor({
         <div className={s.inputGrid}>
           <article className={s.panel}>
             <h3>Вставить список</h3>
-            <p>Одна позиция на строку: описание — количество и единица.</p>
+            <p>
+              Одна позиция на строку: описание, количество и единица.
+              Можно вставить столбцы прямо из Excel.
+            </p>
             <label className={s.srOnly} htmlFor="request-text">
               Список товаров
             </label>
@@ -154,6 +158,26 @@ export function RequestEditor({
             Вставьте список, загрузите файл или добавьте товары из каталога.
           </div>
         )}
+        {draft.lines.length > 0 ? (
+          <button
+            onClick={() => {
+              setClearedLines(draft.lines)
+              setSubmitted(false)
+              change({ ...draft, lines: [] })
+            }}
+          >
+            Очистить список
+          </button>
+        ) : clearedLines ? (
+          <button
+            onClick={() => {
+              change({ ...draft, lines: clearedLines })
+              setClearedLines(null)
+            }}
+          >
+            Отменить очистку
+          </button>
+        ) : null}
         <div className={s.tableWrap}>
           {draft.lines.length > 0 && (
             <table>

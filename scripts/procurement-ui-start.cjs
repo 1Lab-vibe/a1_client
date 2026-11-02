@@ -10,4 +10,10 @@ async (page) => {
   await page.getByRole('textbox', { name: 'Список товаров', exact: true }).fill(await page.evaluate(async () => (await import('/src/procurement/fixtures.ts')).demoText))
   await page.getByRole('button', { name: 'Распознать список', exact: true }).click()
   await page.getByText('Проверьте распознанные строки · 4', { exact: true }).waitFor({ timeout: 15000 })
+  const text = await page.getByRole('textbox', { name: 'Список товаров', exact: true }).inputValue()
+  await page.getByRole('button', { name: 'Очистить список', exact: true }).click()
+  await page.getByText('Проверьте распознанные строки · 0', { exact: true }).waitFor()
+  if (await page.getByRole('textbox', { name: 'Список товаров', exact: true }).inputValue() !== text) throw new Error('Clearing rows must preserve pasted text')
+  await page.getByRole('button', { name: 'Отменить очистку', exact: true }).click()
+  await page.getByText('Проверьте распознанные строки · 4', { exact: true }).waitFor()
 }
