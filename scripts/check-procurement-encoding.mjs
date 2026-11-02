@@ -2,6 +2,12 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 const paths = [
   'src/App.tsx',
+  'src/config/sections.ts',
+  'src/components/Desktop.tsx',
+  'src/components/AppHeader.tsx',
+  'nginx.conf',
+  'Dockerfile',
+  'docs/DEPLOY.md',
   ...readdirSync('src/procurement').map((f) => join('src/procurement', f)),
   ...readdirSync('docs')
     .filter((f) => f.startsWith('procurement-'))

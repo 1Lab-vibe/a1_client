@@ -2,6 +2,7 @@ import { useCallback, useState, type ComponentType, type SVGProps } from 'react'
 import {
   BarChart3,
   Bot,
+  Boxes,
   BriefcaseBusiness,
   ChevronDown,
   ChevronRight,
@@ -28,6 +29,7 @@ const ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   chart: BarChart3,
   sales: TrendingUp,
   reports: ClipboardList,
+  supply: Boxes,
   ops: BriefcaseBusiness,
   chat: MessageCircle,
   settings: Settings,

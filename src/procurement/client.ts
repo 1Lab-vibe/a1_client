@@ -89,22 +89,13 @@ export class LiveProcurementClient implements ProcurementClient {
   readonly mode = 'live' as const
   private retryUntil = 0
   private rateError: ProcurementError | null = null
-  constructor(
-    private company: string,
-    private connected = false,
-  ) {}
+  constructor(private company: string) {}
   private async send(
     path: string,
     body: BodyInit,
     requestId?: string,
     signal?: AbortSignal,
   ) {
-    if (!this.connected)
-      throw failure(
-        'BACKEND_NOT_CONNECTED',
-        'Режим пока не подключён к А1',
-        503,
-      )
     if (Date.now() < this.retryUntil && this.rateError)
       throw new ProcurementError(
         this.rateError.info,
@@ -121,7 +112,7 @@ export class LiveProcurementClient implements ProcurementClient {
     if (signal?.aborted) abort()
     const timer = setTimeout(abort, 30000)
     try {
-      const response = await fetch(`/api/a1/procurement/${path}`, {
+      const response = await fetch(`/api/procurement/${path}`, {
         method: 'POST',
         credentials: 'same-origin',
         signal: timeout.signal,
@@ -191,7 +182,12 @@ export class LiveProcurementClient implements ProcurementClient {
     checkCommand(cmd, this.company)
     const { raw, response, retryMs } = await this.send(
       'command',
-      JSON.stringify(cmd),
+      JSON.stringify(cmd, (key, value) => {
+        if (key === 'stock_known' && value === null) return undefined
+        if (key === 'max_absolute_price_deviation_percent' && value !== null)
+          return Number(value)
+        return value
+      }),
       /^(request.parse|analysis.start|analysis.export)$/.test(cmd.action)
         ? cmd.request_id
         : undefined,

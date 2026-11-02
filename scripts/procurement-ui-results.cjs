@@ -33,11 +33,15 @@ async (page) => {
       exact: true,
     })
     await link.waitFor({ timeout: 15000 })
-    const download = page.waitForEvent('download')
-    await link.click()
-    await (
-      await download
-    ).saveAs(`output/playwright/procurement-demo.${format.toLowerCase()}`)
+    const url = await link.getAttribute('href')
+    if (!url.startsWith('http://127.0.0.1:5173/api/procurement/download/')) throw new Error('Expected server download link')
+    const exported = await page.evaluate(async (url) => {
+      const response = await fetch(url)
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      return { status: response.status, size: bytes.length, signature: [...bytes.slice(0, 2)] }
+    }, url)
+    if (exported.status !== 200 || exported.size < 100) throw new Error('Empty export')
+    if (format === 'XLSX' && exported.signature.join(',') !== '80,75') throw new Error('Invalid XLSX container')
   }
   await page.getByRole('button', { name: 'История', exact: true }).click()
   await page.getByRole('button', { name: 'Открыть', exact: true }).waitFor()
@@ -76,12 +80,7 @@ async (page) => {
   )
   if (overflow) throw new Error('Mobile page has horizontal overflow')
   await page.setViewportSize({ width: 1440, height: 1000 })
-  await page
-    .getByRole('combobox', { name: 'Режим', exact: true })
-    .selectOption('live')
-  await page.getByRole('alert').waitFor()
-  if (await page.locator('main tbody tr').count())
-    throw new Error('Live mode must not fall back to mock')
+  if (await page.getByRole('combobox', { name: 'Режим', exact: true }).count()) throw new Error('Demo selector still visible')
   console.log(
     'PASS: 4 statuses, totals, filter, reload, CSV/XLSX export, double submit, company isolation, 401/503, mobile, live unavailable',
   )

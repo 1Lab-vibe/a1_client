@@ -13,7 +13,7 @@ const source = z.object({
   file_name: z.string(),
   sheet: z.string(),
   row: z.number().int(),
-  observed_at: z.string().nullable(),
+  observed_at: z.string().nullable().default(null),
 })
 const scalar = z.union([z.string(), z.number(), z.boolean()])
 const attribute = z.object({
@@ -25,6 +25,35 @@ const attribute = z.object({
   source_values: z.array(scalar).optional(),
 })
 const category = z.object({ id: z.string(), label: z.string() })
+const parsedIssue = z.union([
+  issue,
+  z
+    .string()
+    .transform((message) => ({
+      code: 'PARSE_WARNING',
+      message,
+      severity: 'warning' as const,
+    })),
+])
+const facetCategories = z.union([
+  z.array(z.object({ path: z.array(category) })),
+  z
+    .array(category.extend({ parent_id: z.string().nullable() }))
+    .transform((categories) =>
+      categories.map((entry) => {
+        const path: z.infer<typeof category>[] = []
+        const seen = new Set<string>()
+        let current: typeof entry | undefined = entry
+        while (current && !seen.has(current.id)) {
+          seen.add(current.id)
+          path.unshift({ id: current.id, label: current.label })
+          const parent: string | null = current.parent_id
+          current = categories.find((item) => item.id === parent)
+        }
+        return { path }
+      }),
+    ),
+])
 const offer = z.object({
   offer_id: z.string(),
   source_id: z.string(),
@@ -132,7 +161,7 @@ export const lineSchema = z.object({
   required_attributes: z.array(attributeFilter),
   source_ref: source.nullable(),
   comment: z.string(),
-  parse_issues: z.array(issue).optional(),
+  parse_issues: z.array(parsedIssue).optional(),
 })
 const page = z.object({
   limit: z.number().int().min(1).max(100),
@@ -187,13 +216,13 @@ const parsed = z.object({
   revision: z.number(),
   title: z.string(),
   lines: z.array(lineSchema),
-  warnings: z.array(issue),
+  warnings: z.array(parsedIssue),
 })
 const accepted = z.object({
   kind: z.literal('job.accepted'),
   job_id: z.string(),
   job_type: jobType,
-  status: z.literal('queued'),
+  status: jobStatus,
   poll_after_ms: z.number(),
 })
 export const payloadSchemas = {
@@ -246,9 +275,16 @@ export const payloadSchemas = {
 export const resultSchemas = {
   'catalog.facets': z.object({
     kind: z.literal('catalog.facets'),
-    categories: z.array(z.object({ path: z.array(category) })),
+    categories: facetCategories,
     brands: z.array(z.string()),
-    sources: z.array(category),
+    sources: z.array(
+      z.union([
+        category,
+        z
+          .object({ id: z.string(), name: z.string() })
+          .transform(({ id, name }) => ({ id, label: name })),
+      ]),
+    ),
     attributes: z.array(
       z.object({
         key: z.string(),
@@ -271,7 +307,12 @@ export const resultSchemas = {
         max_size_bytes: z.number(),
         max_files: z.number(),
       }),
-      unavailable_reasons: z.record(z.string(), z.string()),
+      unavailable_reasons: z.union([
+        z.record(z.string(), z.string()),
+        z
+          .array(z.string())
+          .transform((reasons) => ({ market_reference: reasons.join('. ') })),
+      ]),
     }),
   }),
   'catalog.search': z.object({
@@ -281,14 +322,21 @@ export const resultSchemas = {
     interpreted_query: z.object({ summary: z.string() }),
     warnings: z.array(issue),
   }),
-  'catalog.get': z.object({
-    kind: z.literal('catalog.get'),
-    product,
-    offers: z.array(offer),
-    attributes: z.array(attribute),
-    source_refs: z.array(source),
-    issues: z.array(issue),
-  }),
+  'catalog.get': z.preprocess(
+    (raw) => {
+      if (raw && typeof raw === 'object' && !('product' in raw))
+        return { ...raw, product: raw }
+      return raw
+    },
+    z.object({
+      kind: z.literal('catalog.get'),
+      product,
+      offers: z.array(offer),
+      attributes: z.array(attribute),
+      source_refs: z.array(source),
+      issues: z.array(issue),
+    }),
+  ),
   'request.parse': accepted,
   'analysis.start': accepted,
   'job.get': z.object({
@@ -307,10 +355,13 @@ export const resultSchemas = {
         'export',
       ])
       .nullable(),
-    progress: z.object({
-      processed_lines: z.number(),
-      total_lines: z.number().nullable(),
-    }),
+    progress: z
+      .object({
+        processed_lines: z.number(),
+        total_lines: z.number().nullable(),
+      })
+      .nullable()
+      .transform((value) => value ?? { processed_lines: 0, total_lines: null }),
     analysis_id: z.string().optional(),
     partial_result_available: z.boolean(),
     poll_after_ms: z.number(),

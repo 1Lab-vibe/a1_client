@@ -1,7 +1,4 @@
 async (page) => {
-  await page
-    .getByRole('combobox', { name: 'Режим', exact: true })
-    .selectOption('mock')
   await page.getByRole('button', { name: /^Новая заявка/ }).click()
   while (await page.getByRole('button', { name: /^Удалить строку/ }).count())
     await page

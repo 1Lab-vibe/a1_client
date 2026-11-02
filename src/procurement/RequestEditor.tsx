@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Plus, Upload } from 'lucide-react'
 import { validateLines, type Line, type Payload, type Result } from './contract'
-import { demoText } from './fixtures'
 import { Issues } from './ui'
 import s from './Procurement.module.css'
 
@@ -31,7 +30,6 @@ export function RequestEditor({
   parse,
   upload,
   analyze,
-  demo,
 }: {
   draft: Draft
   change: (draft: Draft) => void
@@ -40,7 +38,6 @@ export function RequestEditor({
   parse: (text: string) => void
   upload: (file: File) => void
   analyze: () => void
-  demo: boolean
 }) {
   const [text, setText] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -79,16 +76,14 @@ export function RequestEditor({
         <div className={s.inputGrid}>
           <article className={s.panel}>
             <h3>Вставить список</h3>
-            <p>
-              Одна позиция на строку. Для демо: описание;количество;единица.
-            </p>
+            <p>Одна позиция на строку: описание — количество и единица.</p>
             <label className={s.srOnly} htmlFor="request-text">
               Список товаров
             </label>
             <textarea
               id="request-text"
               rows={5}
-              placeholder="УШМ 125 мм;2;шт"
+              placeholder="УШМ 125 мм — 2 шт"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
@@ -99,22 +94,13 @@ export function RequestEditor({
               >
                 Распознать список
               </button>
-              {demo && (
-                <button onClick={() => setText(demoText)}>
-                  Вставить тестовый пример
-                </button>
-              )}
             </div>
           </article>
           <article className={s.panel}>
             <h3>
               <Upload size={18} aria-hidden /> Загрузить Excel / CSV
             </h3>
-            <p>
-              {demo
-                ? 'Имитация загрузки: содержимое файла не читается; появятся четыре тестовые строки.'
-                : 'Файл будет обработан сервером после подключения.'}
-            </p>
+            <p>Загрузите файл со списком товаров, количеством и единицами.</p>
             <label>
               Файл заявки
               <input

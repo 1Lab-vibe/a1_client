@@ -49,7 +49,9 @@ const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
 function App() {
   const { isLoggedIn, company_id } = useAuth()
   const [viewId, setViewId] = useState<ViewId>(() =>
-    window.location.hash.startsWith('#/ops/supply') ? 'ops/supply' : 'coo',
+    /^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
+      ? 'supply'
+      : 'coo',
   )
 
   if (!isLoggedIn) {
@@ -93,6 +95,7 @@ function App() {
     case 'ops/finances':
       content = <FinanceView />
       break
+    case 'supply':
     case 'ops/supply':
       content = (
         <Suspense fallback={<p role="status">Загружаем снабжение…</p>}>
@@ -128,13 +131,13 @@ function App() {
         onSelectView={(id) => {
           setViewId(id)
           if (
-            id === 'ops/supply' &&
-            !window.location.hash.startsWith('#/ops/supply')
+            id === 'supply' &&
+            !/^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
           )
-            window.history.replaceState(null, '', '#/ops/supply')
+            window.history.replaceState(null, '', '#/supply')
           else if (
-            id !== 'ops/supply' &&
-            window.location.hash.startsWith('#/ops/supply')
+            id !== 'supply' &&
+            /^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
           )
             window.history.replaceState(
               null,

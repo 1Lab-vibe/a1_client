@@ -13,7 +13,7 @@ TRAEFIK_HOST=a1.a1os.ru docker compose --env-file /dev/null build --no-cache a1-
 TRAEFIK_HOST=a1.a1os.ru docker compose --env-file /dev/null up -d --no-deps --force-recreate a1-client
 ```
 
-Перед заменой сохранить тег текущего образа для отката. После запуска проверить `/health`, `/build-info.json`, `/config-status.json` и загрузку нового JS-модуля снабжения. В `/config-status.json` ожидается `signing: "server-side"`, а не публичный секрет. Снабжение пока работает в явно обозначенной демонстрации; флаг `VITE_PROCUREMENT_GATEWAY_READY` не включать до готовности его серверного контракта.
+Перед заменой сохранить тег текущего образа для отката. После запуска проверить `/health`, `/build-info.json`, `/config-status.json` и загрузку нового JS-модуля снабжения. В `/config-status.json` ожидается `signing: "server-side"`, а не публичный секрет. Снабжение использует только реальный API: nginx проксирует `/api/procurement/` в `a1-api:4000` через общую Docker-сеть. Проверить POST без токена: ожидается JSON 401 от API, а не 404/405 от SPA. Для авторизованной проверки открыть каталог компании и выполнить поиск.
 
 Чтобы на сервере подхватывались **последние изменения** (меню, шифрование, дашборд и т.д.), сборка и запуск должны идти из актуального кода.
 

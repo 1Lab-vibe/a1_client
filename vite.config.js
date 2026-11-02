@@ -5,6 +5,10 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
+            '/api/procurement': {
+                target: 'https://api.a1os.ru',
+                changeOrigin: true,
+            },
             '/api': {
                 target: 'http://localhost:5678',
                 changeOrigin: true,

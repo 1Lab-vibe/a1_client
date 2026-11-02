@@ -17,6 +17,7 @@ export const DEFAULT_SECTIONS: NavSection[] = [
   },
   { id: 'sales', label: 'Продажи', icon: 'sales' },
   { id: 'reports', label: 'Отчеты', icon: 'reports' },
+  { id: 'supply', label: 'Снабжение', icon: 'supply' },
   {
     id: 'ops',
     label: 'OPS',
@@ -28,7 +29,6 @@ export const DEFAULT_SECTIONS: NavSection[] = [
       { id: 'accounting', label: 'Бухгалтерия' },
       { id: 'hr', label: 'HR' },
       { id: 'legal', label: 'Юр. служба' },
-      { id: 'supply', label: 'Снабжение' },
       { id: 'logistics', label: 'Логистика' },
       { id: 'it', label: 'IT' },
     ],
@@ -73,10 +73,21 @@ export function loadSectionsOrder(): NavSection[] {
     const result: NavSection[] = []
     for (const id of order) {
       const section = byId.get(id)
-      if (section) result.push(section)
+      if (section && !result.some((item) => item.id === id))
+        result.push(section)
     }
     for (const section of DEFAULT_SECTIONS) {
-      if (!result.some((item) => item.id === section.id)) result.push(section)
+      if (!result.some((item) => item.id === section.id)) {
+        if (section.id === 'supply') {
+          const reports = result.findIndex((item) => item.id === 'reports')
+          const ops = result.findIndex((item) => item.id === 'ops')
+          result.splice(
+            reports >= 0 ? reports + 1 : Math.max(0, ops),
+            0,
+            section,
+          )
+        } else result.push(section)
+      }
     }
     return result.length ? result : DEFAULT_SECTIONS
   } catch {

@@ -20,6 +20,7 @@ const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
   'ops/hr': { title: 'HR', subtitle: 'Команда, найм и внутренние процессы' },
   'ops/legal': { title: 'Юр. служба', subtitle: 'Договоры, риски и согласования' },
   'ops/supply': { title: 'Снабжение', subtitle: 'Закупки и поставщики' },
+  supply: { title: 'Снабжение', subtitle: 'Закупки и поставщики' },
   'ops/logistics': { title: 'Логистика', subtitle: 'Отгрузки, доставки и статусы' },
   'ops/it': { title: 'IT', subtitle: 'Доступы, инфраструктура и инциденты' },
   chat: { title: 'Чат', subtitle: 'Внутренние каналы и диалоги' },

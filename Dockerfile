@@ -28,18 +28,7 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # SPA: index.html без кэша — браузер всегда тянет свежую версию и новые assets
-RUN echo 'server { \
-  listen 80; \
-  root /usr/share/nginx/html; \
-  index index.html; \
-  location = /index.html { add_header Cache-Control "no-store, no-cache, must-revalidate"; try_files /index.html =404; } \
-  location = /config.js { add_header Cache-Control "no-store, no-cache"; try_files /config.js =404; } \
-  location = /config.json { add_header Cache-Control "no-store, no-cache"; try_files /config.json =404; } \
-  location = /config-status.json { add_header Cache-Control "no-store"; try_files /config-status.json =404; } \
-  location = /build-info.json { add_header Cache-Control "no-store"; try_files /build-info.json =404; } \
-  location / { try_files $uri $uri/ /index.html; } \
-  location /health { return 200 "ok"; add_header Content-Type text/plain; } \
-}' > /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

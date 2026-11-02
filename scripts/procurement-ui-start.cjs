@@ -7,7 +7,7 @@ async (page) => {
   await page.getByRole('dialog').getByText('000125', { exact: true }).waitFor()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Новая заявка', exact: true }).click()
-  await page.getByRole('button', { name: 'Вставить тестовый пример', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Список товаров', exact: true }).fill(await page.evaluate(async () => (await import('/src/procurement/fixtures.ts')).demoText))
   await page.getByRole('button', { name: 'Распознать список', exact: true }).click()
   await page.getByText('Проверьте распознанные строки · 4', { exact: true }).waitFor({ timeout: 15000 })
 }

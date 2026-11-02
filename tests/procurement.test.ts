@@ -252,10 +252,10 @@ test('HTTP 200 ok:false, bad JSON envelope, wrong version/id/kind fail closed', 
   ])
     assert.throws(() => decode(cmd, raw, 200), ProcurementError)
 })
-test('live disconnected never fetches or falls back; cancellation prevents delivery', async () => {
+test('live requires authentication; cancellation prevents delivery', async () => {
   await assert.rejects(
     new LiveProcurementClient(company).command(search()),
-    (e: ProcurementError) => e.info.code === 'BACKEND_NOT_CONNECTED',
+    (e: ProcurementError) => e.info.code === 'UNAUTHORIZED',
   )
   const controller = new AbortController()
   controller.abort()
@@ -269,7 +269,7 @@ test('connected transport sends only same-origin bearer session, preserves retry
   const original = globalThis.fetch
   const cmd = command(company, 'request.parse', { text: 'Test' })
   globalThis.fetch = async (url, init) => {
-    assert.equal(url, '/api/a1/procurement/command')
+    assert.equal(url, '/api/procurement/command')
     assert.equal(
       (init!.headers as Record<string, string>).Authorization,
       'Bearer synthetic-session',
@@ -290,7 +290,7 @@ test('connected transport sends only same-origin bearer session, preserves retry
   }
   try {
     await assert.rejects(
-      new LiveProcurementClient(company, true).command(cmd),
+      new LiveProcurementClient(company).command(cmd),
       (e: ProcurementError) => e.status === 429 && e.retryAfterMs === 12000,
     )
   } finally {
@@ -303,6 +303,117 @@ test('demo 401/403/503 differ from empty results', async () => {
       mock().command(search(`DEMO-${status}`)),
       (e: ProcurementError) => e.status === status,
     )
+})
+
+test('server wire formats normalize without inventing progress or source dates', () => {
+  const data = resultSchemas['catalog.facets'].parse({
+    ...facets,
+    categories: [
+      { id: 'root', label: 'Инструменты', parent_id: null },
+      { id: 'child', label: 'УШМ', parent_id: 'root' },
+    ],
+    sources: [{ id: 'source', name: 'Прайс' }],
+    capabilities: {
+      ...facets.capabilities,
+      unavailable_reasons: ['Поиск не настроен'],
+    },
+  })
+  assert.deepEqual(
+    data.categories[1].path.map((item) => item.id),
+    ['root', 'child'],
+  )
+  assert.equal(data.sources[0].label, 'Прайс')
+  assert.equal(
+    data.capabilities.unavailable_reasons.market_reference,
+    'Поиск не настроен',
+  )
+  const job = resultSchemas['job.get'].parse({
+    kind: 'job.status',
+    job_id: 'job',
+    job_type: 'parse',
+    status: 'completed',
+    stage: null,
+    progress: null,
+    error: null,
+    partial_result_available: false,
+    poll_after_ms: 3000,
+    parsed_request: {
+      draft_id: 'draft',
+      revision: 1,
+      title: 'Заявка',
+      warnings: ['Проверьте строки'],
+      lines: [
+        {
+          line_id: 'line',
+          position: 1,
+          original_text: 'Артикул — 2 шт',
+          article: 'Артикул',
+          brand: null,
+          quantity: '2',
+          unit: 'шт',
+          required_attributes: [],
+          comment: '',
+          parse_issues: ['Проверьте единицу'],
+          source_ref: { file_name: 'Заявка.xlsx', sheet: 'Лист1', row: 2 },
+        },
+      ],
+    },
+  })
+  assert.equal(job.progress.total_lines, null)
+  assert.equal(job.parsed_request?.lines[0].source_ref?.observed_at, null)
+  assert.equal(job.parsed_request?.warnings[0].message, 'Проверьте строки')
+  assert.equal(
+    resultSchemas['request.parse'].parse({
+      kind: 'job.accepted',
+      job_id: 'job',
+      job_type: 'parse',
+      status: 'completed',
+      poll_after_ms: 3000,
+    }).status,
+    'completed',
+  )
+  const product = products[0]
+  assert.equal(
+    resultSchemas['catalog.get'].parse({
+      kind: 'catalog.get',
+      ...product,
+      offers: [product.offer],
+      source_refs: [product.offer.source_ref],
+    }).product.product_id,
+    product.product_id,
+  )
+})
+
+test('live sends optional stock filter and numeric deviation in server format', async () => {
+  setSession(company, 'synthetic-session', 'test-user')
+  const original = globalThis.fetch
+  const bodies: Array<Record<string, any>> = []
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)))
+    return new Response('{}', { status: 503 })
+  }
+  try {
+    const client = new LiveProcurementClient(company)
+    await assert.rejects(client.command(search()))
+    const { lines } = await parsed(mock())
+    await assert.rejects(
+      client.command(
+        command(company, 'analysis.start', {
+          revision: 1,
+          title: 'Проверка',
+          lines,
+          options: { ...options, max_absolute_price_deviation_percent: '12.5' },
+        }),
+      ),
+    )
+    assert.ok(!('stock_known' in bodies[0].payload.filters))
+    assert.equal(
+      bodies[1].payload.options.max_absolute_price_deviation_percent,
+      12.5,
+    )
+  } finally {
+    globalThis.fetch = original
+  }
 })
 test('upload checks format and size; file reference remains company scoped', async () => {
   const client = mock()

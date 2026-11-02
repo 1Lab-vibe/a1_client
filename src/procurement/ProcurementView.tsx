@@ -14,7 +14,6 @@ import {
   type ProcurementClient,
 } from './contract'
 import { LiveProcurementClient, ProcurementError, safeUrl } from './client'
-import { MockProcurementClient } from './mock'
 import { Catalog } from './Catalog'
 import { RequestEditor, emptyDraft, type Draft } from './RequestEditor'
 import { History, Results } from './Results'
@@ -38,9 +37,9 @@ const stages = {
   finalizing: 'Подготовка результата',
   export: 'Подготовка файла',
 }
-function routeJob(company: string, mode: string) {
+function routeJob(company: string) {
   const query = new URLSearchParams(window.location.hash.split('?')[1])
-  return query.get('company') === company && query.get('mode') === mode
+  return query.get('company') === company && query.get('mode') !== 'mock'
     ? query.get('job')
     : null
 }
@@ -87,12 +86,6 @@ function restoreDraft(key: string): Draft {
 }
 export function ProcurementView() {
   const { company_id, selectedCompany, email } = useAuth()
-  const [mode, setMode] = useState<'mock' | 'live'>(() =>
-    new URLSearchParams(window.location.hash.split('?')[1]).get('mode') ===
-    'live'
-      ? 'live'
-      : 'mock',
-  )
   if (!company_id) return <div className={s.wrap}>Выберите компанию</div>
   return (
     <div className={s.wrap}>
@@ -102,63 +95,26 @@ export function ProcurementView() {
           <h1>{selectedCompany?.name ?? 'Выбранная компания'}</h1>
           <p>Каталог, проверка заявки и объяснимый подбор предложений</p>
         </div>
-        <label>
-          Режим
-          <select
-            value={mode}
-            onChange={(e) => {
-              window.history.replaceState(null, '', '#/ops/supply')
-              setMode(e.target.value as typeof mode)
-            }}
-          >
-            <option value="mock">Демонстрация</option>
-            <option value="live">А1 · подключение</option>
-          </select>
-        </label>
-      </div>
-      <div className={s.banner} role="status">
-        {mode === 'mock'
-          ? 'Демонстрационные данные — бэкенд не подключён'
-          : import.meta.env.VITE_PROCUREMENT_GATEWAY_READY === 'true'
-            ? 'А1 · подключение через сервер клиента'
-            : 'Режим пока не подключён к А1'}
       </div>
       <Workspace
-        key={`${company_id}:${email}:${mode}`}
+        key={`${company_id}:${email}`}
         company={company_id}
         owner={email ?? ''}
-        mode={mode}
       />
     </div>
   )
 }
-function Workspace({
-  company,
-  owner,
-  mode,
-}: {
-  company: string
-  owner: string
-  mode: 'mock' | 'live'
-}) {
+function Workspace({ company, owner }: { company: string; owner: string }) {
   const client: ProcurementClient = useMemo(
-    () =>
-      mode === 'mock'
-        ? new MockProcurementClient(company, owner, sessionStorage)
-        : new LiveProcurementClient(
-            company,
-            import.meta.env.VITE_PROCUREMENT_GATEWAY_READY === 'true',
-          ),
-    [company, owner, mode],
+    () => new LiveProcurementClient(company),
+    [company],
   )
-  const storageKey = `a1_procurement_editor_v1:${owner}:${company}:${mode}`
+  const storageKey = `a1_procurement_editor_v1:${owner}:${company}:live`
   const [tab, setTab] = useState<Tab>(() =>
-    routeJob(company, mode) ? 'result' : 'catalog',
+    routeJob(company) ? 'result' : 'catalog',
   )
   const [draft, setDraft] = useState(() => restoreDraft(storageKey))
-  const [jobId, setJobId] = useState<string | null>(() =>
-    routeJob(company, mode),
-  )
+  const [jobId, setJobId] = useState<string | null>(() => routeJob(company))
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -197,7 +153,6 @@ function Workspace({
     lifetime.current = controller
     return () => {
       controller.abort()
-      if (client instanceof MockProcurementClient) client.dispose()
     }
   }, [client])
   useEffect(() => {
@@ -206,8 +161,8 @@ function Workspace({
   const openJob = (id: string) => {
     processed.current = null
     setJobId(id)
-    const params = new URLSearchParams({ company, mode, job: id })
-    window.history.replaceState(null, '', `#/ops/supply?${params}`)
+    const params = new URLSearchParams({ company, job: id })
+    window.history.replaceState(null, '', `#/supply?${params}`)
   }
   useEffect(() => {
     const job = polling.job
@@ -220,7 +175,10 @@ function Workspace({
         ...d,
         draft_id: parsed.draft_id,
         revision: Math.max(d.revision, parsed.revision),
-        lines: [...d.lines, ...parsed.lines],
+        lines: [...d.lines, ...parsed.lines].map((line, i) => ({
+          ...line,
+          position: i + 1,
+        })),
         title: d.title || parsed.title,
       }))
       setParsedWarnings(parsed.warnings)
@@ -228,10 +186,7 @@ function Workspace({
       saveStored(`${storageKey}:parsed-job`, job.job_id)
     }
     if (job.download) {
-      const url =
-        mode === 'mock' && job.download.url.startsWith('blob:')
-          ? job.download.url
-          : safeUrl(job.download.url)
+      const url = safeUrl(job.download.url)
       if (url && Date.parse(job.download.expires_at) > Date.now())
         setDownload({ ...job.download, url })
       else
@@ -241,7 +196,7 @@ function Workspace({
           ),
         )
     }
-  }, [polling.job, mode, storageKey])
+  }, [polling.job, storageKey])
   const active =
     busy ||
     (!!jobId &&
@@ -441,7 +396,6 @@ function Workspace({
                 change={setDraft}
                 facets={facets.data}
                 busy={active}
-                demo={mode === 'mock'}
                 parse={(text) =>
                   void run('request.parse', { text, title: draft.title })
                 }
