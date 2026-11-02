@@ -297,6 +297,51 @@ test('connected transport sends only same-origin bearer session, preserves retry
     globalThis.fetch = original
   }
 })
+test('missing API route differs from a missing procurement job', async () => {
+  setSession(company, 'synthetic-session', 'test-user')
+  const original = globalThis.fetch
+  const cmd = command(company, 'job.get', { job_id: 'missing-job' })
+  try {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          message: 'Route POST:/api/procurement/command not found',
+          statusCode: 404,
+        }),
+        { status: 404 },
+      )
+    await assert.rejects(
+      new LiveProcurementClient(company).command(search()),
+      (error: ProcurementError) =>
+        error.status === 404 &&
+        error.message ===
+          'Сервис снабжения временно недоступен. Попробуйте позже.',
+    )
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          contract_version: VERSION,
+          request_id: cmd.request_id,
+          ok: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'Задание недоступно или не найдено',
+            retryable: false,
+          },
+        }),
+        { status: 404 },
+      )
+    await assert.rejects(
+      new LiveProcurementClient(company).command(cmd),
+      (error: ProcurementError) =>
+        error.info.code === 'NOT_FOUND' &&
+        error.message === 'Задание недоступно или не найдено',
+    )
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test('demo 401/403/503 differ from empty results', async () => {
   for (const status of [401, 403, 503])
     await assert.rejects(

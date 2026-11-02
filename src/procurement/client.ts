@@ -75,7 +75,9 @@ export function checkCommand<A extends Action>(
 const messages: Record<number, string> = {
   401: 'Сессия истекла. Войдите снова.',
   403: 'Нет доступа к компании',
-  404: 'Задание недоступно или не найдено',
+  // A bare HTTP 404 means the API route is missing. Missing jobs have a
+  // procurement.v1 error envelope and keep the server's specific message.
+  404: 'Сервис снабжения временно недоступен. Попробуйте позже.',
   409: 'Конфликт запроса или устаревшая ревизия',
   413: 'Файл слишком большой',
   415: 'Неподдерживаемый формат файла',
