@@ -14,6 +14,6 @@ async (page) => {
   await page.getByRole('button', { name: 'Очистить список', exact: true }).click()
   await page.getByText('Проверьте распознанные строки · 0', { exact: true }).waitFor()
   if (await page.getByRole('textbox', { name: 'Список товаров', exact: true }).inputValue() !== text) throw new Error('Clearing rows must preserve pasted text')
-  await page.getByRole('button', { name: 'Отменить очистку', exact: true }).click()
+  await page.getByRole('button', { name: 'Отменить удаление', exact: true }).click()
   await page.getByText('Проверьте распознанные строки · 4', { exact: true }).waitFor()
 }

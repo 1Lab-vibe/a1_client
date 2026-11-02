@@ -42,6 +42,18 @@ export function RequestEditor({
   const [text, setText] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [clearedLines, setClearedLines] = useState<Line[] | null>(null)
+  const importedFiles = [
+    ...new Set(
+      draft.lines.flatMap((line) =>
+        line.source_ref ? [line.source_ref.file_name] : [],
+      ),
+    ),
+  ]
+  const removeLines = (remove: (line: Line) => boolean) => {
+    setClearedLines(draft.lines.filter(remove))
+    setSubmitted(false)
+    change({ ...draft, lines: draft.lines.filter((line) => !remove(line)) })
+  }
   const errors = validateLines(draft.lines) ?? []
   const updateLine = (id: string, patch: Partial<Line>) =>
     change({
@@ -67,6 +79,34 @@ export function RequestEditor({
         <span className={s.badge}>Ревизия {draft.revision}</span>
       </div>
       <fieldset disabled={busy} className={s.fieldset}>
+        <div className={s.toolbar} aria-label="Управление списком заявки">
+          <strong>Позиций в заявке: {draft.lines.length}</strong>
+          <button
+            disabled={!draft.lines.length}
+            onClick={() => removeLines(() => true)}
+          >
+            Очистить список
+          </button>
+          {clearedLines && (
+            <button
+              onClick={() => {
+                const existing = new Set(
+                  draft.lines.map((line) => line.line_id),
+                )
+                const restored = [
+                  ...draft.lines,
+                  ...clearedLines.filter((line) => !existing.has(line.line_id)),
+                ]
+                  .sort((a, b) => a.position - b.position)
+                  .map((line, i) => ({ ...line, position: i + 1 }))
+                change({ ...draft, lines: restored })
+                setClearedLines(null)
+              }}
+            >
+              Отменить удаление
+            </button>
+          )}
+        </div>
         <label>
           Название заявки
           <input
@@ -78,8 +118,8 @@ export function RequestEditor({
           <article className={s.panel}>
             <h3>Вставить список</h3>
             <p>
-              Одна позиция на строку: описание, количество и единица.
-              Можно вставить столбцы прямо из Excel.
+              Одна позиция на строку: описание, количество и единица. Можно
+              вставить столбцы прямо из Excel.
             </p>
             <label className={s.srOnly} htmlFor="request-text">
               Список товаров
@@ -123,6 +163,26 @@ export function RequestEditor({
                 ? `До ${facets.capabilities.upload.max_size_bytes / 1024 / 1024} МБ, файлов за раз: ${facets.capabilities.upload.max_files}`
                 : 'Загрузка недоступна: лимиты сервера ещё не получены'}
             </small>
+            {importedFiles.length > 0 && (
+              <div aria-label="Загруженные файлы заявки">
+                <p>Загруженные позиции:</p>
+                {importedFiles.map((name) => (
+                  <div className={s.toolbar} key={name}>
+                    <span>{name}</span>
+                    <button
+                      onClick={() =>
+                        removeLines(
+                          (line) => line.source_ref?.file_name === name,
+                        )
+                      }
+                      aria-label={`Удалить позиции файла ${name}`}
+                    >
+                      Удалить из заявки
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </article>
         </div>
         <div className={s.sectionHead}>
@@ -158,26 +218,6 @@ export function RequestEditor({
             Вставьте список, загрузите файл или добавьте товары из каталога.
           </div>
         )}
-        {draft.lines.length > 0 ? (
-          <button
-            onClick={() => {
-              setClearedLines(draft.lines)
-              setSubmitted(false)
-              change({ ...draft, lines: [] })
-            }}
-          >
-            Очистить список
-          </button>
-        ) : clearedLines ? (
-          <button
-            onClick={() => {
-              change({ ...draft, lines: clearedLines })
-              setClearedLines(null)
-            }}
-          >
-            Отменить очистку
-          </button>
-        ) : null}
         <div className={s.tableWrap}>
           {draft.lines.length > 0 && (
             <table>
