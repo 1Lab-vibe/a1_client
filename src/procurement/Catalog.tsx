@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Search, Plus, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useRef, useState } from "react";
+import { Search, Plus, SlidersHorizontal } from "lucide-react";
 import {
   emptyFilters,
   type Filters,
@@ -7,7 +7,7 @@ import {
   type ProcurementClient,
   type Product,
   type Result,
-} from './contract'
+} from "./contract";
 import {
   dateText,
   ErrorNotice,
@@ -16,43 +16,66 @@ import {
   Pager,
   useQuery,
   valueText,
-} from './ui'
-import s from './Procurement.module.css'
+} from "./ui";
+import s from "./Procurement.module.css";
+import { safeUrl } from "./client";
 
 export function Catalog({
   client,
   company,
   add,
 }: {
-  client: ProcurementClient
-  company: string
-  add: (line: Line) => void
+  client: ProcurementClient;
+  company: string;
+  add: (line: Line) => void;
 }) {
-  const [input, setInput] = useState('')
-  const [query, setQuery] = useState('')
-  const [filters, setFilters] = useState<Filters>(emptyFilters)
-  const [cursor, setCursor] = useState<string | null>(null)
-  const [productId, setProductId] = useState<string | null>(null)
-  const facetQuery = useQuery(client, company, 'catalog.facets', {
+  const [input, setInput] = useState("");
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [productId, setProductId] = useState<string | null>(null);
+  const filterCount =
+    filters.category_ids.length +
+    filters.brands.length +
+    filters.source_ids.length +
+    filters.attributes.length +
+    Number(filters.stock_known !== null) +
+    Number(filters.price?.min != null) +
+    Number(filters.price?.max != null);
+  const resetFilters = () => {
+    setFilters(emptyFilters());
+    setCursor(null);
+  };
+  const facetQuery = useQuery(client, company, "catalog.facets", {
     query,
     filters,
-  })
+  });
   const search = useQuery(
     client,
     company,
-    'catalog.search',
+    "catalog.search",
     {
       query,
       filters,
-      sort: { field: 'comparable_unit_price', direction: 'asc' },
+      sort: { field: "comparable_unit_price", direction: "asc" },
       page: { limit: 5, cursor },
     },
     !!facetQuery.data?.capabilities.catalog_search,
-  )
+  );
+  useEffect(() => {
+    if (
+      search.data?.reference_status !== "pending" ||
+      search.loading ||
+      search.error
+    )
+      return;
+    const timer = window.setTimeout(search.reload, 2000);
+    return () => window.clearTimeout(timer);
+  }, [search.data, search.loading, search.error, search.reload]);
   const update = (patch: Partial<Filters>) => {
-    setFilters((f) => ({ ...f, ...patch }))
-    setCursor(null)
-  }
+    setFilters((f) => ({ ...f, ...patch }));
+    setCursor(null);
+  };
   const addProduct = (p: Product) =>
     add({
       line_id: crypto.randomUUID(),
@@ -63,29 +86,34 @@ export function Catalog({
       quantity: null,
       unit: p.offer.unit,
       required_attributes: p.attributes
-        .filter((a) => a.status === 'known' && a.value !== null)
-        .map((a) => ({ key: a.key, operator: 'eq', value: a.value! })),
+        .filter((a) => a.status === "known" && a.value !== null)
+        .map((a) => ({ key: a.key, operator: "eq", value: a.value! })),
       source_ref: p.offer.source_ref,
-      comment: '',
-    })
+      comment: "",
+    });
   return (
     <section aria-label="Каталог товаров">
       <div className={s.sectionHead}>
         <div>
           <h2>Каталог предложений</h2>
           <p>
-            Точный артикул или нужные характеристики. Поиск не создаёт заявку.
+            Точный товар, а если его нет — кандидаты в аналоги по категории и
+            характеристикам.
           </p>
         </div>
-        <span className={s.badge}>Цена: по возрастанию</span>
+        <span className={s.badge}>
+          {search.data?.search_mode === "analogs"
+            ? "Категория → характеристики → цена"
+            : "Цена: по возрастанию"}
+        </span>
       </div>
       <form
         className={s.search}
         onSubmit={(e) => {
-          e.preventDefault()
-          setQuery(input.trim())
-          setCursor(null)
-          search.reload()
+          e.preventDefault();
+          setQuery(input.trim());
+          setCursor(null);
+          search.reload();
         }}
       >
         <label className={s.srOnly} htmlFor="catalog-query">
@@ -107,12 +135,18 @@ export function Catalog({
       </form>
       <div className={s.examples}>
         <span>Например:</span>
-        {['AC-AG1252', '000125', 'УШМ 125 мм'].map((example) => (
+        {["AC-AG1252", "000125", "УШМ 125 мм"].map((example) => (
           <button key={example} onClick={() => setInput(example)}>
             {example}
           </button>
         ))}
       </div>
+      {filterCount > 0 && (
+        <div className={s.toolbar} role="status">
+          <span>Активных фильтров: {filterCount}</span>
+          <button onClick={resetFilters}>Сбросить активные фильтры</button>
+        </div>
+      )}
       <details className={s.filters}>
         <summary>
           <SlidersHorizontal size={16} aria-hidden /> Фильтры
@@ -121,7 +155,7 @@ export function Catalog({
           <label>
             Категория
             <select
-              value={filters.category_ids[0] ?? ''}
+              value={filters.category_ids[0] ?? ""}
               onChange={(e) =>
                 update({
                   category_ids: e.target.value ? [e.target.value] : [],
@@ -130,12 +164,21 @@ export function Catalog({
               }
             >
               <option value="">Все категории</option>
+              {filters.category_ids[0] &&
+                !facetQuery.data?.categories.some(
+                  (c) =>
+                    c.path[c.path.length - 1].id === filters.category_ids[0],
+                ) && (
+                  <option value={filters.category_ids[0]}>
+                    Выбранная категория (нет совпадений)
+                  </option>
+                )}
               {facetQuery.data?.categories.map((c) => (
                 <option
                   key={c.path[c.path.length - 1].id}
                   value={c.path[c.path.length - 1].id}
                 >
-                  {c.path.map((p) => p.label).join(' → ')}
+                  {c.path.map((p) => p.label).join(" → ")}
                 </option>
               ))}
             </select>
@@ -143,12 +186,16 @@ export function Catalog({
           <label>
             Бренд
             <select
-              value={filters.brands[0] ?? ''}
+              value={filters.brands[0] ?? ""}
               onChange={(e) =>
                 update({ brands: e.target.value ? [e.target.value] : [] })
               }
             >
               <option value="">Все бренды</option>
+              {filters.brands[0] &&
+                !facetQuery.data?.brands.includes(filters.brands[0]) && (
+                  <option value={filters.brands[0]}>{filters.brands[0]}</option>
+                )}
               {facetQuery.data?.brands.map((b) => (
                 <option key={b}>{b}</option>
               ))}
@@ -157,7 +204,7 @@ export function Catalog({
           <label>
             Источник прайса
             <select
-              value={filters.source_ids[0] ?? ''}
+              value={filters.source_ids[0] ?? ""}
               onChange={(e) =>
                 update({ source_ids: e.target.value ? [e.target.value] : [] })
               }
@@ -174,12 +221,12 @@ export function Catalog({
             Сведения об остатке
             <select
               value={
-                filters.stock_known === null ? '' : String(filters.stock_known)
+                filters.stock_known === null ? "" : String(filters.stock_known)
               }
               onChange={(e) =>
                 update({
                   stock_known:
-                    e.target.value === '' ? null : e.target.value === 'true',
+                    e.target.value === "" ? null : e.target.value === "true",
                 })
               }
             >
@@ -188,14 +235,14 @@ export function Catalog({
               <option value="false">Неизвестен</option>
             </select>
           </label>
-          {(['min', 'max'] as const).map((key) => (
+          {(["min", "max"] as const).map((key) => (
             <label key={key}>
-              {key === 'min' ? 'Цена от, ₽' : 'Цена до, ₽'}
+              {key === "min" ? "Цена от, ₽" : "Цена до, ₽"}
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={filters.price[key] ?? ''}
+                value={filters.price[key] ?? ""}
                 onChange={(e) =>
                   update({
                     price: {
@@ -226,20 +273,13 @@ export function Catalog({
             />
           ))}
         </div>
-        <button
-          onClick={() => {
-            setFilters(emptyFilters())
-            setCursor(null)
-          }}
-        >
-          Сбросить фильтры
-        </button>
+        <button onClick={resetFilters}>Сбросить фильтры</button>
       </details>
       <ErrorNotice
         error={facetQuery.error || search.error}
         retry={() => {
-          facetQuery.reload()
-          search.reload()
+          facetQuery.reload();
+          search.reload();
         }}
       />
       {(facetQuery.loading || search.loading) && (
@@ -251,9 +291,21 @@ export function Catalog({
         <>
           <div className={s.toolbar}>
             <p>{search.data.interpreted_query.summary}</p>
-            <span>{search.data.page.total ?? '—'} предложений</span>
+            <span>{search.data.page.total ?? "—"} предложений</span>
           </div>
           <Issues issues={search.data.warnings} />
+          {search.data.reference?.source_url &&
+            safeUrl(search.data.reference.source_url) && (
+              <p>
+                <a
+                  href={safeUrl(search.data.reference.source_url)!}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Источник описания исходного товара
+                </a>
+              </p>
+            )}
           <div className={s.tableWrap}>
             <table>
               <thead>
@@ -269,13 +321,32 @@ export function Catalog({
                 {search.data.items.map((p) => (
                   <tr key={`${p.product_id}-${p.offer.offer_id}`}>
                     <td>
-                      <strong>{p.name ?? 'В прайсе нет названия'}</strong>
+                      <strong>{p.name ?? "В прайсе нет названия"}</strong>
                       <code>{p.article}</code>
+                      {p.match_type === "analog" && (
+                        <>
+                          <span className={s.badge}>
+                            Кандидат в аналоги · требует проверки
+                          </span>
+                          <p>{p.match_explanation}</p>
+                          {!!p.differences?.length && (
+                            <details>
+                              <summary>Сравнение характеристик</summary>
+                              {p.differences.map((d, i) => (
+                                <p key={`${d.attribute}-${i}`}>
+                                  {d.attribute}: {d.requested ?? "не задано"} →{" "}
+                                  {d.offered ?? "нет данных в прайсе"}
+                                </p>
+                              ))}
+                            </details>
+                          )}
+                        </>
+                      )}
                       <small>
-                        {p.brand ?? 'Бренд неизвестен'} ·{' '}
+                        {p.brand ?? "Бренд неизвестен"} ·{" "}
                         {p.category_paths
-                          .map((path) => path.map((c) => c.label).join(' → '))
-                          .join('; ')}
+                          .map((path) => path.map((c) => c.label).join(" → "))
+                          .join("; ")}
                       </small>
                       <Issues issues={p.issues} />
                     </td>
@@ -289,15 +360,15 @@ export function Catalog({
                     <td>
                       <strong>{moneyText(p.offer.price)}</strong>
                       <small>
-                        {p.offer.price_role} ·{' '}
-                        {p.offer.unit ?? 'Единица неизвестна'} ·{' '}
-                        {p.offer.vat_basis ?? 'НДС неизвестен'}
+                        {p.offer.price_role} ·{" "}
+                        {p.offer.unit ?? "Единица неизвестна"} ·{" "}
+                        {p.offer.vat_basis ?? "НДС неизвестен"}
                       </small>
                       <small>{p.offer.source_name}</small>
                       <small>
                         Прайс: {dateText(p.offer.source_ref.observed_at)}
                       </small>
-                      {p.offer.comparison_status !== 'comparable' && (
+                      {p.offer.comparison_status !== "comparable" && (
                         <p className={s.warning}>
                           После сопоставимых: цена или база сравнения неизвестна
                         </p>
@@ -306,8 +377,8 @@ export function Catalog({
                     </td>
                     <td>
                       {p.offer.stock.quantity === null
-                        ? 'Остаток неизвестен'
-                        : `${p.offer.stock.quantity} ${p.offer.stock.unit ?? ''}`}
+                        ? "Остаток неизвестен"
+                        : `${p.offer.stock.quantity} ${p.offer.stock.unit ?? ""}`}
                       <small>
                         По данным на {dateText(p.offer.stock.as_of)}
                       </small>
@@ -326,11 +397,14 @@ export function Catalog({
                 ))}
               </tbody>
             </table>
-            {!search.data.items.length && (
-              <p className={s.empty}>
-                По этому запросу ничего не найдено. Измените запрос или фильтры.
-              </p>
-            )}
+            {!search.data.items.length &&
+              search.data.reference_status !== "pending" && (
+                <p className={s.empty}>
+                  {search.data.search_mode === "analogs"
+                    ? "В этой категории не найдено кандидатов с указанными параметрами и фильтрами."
+                    : "Совпадений нет. Проверьте пояснение выше, категорию и параметры исходного товара."}
+                </p>
+              )}
           </div>
           <Pager
             next={search.data.page.next_cursor}
@@ -349,41 +423,41 @@ export function Catalog({
         />
       )}
     </section>
-  )
+  );
 }
 function AttributeFilter({
   schema,
   filter,
   change,
 }: {
-  schema: Result<'catalog.facets'>['attributes'][number]
-  filter?: Filters['attributes'][number]
-  change: (filter: Filters['attributes'][number] | null) => void
+  schema: Result<"catalog.facets">["attributes"][number];
+  filter?: Filters["attributes"][number];
+  change: (filter: Filters["attributes"][number] | null) => void;
 }) {
-  const [chosenOperator, setOperator] = useState(schema.operators[0])
-  const operator = filter?.operator ?? chosenOperator
+  const [chosenOperator, setOperator] = useState(schema.operators[0]);
+  const operator = filter?.operator ?? chosenOperator;
   const scalar = (text: string) =>
-    schema.type === 'number'
+    schema.type === "number"
       ? Number(text)
-      : schema.type === 'boolean'
-        ? text === 'true'
-        : text
+      : schema.type === "boolean"
+        ? text === "true"
+        : text;
   const setValue = (text: string, op = operator) =>
     change(
-      text === ''
+      text === ""
         ? null
         : {
             key: schema.key,
             operator: op,
             value:
-              op === 'in'
-                ? text.split(',').map((value) => scalar(value.trim()))
+              op === "in"
+                ? text.split(",").map((value) => scalar(value.trim()))
                 : scalar(text),
           },
-    )
+    );
   const value = Array.isArray(filter?.value)
-    ? filter.value.join(',')
-    : String(filter?.value ?? '')
+    ? filter.value.join(",")
+    : String(filter?.value ?? "");
   return (
     <div className={s.stack}>
       <label>
@@ -391,19 +465,19 @@ function AttributeFilter({
         <select
           value={operator}
           onChange={(e) => {
-            const op = e.target.value as typeof operator
-            setOperator(op)
-            if (filter) setValue(value, op)
+            const op = e.target.value as typeof operator;
+            setOperator(op);
+            if (filter) setValue(value, op);
           }}
         >
           {schema.operators.map((op) => (
             <option key={op} value={op}>
               {
                 {
-                  eq: 'Равно',
-                  in: 'Из списка',
-                  gte: 'Не меньше',
-                  lte: 'Не больше',
+                  eq: "Равно",
+                  in: "Из списка",
+                  gte: "Не меньше",
+                  lte: "Не больше",
                 }[op]
               }
             </option>
@@ -413,28 +487,28 @@ function AttributeFilter({
       <label>
         {schema.label}
         {schema.unit && `, ${schema.unit}`}
-        {operator !== 'in' && (schema.type === 'boolean' || schema.values) ? (
+        {operator !== "in" && (schema.type === "boolean" || schema.values) ? (
           <select value={value} onChange={(e) => setValue(e.target.value)}>
             <option value="">Любое</option>
             {(schema.values ?? [true, false]).map((v) => (
               <option key={String(v)} value={String(v)}>
-                {typeof v === 'boolean' ? (v ? 'Да' : 'Нет') : String(v)}
+                {typeof v === "boolean" ? (v ? "Да" : "Нет") : String(v)}
               </option>
             ))}
           </select>
         ) : (
           <input
             type={
-              schema.type === 'number' && operator !== 'in' ? 'number' : 'text'
+              schema.type === "number" && operator !== "in" ? "number" : "text"
             }
             value={value}
-            placeholder={operator === 'in' ? 'Значения через запятую' : 'Любое'}
+            placeholder={operator === "in" ? "Значения через запятую" : "Любое"}
             onChange={(e) => setValue(e.target.value)}
           />
         )}
       </label>
     </div>
-  )
+  );
 }
 function ProductCard({
   client,
@@ -443,19 +517,19 @@ function ProductCard({
   close,
   add,
 }: {
-  client: ProcurementClient
-  company: string
-  id: string
-  close: () => void
-  add: (p: Product) => void
+  client: ProcurementClient;
+  company: string;
+  id: string;
+  close: () => void;
+  add: (p: Product) => void;
 }) {
-  const query = useQuery(client, company, 'catalog.get', { product_id: id })
-  const ref = useRef<HTMLDialogElement>(null)
+  const query = useQuery(client, company, "catalog.get", { product_id: id });
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    const dialog = ref.current
-    dialog?.showModal()
-    return () => dialog?.close()
-  }, [])
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
   return (
     <dialog className={s.dialog} ref={ref} onCancel={close}>
       <div className={s.sectionHead}>
@@ -468,13 +542,13 @@ function ProductCard({
       {query.loading && <p>Загрузка…</p>}
       {query.data && (
         <>
-          <h3>{query.data.product.name ?? 'В прайсе нет названия'}</h3>
+          <h3>{query.data.product.name ?? "В прайсе нет названия"}</h3>
           <code>{query.data.product.article}</code>
           <p>
-            {query.data.product.brand ?? 'Бренд неизвестен'} ·{' '}
+            {query.data.product.brand ?? "Бренд неизвестен"} ·{" "}
             {query.data.product.category_paths
-              .map((path) => path.map((c) => c.label).join(' → '))
-              .join('; ')}
+              .map((path) => path.map((c) => c.label).join(" → "))
+              .join("; ")}
           </p>
           <dl className={s.attributes}>
             {query.data.attributes.map((a) => (
@@ -492,17 +566,17 @@ function ProductCard({
                 {o.source_name}: {moneyText(o.price)}
               </strong>
               <p>
-                {o.price_role} · {o.unit ?? 'Единица неизвестна'} · В упаковке:{' '}
-                {o.pack_quantity ?? 'неизвестно'} ·{' '}
-                {o.vat_basis ?? 'НДС неизвестен'}
+                {o.price_role} · {o.unit ?? "Единица неизвестна"} · В упаковке:{" "}
+                {o.pack_quantity ?? "неизвестно"} ·{" "}
+                {o.vat_basis ?? "НДС неизвестен"}
               </p>
               <p>Сопоставимая цена: {moneyText(o.comparable_unit_price)}</p>
               <p>
-                Остаток: {o.stock.quantity ?? 'неизвестен'} {o.stock.unit} на{' '}
+                Остаток: {o.stock.quantity ?? "неизвестен"} {o.stock.unit} на{" "}
                 {dateText(o.stock.as_of)}
               </p>
               <p>
-                {o.source_ref.file_name} → {o.source_ref.sheet} → строка{' '}
+                {o.source_ref.file_name} → {o.source_ref.sheet} → строка{" "}
                 {o.source_ref.row}
               </p>
               <p>Дата источника: {dateText(o.source_ref.observed_at)}</p>
@@ -512,8 +586,8 @@ function ProductCard({
           <button
             className={s.primary}
             onClick={() => {
-              add(query.data!.product)
-              close()
+              add(query.data!.product);
+              close();
             }}
           >
             Добавить в заявку
@@ -521,5 +595,5 @@ function ProductCard({
         </>
       )}
     </dialog>
-  )
+  );
 }

@@ -1,59 +1,57 @@
-import { z } from 'zod'
+import { z } from "zod";
 
-export const VERSION = 'procurement.v1' as const
-const decimal = z.string().regex(/^\d+(\.\d+)?$/)
-const money = z.object({ amount: decimal, currency: z.literal('RUB') })
+export const VERSION = "procurement.v1" as const;
+const decimal = z.string().regex(/^\d+(\.\d+)?$/);
+const money = z.object({ amount: decimal, currency: z.literal("RUB") });
 const issue = z.object({
   code: z.string(),
   message: z.string(),
-  severity: z.enum(['info', 'warning', 'error']),
+  severity: z.enum(["info", "warning", "error"]),
   field: z.string().optional(),
-})
+});
 const source = z.object({
   file_name: z.string(),
   sheet: z.string(),
   row: z.number().int(),
   observed_at: z.string().nullable().default(null),
-})
-const scalar = z.union([z.string(), z.number(), z.boolean()])
+});
+const scalar = z.union([z.string(), z.number(), z.boolean()]);
 const attribute = z.object({
   key: z.string(),
   label: z.string(),
   unit: z.string().nullable(),
   value: scalar.nullable(),
-  status: z.enum(['known', 'unknown', 'conflicting']),
+  status: z.enum(["known", "unknown", "conflicting"]),
   source_values: z.array(scalar).optional(),
-})
-const category = z.object({ id: z.string(), label: z.string() })
+});
+const category = z.object({ id: z.string(), label: z.string() });
 const parsedIssue = z.union([
   issue,
-  z
-    .string()
-    .transform((message) => ({
-      code: 'PARSE_WARNING',
-      message,
-      severity: 'warning' as const,
-    })),
-])
+  z.string().transform((message) => ({
+    code: "PARSE_WARNING",
+    message,
+    severity: "warning" as const,
+  })),
+]);
 const facetCategories = z.union([
   z.array(z.object({ path: z.array(category) })),
   z
     .array(category.extend({ parent_id: z.string().nullable() }))
     .transform((categories) =>
       categories.map((entry) => {
-        const path: z.infer<typeof category>[] = []
-        const seen = new Set<string>()
-        let current: typeof entry | undefined = entry
+        const path: z.infer<typeof category>[] = [];
+        const seen = new Set<string>();
+        let current: typeof entry | undefined = entry;
         while (current && !seen.has(current.id)) {
-          seen.add(current.id)
-          path.unshift({ id: current.id, label: current.label })
-          const parent: string | null = current.parent_id
-          current = categories.find((item) => item.id === parent)
+          seen.add(current.id);
+          path.unshift({ id: current.id, label: current.label });
+          const parent: string | null = current.parent_id;
+          current = categories.find((item) => item.id === parent);
         }
-        return { path }
+        return { path };
       }),
     ),
-])
+]);
 const offer = z.object({
   offer_id: z.string(),
   source_id: z.string(),
@@ -65,7 +63,7 @@ const offer = z.object({
   pack_quantity: decimal.nullable(),
   vat_basis: z.string().nullable(),
   comparable_unit_price: money.nullable(),
-  comparison_status: z.enum(['comparable', 'needs_review', 'unavailable']),
+  comparison_status: z.enum(["comparable", "needs_review", "unavailable"]),
   stock: z.object({
     quantity: decimal.nullable(),
     unit: z.string().nullable(),
@@ -73,7 +71,7 @@ const offer = z.object({
   }),
   source_ref: source,
   issues: z.array(issue),
-})
+});
 const product = z.object({
   product_id: z.string(),
   name: z.string().nullable(),
@@ -83,14 +81,27 @@ const product = z.object({
   attributes: z.array(attribute),
   offer,
   issues: z.array(issue),
-})
+  match_type: z.literal("analog").optional(),
+  compatibility: z.enum(["confirmed", "needs_review"]).optional(),
+  match_explanation: z.string().optional(),
+  differences: z
+    .array(
+      z.object({
+        attribute: z.string(),
+        requested: z.string().nullable(),
+        offered: z.string().nullable(),
+        acceptable: z.boolean().nullable(),
+      }),
+    )
+    .optional(),
+});
 const candidate = z.object({
   product_id: z.string(),
   name: z.string().nullable(),
   article: z.string(),
   offer,
-  match_type: z.enum(['exact', 'analog']),
-  compatibility: z.enum(['confirmed', 'needs_review']),
+  match_type: z.enum(["exact", "analog"]),
+  compatibility: z.enum(["confirmed", "needs_review"]),
   explanation: z.string(),
   differences: z.array(
     z.object({
@@ -102,13 +113,13 @@ const candidate = z.object({
   ),
   line_total: money.nullable(),
   price_deviation_percent: z.string().nullable(),
-})
+});
 export const rowStatus = z.enum([
-  'exact_found',
-  'analog_found',
-  'needs_review',
-  'not_found',
-])
+  "exact_found",
+  "analog_found",
+  "needs_review",
+  "not_found",
+]);
 const analysisRow = z.object({
   line_id: z.string(),
   position: z.number(),
@@ -120,11 +131,11 @@ const analysisRow = z.object({
   alternatives: z.array(candidate),
   market_reference: z.object({
     status: z.enum([
-      'available',
-      'insufficient_sources',
-      'needs_identification',
-      'not_requested',
-      'unavailable',
+      "available",
+      "insufficient_sources",
+      "needs_identification",
+      "not_requested",
+      "unavailable",
     ]),
     original_product_name: z.string().nullable(),
     mean_price: money.nullable(),
@@ -144,12 +155,12 @@ const analysisRow = z.object({
   }),
   issues: z.array(issue),
   explanation: z.string(),
-})
+});
 const attributeFilter = z.object({
   key: z.string(),
-  operator: z.enum(['eq', 'in', 'gte', 'lte']),
+  operator: z.enum(["eq", "in", "gte", "lte"]),
   value: z.union([scalar, z.array(scalar)]),
-})
+});
 export const lineSchema = z.object({
   line_id: z.string(),
   position: z.number().int(),
@@ -162,16 +173,16 @@ export const lineSchema = z.object({
   source_ref: source.nullable(),
   comment: z.string(),
   parse_issues: z.array(parsedIssue).optional(),
-})
+});
 const page = z.object({
   limit: z.number().int().min(1).max(100),
   cursor: z.string().nullable(),
-})
+});
 const pageResult = z.object({
   limit: z.number(),
   next_cursor: z.string().nullable(),
   total: z.number().nullable(),
-})
+});
 const filters = z.object({
   category_ids: z.array(z.string()),
   brands: z.array(z.string()),
@@ -179,11 +190,11 @@ const filters = z.object({
   price: z.object({
     min: decimal.nullable(),
     max: decimal.nullable(),
-    currency: z.literal('RUB'),
+    currency: z.literal("RUB"),
   }),
   stock_known: z.boolean().nullable(),
   attributes: z.array(attributeFilter),
-})
+});
 const summary = z.object({
   total_lines: z.number(),
   exact_found: z.number(),
@@ -193,9 +204,9 @@ const summary = z.object({
   priced_lines: z.number(),
   unpriced_lines: z.number(),
   priced_total: money.nullable(),
-})
-const jobType = z.enum(['parse', 'analysis', 'export'])
-const jobStatus = z.enum(['queued', 'running', 'completed', 'failed'])
+});
+const jobType = z.enum(["parse", "analysis", "export"]);
+const jobStatus = z.enum(["queued", "running", "completed", "failed"]);
 export const errorSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -210,35 +221,35 @@ export const errorSchema = z.object({
       }),
     )
     .optional(),
-})
+});
 const parsed = z.object({
   draft_id: z.string(),
   revision: z.number(),
   title: z.string(),
-  notes: z.string().default(''),
+  notes: z.string().default(""),
   lines: z.array(lineSchema),
   warnings: z.array(parsedIssue),
-})
+});
 const accepted = z.object({
-  kind: z.literal('job.accepted'),
+  kind: z.literal("job.accepted"),
   job_id: z.string(),
   job_type: jobType,
   status: jobStatus,
   poll_after_ms: z.number(),
-})
+});
 export const payloadSchemas = {
-  'catalog.facets': z.object({ query: z.string(), filters }),
-  'catalog.search': z.object({
+  "catalog.facets": z.object({ query: z.string(), filters }),
+  "catalog.search": z.object({
     query: z.string(),
     filters,
     sort: z.object({
-      field: z.literal('comparable_unit_price'),
-      direction: z.literal('asc'),
+      field: z.literal("comparable_unit_price"),
+      direction: z.literal("asc"),
     }),
     page,
   }),
-  'catalog.get': z.object({ product_id: z.string() }),
-  'request.parse': z
+  "catalog.get": z.object({ product_id: z.string() }),
+  "request.parse": z
     .object({
       text: z.string().optional(),
       file_ids: z.array(z.string()).optional(),
@@ -246,9 +257,9 @@ export const payloadSchemas = {
     })
     .refine(
       (p) => !!p.text?.trim() !== !!p.file_ids?.length,
-      'Укажите текст или файл',
+      "Укажите текст или файл",
     ),
-  'analysis.start': z.object({
+  "analysis.start": z.object({
     draft_id: z.string().optional(),
     revision: z.number().int().positive(),
     title: z.string().min(1),
@@ -258,25 +269,25 @@ export const payloadSchemas = {
       allow_analogs_when_no_exact: z.boolean(),
       market_reference_enabled: z.boolean(),
       max_absolute_price_deviation_percent: decimal.nullable(),
-      sort: z.literal('comparable_unit_price_asc'),
+      sort: z.literal("comparable_unit_price_asc"),
     }),
   }),
-  'job.get': z.object({ job_id: z.string() }),
-  'analysis.result': z.object({
+  "job.get": z.object({ job_id: z.string() }),
+  "analysis.result": z.object({
     analysis_id: z.string(),
     page,
     status_filter: rowStatus.optional(),
   }),
-  'analysis.history': z.object({ page }),
-  'analysis.export': z.object({
+  "analysis.history": z.object({ page }),
+  "analysis.export": z.object({
     analysis_id: z.string(),
-    format: z.enum(['xlsx', 'csv']),
+    format: z.enum(["xlsx", "csv"]),
     result_revision: z.number(),
   }),
-}
+};
 export const resultSchemas = {
-  'catalog.facets': z.object({
-    kind: z.literal('catalog.facets'),
+  "catalog.facets": z.object({
+    kind: z.literal("catalog.facets"),
     categories: facetCategories,
     brands: z.array(z.string()),
     sources: z.array(
@@ -291,9 +302,9 @@ export const resultSchemas = {
       z.object({
         key: z.string(),
         label: z.string(),
-        type: z.enum(['number', 'string', 'boolean']),
+        type: z.enum(["number", "string", "boolean"]),
         unit: z.string().nullable(),
-        operators: z.array(z.enum(['eq', 'in', 'gte', 'lte'])),
+        operators: z.array(z.enum(["eq", "in", "gte", "lte"])),
         values: z.array(scalar).optional(),
       }),
     ),
@@ -313,25 +324,34 @@ export const resultSchemas = {
         z.record(z.string(), z.string()),
         z
           .array(z.string())
-          .transform((reasons) => ({ market_reference: reasons.join('. ') })),
+          .transform((reasons) => ({ market_reference: reasons.join(". ") })),
       ]),
     }),
   }),
-  'catalog.search': z.object({
-    kind: z.literal('catalog.search'),
+  "catalog.search": z.object({
+    kind: z.literal("catalog.search"),
+    search_mode: z.enum(["catalog", "analogs"]).optional(),
+    reference_status: z.enum(["pending"]).optional(),
+    reference: z
+      .object({
+        name: z.string(),
+        category: z.string(),
+        source_url: z.string().optional(),
+      })
+      .optional(),
     items: z.array(product),
     page: pageResult,
     interpreted_query: z.object({ summary: z.string() }),
     warnings: z.array(issue),
   }),
-  'catalog.get': z.preprocess(
+  "catalog.get": z.preprocess(
     (raw) => {
-      if (raw && typeof raw === 'object' && !('product' in raw))
-        return { ...raw, product: raw }
-      return raw
+      if (raw && typeof raw === "object" && !("product" in raw))
+        return { ...raw, product: raw };
+      return raw;
     },
     z.object({
-      kind: z.literal('catalog.get'),
+      kind: z.literal("catalog.get"),
       product,
       offers: z.array(offer),
       attributes: z.array(attribute),
@@ -339,22 +359,22 @@ export const resultSchemas = {
       issues: z.array(issue),
     }),
   ),
-  'request.parse': accepted,
-  'analysis.start': accepted,
-  'job.get': z.object({
-    kind: z.literal('job.status'),
+  "request.parse": accepted,
+  "analysis.start": accepted,
+  "job.get": z.object({
+    kind: z.literal("job.status"),
     job_id: z.string(),
     job_type: jobType,
     status: jobStatus,
     stage: z
       .enum([
-        'parsing',
-        'normalization',
-        'exact_search',
-        'analog_search',
-        'market_reference',
-        'finalizing',
-        'export',
+        "parsing",
+        "normalization",
+        "exact_search",
+        "analog_search",
+        "market_reference",
+        "finalizing",
+        "export",
       ])
       .nullable(),
     progress: z
@@ -378,8 +398,8 @@ export const resultSchemas = {
       })
       .optional(),
   }),
-  'analysis.result': z.object({
-    kind: z.literal('analysis.result'),
+  "analysis.result": z.object({
+    kind: z.literal("analysis.result"),
     analysis_id: z.string(),
     summary,
     rows: z.array(analysisRow),
@@ -387,8 +407,8 @@ export const resultSchemas = {
     complete: z.boolean(),
     result_revision: z.number(),
   }),
-  'analysis.history': z.object({
-    kind: z.literal('analysis.history'),
+  "analysis.history": z.object({
+    kind: z.literal("analysis.history"),
     items: z.array(
       z.object({
         job_id: z.string(),
@@ -401,51 +421,51 @@ export const resultSchemas = {
     ),
     page: pageResult,
   }),
-  'analysis.export': accepted,
-}
-export type Action = keyof typeof payloadSchemas
-export type Payload<A extends Action> = z.infer<(typeof payloadSchemas)[A]>
-export type Result<A extends Action> = z.infer<(typeof resultSchemas)[A]>
+  "analysis.export": accepted,
+};
+export type Action = keyof typeof payloadSchemas;
+export type Payload<A extends Action> = z.infer<(typeof payloadSchemas)[A]>;
+export type Result<A extends Action> = z.infer<(typeof resultSchemas)[A]>;
 export type Command<A extends Action = Action> = {
-  contract_version: typeof VERSION
-  request_id: string
-  company_id: string
-  action: A
-  payload: Payload<A>
-}
-export type Money = z.infer<typeof money>
-export type Issue = z.infer<typeof issue>
-export type Attribute = z.infer<typeof attribute>
-export type Offer = z.infer<typeof offer>
-export type Product = z.infer<typeof product>
-export type Candidate = z.infer<typeof candidate>
-export type AnalysisRow = z.infer<typeof analysisRow>
-export type Line = z.infer<typeof lineSchema>
-export type Filters = z.infer<typeof filters>
-export type Job = Result<'job.get'>
-export type ApiError = z.infer<typeof errorSchema>
+  contract_version: typeof VERSION;
+  request_id: string;
+  company_id: string;
+  action: A;
+  payload: Payload<A>;
+};
+export type Money = z.infer<typeof money>;
+export type Issue = z.infer<typeof issue>;
+export type Attribute = z.infer<typeof attribute>;
+export type Offer = z.infer<typeof offer>;
+export type Product = z.infer<typeof product>;
+export type Candidate = z.infer<typeof candidate>;
+export type AnalysisRow = z.infer<typeof analysisRow>;
+export type Line = z.infer<typeof lineSchema>;
+export type Filters = z.infer<typeof filters>;
+export type Job = Result<"job.get">;
+export type ApiError = z.infer<typeof errorSchema>;
 export type Upload = {
-  file_id: string
-  name: string
-  size_bytes: number
-  status: 'uploaded'
-}
+  file_id: string;
+  name: string;
+  size_bytes: number;
+  status: "uploaded";
+};
 export interface ProcurementClient {
-  readonly mode: 'mock' | 'live'
+  readonly mode: "mock" | "live";
   command<A extends Action>(
     command: Command<A>,
     signal?: AbortSignal,
-  ): Promise<Result<A>>
-  upload(file: File, signal?: AbortSignal): Promise<Upload>
+  ): Promise<Result<A>>;
+  upload(file: File, signal?: AbortSignal): Promise<Upload>;
 }
 export const emptyFilters = (): Filters => ({
   category_ids: [],
   brands: [],
   source_ids: [],
-  price: { min: null, max: null, currency: 'RUB' },
+  price: { min: null, max: null, currency: "RUB" },
   stock_known: null,
   attributes: [],
-})
+});
 export function command<A extends Action>(
   company: string,
   action: A,
@@ -457,16 +477,16 @@ export function command<A extends Action>(
     company_id: company,
     action,
     payload,
-  }
+  };
 }
-export function validateLines(lines: Line[]): ApiError['details'] {
+export function validateLines(lines: Line[]): ApiError["details"] {
   return lines.flatMap((line) => [
     ...(!line.original_text.trim()
       ? [
           {
             line_id: line.line_id,
-            field: 'original_text',
-            reason: 'Укажите описание',
+            field: "original_text",
+            reason: "Укажите описание",
           },
         ]
       : []),
@@ -476,8 +496,8 @@ export function validateLines(lines: Line[]): ApiError['details'] {
       ? [
           {
             line_id: line.line_id,
-            field: 'quantity',
-            reason: 'Укажите положительное количество',
+            field: "quantity",
+            reason: "Укажите положительное количество",
           },
         ]
       : []),
@@ -485,10 +505,10 @@ export function validateLines(lines: Line[]): ApiError['details'] {
       ? [
           {
             line_id: line.line_id,
-            field: 'unit',
-            reason: 'Подтвердите единицу',
+            field: "unit",
+            reason: "Подтвердите единицу",
           },
         ]
       : []),
-  ])
+  ]);
 }
