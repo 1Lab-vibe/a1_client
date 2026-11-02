@@ -180,6 +180,7 @@ function Workspace({ company, owner }: { company: string; owner: string }) {
           position: i + 1,
         })),
         title: d.title || parsed.title,
+        notes: [d.notes, parsed.notes].filter(Boolean).join('\n'),
       }))
       setParsedWarnings(parsed.warnings)
       setTab('request')

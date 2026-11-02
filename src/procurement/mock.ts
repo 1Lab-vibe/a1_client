@@ -541,6 +541,7 @@ export class MockProcurementClient implements ProcurementClient {
           }
         })
       status.parsed_request = {
+        notes: '',
         draft_id: `draft_${job_id}`,
         revision: 1,
         title: p.title || job.title,

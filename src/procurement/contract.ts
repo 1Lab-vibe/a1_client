@@ -215,6 +215,7 @@ const parsed = z.object({
   draft_id: z.string(),
   revision: z.number(),
   title: z.string(),
+  notes: z.string().default(''),
   lines: z.array(lineSchema),
   warnings: z.array(parsedIssue),
 })
@@ -251,6 +252,7 @@ export const payloadSchemas = {
     draft_id: z.string().optional(),
     revision: z.number().int().positive(),
     title: z.string().min(1),
+    notes: z.string().optional(),
     lines: z.array(lineSchema).min(1),
     options: z.object({
       allow_analogs_when_no_exact: z.boolean(),

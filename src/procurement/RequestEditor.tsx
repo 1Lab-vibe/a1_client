@@ -6,6 +6,7 @@ import s from './Procurement.module.css'
 
 export type Draft = {
   title: string
+  notes?: string
   lines: Line[]
   revision: number
   draft_id?: string
@@ -118,8 +119,8 @@ export function RequestEditor({
           <article className={s.panel}>
             <h3>Вставить список</h3>
             <p>
-              Одна позиция на строку: описание, количество и единица. Можно
-              вставить столбцы прямо из Excel.
+              Вставьте строки или столбцы из Excel. Порядок названия,
+              количества и единицы определяется автоматически.
             </p>
             <label className={s.srOnly} htmlFor="request-text">
               Список товаров
@@ -185,6 +186,16 @@ export function RequestEditor({
             )}
           </article>
         </div>
+        <label>
+          Условия и примечания к заявке
+          <textarea
+            aria-label="Условия и примечания к заявке"
+            value={draft.notes ?? ''}
+            onChange={(e) => change({ ...draft, notes: e.target.value })}
+            placeholder="Адрес доставки, сроки и другие условия"
+            rows={3}
+          />
+        </label>
         <div className={s.sectionHead}>
           <h3>Проверьте распознанные строки · {draft.lines.length}</h3>
           <button
