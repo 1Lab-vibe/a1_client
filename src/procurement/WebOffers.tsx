@@ -22,6 +22,7 @@ export function WebOffers({ offers, references = [], enabled = true, pending = f
         <p>{offer.explanation}</p>
         <small>{offer.available ? 'Наличие указано в источнике' : 'Наличие требует уточнения'} · {offer.vat_basis === 'unknown' ? 'НДС не подтверждён' : offer.vat_basis === 'included' ? 'НДС включён' : 'Без НДС'} · Проверено {dateText(offer.observed_at)}</small>
         {reference?.mean_price && <p>Средняя по этой модели: {moneyText(reference.mean_price)} · независимых источников: {reference.independent_source_count}</p>}
+        {reference && !reference.mean_price && <p>Средняя пока не рассчитана: сопоставимых независимых источников {reference.independent_source_count}, нужно не менее 3.</p>}
         {url && <a href={url} target="_blank" rel="noopener noreferrer">Открыть источник цены и характеристик</a>}
       </article>
     })}
