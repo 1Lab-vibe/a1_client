@@ -19,6 +19,7 @@ import {
 } from "./ui";
 import s from "./Procurement.module.css";
 import { safeUrl } from "./client";
+import { WebOffers } from "./WebOffers";
 
 export function Catalog({
   client,
@@ -31,6 +32,8 @@ export function Catalog({
 }) {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<"intelligent" | "catalog">("intelligent");
+  const [webEnabled, setWebEnabled] = useState(true);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [cursor, setCursor] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
@@ -56,6 +59,8 @@ export function Catalog({
     "catalog.search",
     {
       query,
+      mode,
+      web_enabled: webEnabled,
       filters,
       sort: { field: "comparable_unit_price", direction: "asc" },
       page: { limit: 5, cursor },
@@ -97,8 +102,7 @@ export function Catalog({
         <div>
           <h2>Каталог предложений</h2>
           <p>
-            Точный товар, а если его нет — кандидаты в аналоги по категории и
-            характеристикам.
+            Опишите товар или задачу. Умный поиск подберёт варианты из наших прайсов и проверит модели и цены в интернете.
           </p>
         </div>
         <span className={s.badge}>
@@ -133,9 +137,15 @@ export function Catalog({
           Найти
         </button>
       </form>
+      <div className={s.toolbar}>
+        <label>Режим поиска <select value={mode} onChange={e => { setMode(e.target.value as typeof mode); setCursor(null) }}>
+          <option value="intelligent">Умный поиск</option><option value="catalog">По прайсам</option>
+        </select></label>
+        {mode === "intelligent" && <label className={s.check}><input type="checkbox" checked={webEnabled} onChange={e => { setWebEnabled(e.target.checked); setCursor(null) }} /> Искать модели и цены в интернете</label>}
+      </div>
       <div className={s.examples}>
         <span>Например:</span>
-        {["AC-AG1252", "000125", "УШМ 125 мм"].map((example) => (
+        {["AC-AG1252", "УШМ 125 мм", "Чем резать керамогранит, диск 125 мм", "Шуруповерт для мебели до 10000 рублей"].map((example) => (
           <button key={example} onClick={() => setInput(example)}>
             {example}
           </button>
@@ -294,6 +304,12 @@ export function Catalog({
             <span>{search.data.page.total ?? "—"} предложений</span>
           </div>
           <Issues issues={search.data.warnings} />
+          {search.data.intelligence && <div className={s.toolbar}>
+            <span>{search.data.reference_status === "pending" ? "Интеллектуальный подбор выполняется…" : `Оценено предложений из прайсов: ${search.data.intelligence.candidate_count}`}</span>
+            {search.data.intelligence.shortlist_limited && <span>Показана выборка кандидатов. Уточните запрос или фильтры для более узкого подбора.</span>}
+          </div>}
+          {!!search.data.intelligence?.requirements.length && <details><summary>Как понят запрос</summary>{search.data.intelligence.requirements.map((r, i) => <p key={i}>{r.label}: {r.value}</p>)}</details>}
+          <h3>Предложения из наших прайсов</h3>
           {search.data.reference?.source_url &&
             safeUrl(search.data.reference.source_url) && (
               <p>
@@ -411,6 +427,7 @@ export function Catalog({
             back={cursor ? () => setCursor(null) : undefined}
             onNext={setCursor}
           />
+          {search.data.intelligence && <WebOffers offers={search.data.web_offers ?? []} references={search.data.market_references ?? []} enabled={search.data.intelligence.web_enabled} pending={search.data.reference_status === "pending"} />}
         </>
       )}
       {productId && (

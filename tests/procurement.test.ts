@@ -20,6 +20,14 @@ import { demoWorkbook } from '../src/procurement/xlsx'
 import { setSession } from '../src/session'
 
 const company = 'test-company'
+test('intelligent search contract preserves modes, web prices, requirements and progress', () => {
+  const cmd = command(company, 'catalog.search', { query: 'диск для плитки', mode: 'intelligent', web_enabled: false, filters: emptyFilters(), sort: {field:'comparable_unit_price',direction:'asc'}, page: {limit:5,cursor:null} })
+  assert.equal(cmd.payload.mode, 'intelligent')
+  assert.equal(cmd.payload.web_enabled, false)
+  const parsed = resultSchemas['catalog.search'].parse({kind:'catalog.search',search_mode:'intelligent',reference_status:'pending',items:[],page:{limit:5,total:0,next_cursor:null},interpreted_query:{summary:'Подбор'},warnings:[],intelligence:{status:'pending',web_enabled:true,candidate_count:0,shortlist_limited:false,checked_at:null,requirements:[],search_queries:[]},web_offers:[],market_references:[]})
+  assert.equal(parsed.intelligence?.status, 'pending')
+  assert.deepEqual(parsed.web_offers, [])
+})
 const mock = () => new MockProcurementClient(company, 'test-user')
 const search = (query = '', cursor: string | null = null) =>
   command(company, 'catalog.search', {

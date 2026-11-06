@@ -114,6 +114,17 @@ const candidate = z.object({
   line_total: money.nullable(),
   price_deviation_percent: z.string().nullable(),
 });
+const webOffer = z.object({
+  article: z.string(), name: z.string(), brand: z.string(), seller: z.string(), url: z.string(),
+  price: money.nullable(), unit: z.string().nullable(), vat_basis: z.string(), available: z.boolean(),
+  condition: z.string(), match_type: z.enum(["exact", "analog"]), explanation: z.string(), observed_at: z.string(),
+});
+const marketVariant = z.object({ article: z.string(), brand: z.string(), status: z.string(), mean_price: money.nullable(), independent_source_count: z.number() });
+const intelligence = z.object({ status: z.enum(["pending", "busy", "completed", "partial", "unavailable"]), web_enabled: z.boolean(),
+  candidate_count: z.number(), shortlist_limited: z.boolean(), checked_at: z.string().nullable(),
+  requirements: z.array(z.object({label: z.string(), value: z.string(), evidence: z.string()})), search_queries: z.array(z.string()) });
+export type WebOffer = z.infer<typeof webOffer>;
+export type MarketVariant = z.infer<typeof marketVariant>;
 export const rowStatus = z.enum([
   "exact_found",
   "analog_found",
@@ -121,6 +132,9 @@ export const rowStatus = z.enum([
   "not_found",
 ]);
 const analysisRow = z.object({
+  web_offers: z.array(webOffer).optional(),
+  market_references: z.array(marketVariant).optional(),
+  intelligence: intelligence.nullable().optional(),
   line_id: z.string(),
   position: z.number(),
   original_text: z.string(),
@@ -241,6 +255,8 @@ export const payloadSchemas = {
   "catalog.facets": z.object({ query: z.string(), filters }),
   "catalog.search": z.object({
     query: z.string(),
+    mode: z.enum(["intelligent", "catalog"]).optional(),
+    web_enabled: z.boolean().optional(),
     filters,
     sort: z.object({
       field: z.literal("comparable_unit_price"),
@@ -330,7 +346,10 @@ export const resultSchemas = {
   }),
   "catalog.search": z.object({
     kind: z.literal("catalog.search"),
-    search_mode: z.enum(["catalog", "analogs"]).optional(),
+    search_mode: z.enum(["catalog", "analogs", "intelligent"]).optional(),
+    intelligence: intelligence.optional(),
+    web_offers: z.array(webOffer).optional(),
+    market_references: z.array(marketVariant).optional(),
     reference_status: z.enum(["pending"]).optional(),
     reference: z
       .object({

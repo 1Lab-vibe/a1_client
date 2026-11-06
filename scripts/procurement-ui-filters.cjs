@@ -4,7 +4,7 @@ async (page) => {
   await page.getByRole('combobox', { name: 'Категория', exact: true }).selectOption('wrench')
   await page.getByRole('combobox', { name: 'Условие: Момент затяжки', exact: true }).selectOption('gte')
   await page.getByRole('spinbutton', { name: 'Момент затяжки, Н·м', exact: true }).fill('500')
-  await page.getByText('По этому запросу ничего не найдено. Измените запрос или фильтры.', { exact: true }).waitFor()
+  await page.getByText('Совпадений нет. Проверьте пояснение выше, категорию и параметры исходного товара.', { exact: true }).waitFor()
   await page.getByRole('spinbutton', { name: 'Момент затяжки, Н·м', exact: true }).fill('400')
   await page.getByRole('button', { name: 'Карточка', exact: true }).waitFor()
   if (await page.locator('main tbody tr').count() !== 1) throw new Error('Torque filter failed')
@@ -13,7 +13,7 @@ async (page) => {
   await page.getByRole('button', { name: 'Карточка', exact: true }).waitFor()
   if (!(await page.locator('main tbody').innerText()).includes('000125')) throw new Error('Zero battery filter failed')
   await page.getByRole('combobox', { name: 'Зарядное устройство', exact: true }).selectOption('false')
-  await page.getByText('По этому запросу ничего не найдено. Измените запрос или фильтры.', { exact: true }).waitFor()
+  await page.getByText('Совпадений нет. Проверьте пояснение выше, категорию и параметры исходного товара.', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Сбросить фильтры', exact: true }).click()
   console.log('PASS: server operators and boolean filters; tightening torque distinct from breakaway torque; zero batteries')
 }

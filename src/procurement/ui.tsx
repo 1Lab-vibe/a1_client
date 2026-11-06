@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   command,
   type Action,
@@ -83,6 +83,7 @@ export function useQuery<A extends Action>(
   const [revision, reload] = useState(0)
   const serialized = JSON.stringify(payload)
   const latest = useRef(0)
+  const dataKey = useRef('')
   useEffect(() => {
     const controller = new AbortController()
     const id = ++latest.current
@@ -90,7 +91,10 @@ export function useQuery<A extends Action>(
       setState({ data: null, error: null, loading: false })
       return () => controller.abort()
     }
-    setState({ data: null, error: null, loading: true })
+    const key = JSON.stringify([company, action, serialized])
+    const sameQuery = dataKey.current === key
+    dataKey.current = key
+    setState(previous => ({ data: sameQuery ? previous.data : null, error: null, loading: true }))
     client
       .command(
         command(company, action, JSON.parse(serialized) as Payload<A>),
@@ -106,7 +110,8 @@ export function useQuery<A extends Action>(
       })
     return () => controller.abort()
   }, [client, company, action, serialized, enabled, revision])
-  return { ...state, reload: () => reload((n) => n + 1) }
+  const refresh = useCallback(() => reload((n) => n + 1), [])
+  return { ...state, reload: refresh }
 }
 export function Pager({
   next,
