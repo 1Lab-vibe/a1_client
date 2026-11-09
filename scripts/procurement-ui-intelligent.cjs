@@ -13,7 +13,7 @@ async (page) => {
       Object.assign(result.body.data, {
         search_mode: 'intelligent', ...(pending ? { reference_status: 'pending' } : {}),
         interpreted_query: { summary: 'Подбор алмазных дисков для плитки' },
-        intelligence: { status: pending ? 'pending' : 'completed', web_enabled: cmd.payload.web_enabled, candidate_count: 12, shortlist_limited: false, checked_at: null, requirements: [{ label: 'Диаметр', value: '125 мм', evidence: '125 мм' }], search_queries: ['диск алмазный'] },
+        intelligence: { status: pending ? 'pending' : 'completed', web_enabled: cmd.payload.web_enabled, section: 'Алмазные диски', candidate_count: 12, shortlist_limited: false, checked_at: null, requirements: [{ label: 'Диаметр', value: '125 мм', evidence: '125 мм' }], search_queries: ['диск алмазный'] },
         web_offers: pending || !cmd.payload.web_enabled ? [] : [{ article: 'TEST-125', name: 'Тестовый алмазный диск 125 мм', brand: 'Тест', seller: 'Тестовый источник', url: 'https://example.test/disc', price: { amount: '750.00', currency: 'RUB' }, unit: 'шт', vat_basis: 'unknown', available: false, condition: 'new', match_type: 'analog', explanation: 'Вариант для проверки комплектации', observed_at: '2026-11-06T12:00:00Z' }],
         market_references: [],
       })
@@ -27,6 +27,7 @@ async (page) => {
   if (await page.getByRole('link', { name: 'Открыть источник цены и характеристик' }).getAttribute('href') !== 'https://example.test/disc') throw new Error('Source URL lost')
   await page.getByText('Как понят запрос', { exact: true }).click()
   await page.getByText('Диаметр: 125 мм', { exact: true }).waitFor()
+  await page.getByText('Раздел: Алмазные диски', { exact: true }).waitFor()
   await page.screenshot({ path: 'output/playwright/intelligent-search.png', fullPage: true })
   await page.getByLabel('Искать модели и цены в интернете').uncheck()
   await page.getByRole('heading', { name: 'Варианты из интернета' }).waitFor({ state: 'hidden' })

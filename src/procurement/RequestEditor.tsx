@@ -46,7 +46,7 @@ export function RequestEditor({
   const importedFiles = [
     ...new Set(
       draft.lines.flatMap((line) =>
-        line.source_ref ? [line.source_ref.file_name] : [],
+          line.source_ref?.file_name ? [line.source_ref.file_name] : [],
       ),
     ),
   ]
@@ -247,10 +247,11 @@ export function RequestEditor({
                     <td>
                       № {line.position}
                       <small>
-                        {line.source_ref
+                        {line.source_ref?.file_name
                           ? `${line.source_ref.file_name} → ${line.source_ref.sheet} → ${line.source_ref.row}`
                           : 'Ручной ввод / текст'}
                       </small>
+                        {line.source_ref?.retailer_code && <small>Код магазина: {line.source_ref.retailer_code} ({line.source_ref.retailer})</small>}
                       <Issues issues={line.parse_issues ?? []} />
                     </td>
                     <td>

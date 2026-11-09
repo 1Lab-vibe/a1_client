@@ -15,6 +15,10 @@ const source = z.object({
   row: z.number().int(),
   observed_at: z.string().nullable().default(null),
 });
+const requestSource = source.partial().extend({
+  retailer_code: z.string().optional(), retailer: z.string().optional(),
+  search_text: z.string().optional(), related_line_id: z.string().optional(), context_comment: z.string().optional(),
+});
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
 const attribute = z.object({
   key: z.string(),
@@ -121,6 +125,7 @@ const webOffer = z.object({
 });
 const marketVariant = z.object({ article: z.string(), brand: z.string(), status: z.string(), mean_price: money.nullable(), independent_source_count: z.number() });
 const intelligence = z.object({ status: z.enum(["pending", "busy", "completed", "partial", "unavailable"]), web_enabled: z.boolean(),
+  section: z.string().nullable().optional(), properties: z.record(z.string(), z.unknown()).nullable().optional(),
   candidate_count: z.number(), shortlist_limited: z.boolean(), checked_at: z.string().nullable(),
   requirements: z.array(z.object({label: z.string(), value: z.string(), evidence: z.string()})), search_queries: z.array(z.string()) });
 export type WebOffer = z.infer<typeof webOffer>;
@@ -184,7 +189,7 @@ export const lineSchema = z.object({
   quantity: decimal.nullable(),
   unit: z.string().nullable(),
   required_attributes: z.array(attributeFilter),
-  source_ref: source.nullable(),
+  source_ref: requestSource.nullable(),
   comment: z.string(),
   parse_issues: z.array(parsedIssue).optional(),
 });

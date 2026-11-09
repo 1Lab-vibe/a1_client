@@ -305,6 +305,7 @@ export function Catalog({
           </div>
           <Issues issues={search.data.warnings} />
           {search.data.intelligence && <div className={s.toolbar}>
+            {search.data.intelligence.section && <span>Раздел: {search.data.intelligence.section}</span>}
             <span>{search.data.reference_status === "pending" ? "Интеллектуальный подбор выполняется…" : `Оценено предложений из прайсов: ${search.data.intelligence.candidate_count}`}</span>
             {search.data.intelligence.shortlist_limited && <span>Показана выборка кандидатов. Уточните запрос или фильтры для более узкого подбора.</span>}
           </div>}

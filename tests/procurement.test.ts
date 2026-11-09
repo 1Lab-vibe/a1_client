@@ -7,6 +7,7 @@ import {
   resultSchemas,
   VERSION,
   validateLines,
+  lineSchema,
 } from '../src/procurement/contract'
 import {
   decode,
@@ -20,6 +21,12 @@ import { demoWorkbook } from '../src/procurement/xlsx'
 import { setSession } from '../src/session'
 
 const company = 'test-company'
+test('request context retains retailer identity without requiring a fictitious workbook source', () => {
+  const line = lineSchema.parse({line_id:'knife',position:3,original_text:'Нож для этих лезвий',article:null,brand:null,quantity:'1',unit:'шт',required_attributes:[],comment:'Связь со строкой 2',source_ref:{search_text:'Нож для крючковых лезвий',related_line_id:'blades',retailer_code:'21175690',retailer:'Все Инстр'}})
+  assert.equal(line.source_ref?.related_line_id,'blades')
+  assert.equal(line.source_ref?.retailer_code,'21175690')
+  assert.equal(line.source_ref?.file_name,undefined)
+})
 test('intelligent search contract preserves modes, web prices, requirements and progress', () => {
   const cmd = command(company, 'catalog.search', { query: 'диск для плитки', mode: 'intelligent', web_enabled: false, filters: emptyFilters(), sort: {field:'comparable_unit_price',direction:'asc'}, page: {limit:5,cursor:null} })
   assert.equal(cmd.payload.mode, 'intelligent')

@@ -65,7 +65,8 @@ function RowDetails({ row }: { row: AnalysisRow }) {
       <summary>Пояснение, альтернативы и источники</summary>
       <p>{row.explanation}</p>
       <Issues issues={row.issues} />
-      {row.intelligence && <WebOffers offers={row.web_offers ?? []} references={row.market_references ?? []} enabled={row.intelligence.web_enabled} />}
+        {row.intelligence?.section && <p>Раздел подбора: {row.intelligence.section}</p>}
+        {row.intelligence && <WebOffers offers={row.web_offers ?? []} references={row.market_references ?? []} enabled={row.intelligence.web_enabled} />}
       {row.selected && <CandidateInfo candidate={row.selected} />}
       <h4>Альтернативы</h4>
       {row.alternatives.length ? (
