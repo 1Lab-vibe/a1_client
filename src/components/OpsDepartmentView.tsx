@@ -147,7 +147,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
     })
     // После успешного выполнения обновляем данные отдела
     if (result.status === 'done') {setPending(null);load()}
-    else if (!hasOpsInputs(meta.action_key)) setPending(null)
+    else if (result.request_id || !hasOpsInputs(meta.action_key)) setPending(null)
   }
 
   return (
@@ -328,6 +328,12 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
               ? (lastResult.error ?? 'Не удалось выполнить действие')
               : lastResult.status === 'needs_approval' ? 'Для запуска требуется подтверждение' : lastResult.status === 'processing' ? 'Запрос в обработке' : (lastResult.text ?? 'Действие выполнено')}
           </span>
+          {(lastResult.status === 'processing' || lastResult.status === 'error') && lastResult.request_id && (
+            <button type="button" disabled={!!runningKey}
+              onClick={() => void run({ action_key: lastResult.action_key, department }, lastResult.request_id).then(result => {
+                if (result.status === 'done') load()
+              })}>Проверить результат</button>
+          )}
           {!!lastResult.attachments?.length && <MessageList messages={[{id:"result",role:"assistant",content:"",attachments:lastResult.attachments,timestamp:Date.now()}]} isLoading={false}/>}
           <button type="button" onClick={clearResult} aria-label="Закрыть"><X aria-hidden /></button>
         </div>

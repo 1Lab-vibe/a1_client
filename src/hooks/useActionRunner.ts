@@ -8,7 +8,7 @@
  * (UI показывает подтверждение); иначе бэкенд может вернуть { status: "needs_approval" }.
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { runAction, getActionResult, type ActionRunInput, type ActionRunResult } from '../api/n8n'
 
 const POLL_INTERVAL_MS = 1500
@@ -28,31 +28,41 @@ export function useActionRunner() {
   const [state, setState] = useState<ActionRunnerState>({ runningKey: null, lastResult: null, error: null })
   const inflight = useRef<Set<string>>(new Set())
 
-  const run = useCallback(async (input: ActionRunInput): Promise<ActionRunResult> => {
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  const run = useCallback(async (input: ActionRunInput, existingId?: string): Promise<ActionRunResult> => {
     if (inflight.current.has(input.action_key)) {
       return { status: 'processing' }
     }
     inflight.current.add(input.action_key)
     setState((s) => ({ ...s, runningKey: input.action_key, error: null }))
 
+    let requestId = existingId
     try {
-      let result = await runAction(input)
+      let result: ActionRunResult = existingId ? { status: 'processing', request_id: existingId } : await runAction(input)
 
       // Отложенное выполнение — опрашиваем результат.
       if (result.status === 'processing' && result.request_id) {
+        requestId = result.request_id
         for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
           await delay(POLL_INTERVAL_MS)
-          const next = await getActionResult(result.request_id)
+          if (!mounted.current) return result
+          const next = await getActionResult(requestId)
+          if (next.request_id && next.request_id !== requestId) throw new Error('Получен ответ на другой запрос')
           if (next.status !== 'processing') {
             result = next
             break
           }
         }
         if (result.status === 'processing') {
-          result = { status: 'error', error: 'Действие выполняется дольше обычного. Проверьте результат позже.' }
+          result = { status: 'processing', request_id: requestId, text: 'Действие ещё выполняется.' }
         }
       }
 
+      if (!mounted.current) return result
       setState({
         runningKey: null,
         lastResult: { ...result, action_key: input.action_key },
@@ -60,9 +70,10 @@ export function useActionRunner() {
       })
       return result
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Не удалось выполнить действие'
-      setState({ runningKey: null, lastResult: { status: 'error', error: message, action_key: input.action_key }, error: message })
-      return { status: 'error', error: message }
+      const message = (e instanceof Error ? e.message : 'Не удалось выполнить действие').replace(/\s*\[line \d+\]$/i, '')
+      const result: ActionRunResult = { status: 'error', error: message, request_id: requestId }
+      if (mounted.current) setState({ runningKey: null, lastResult: { ...result, action_key: input.action_key }, error: message })
+      return result
     } finally {
       inflight.current.delete(input.action_key)
     }
