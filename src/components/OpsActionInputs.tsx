@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { opsWorkspace } from "../api/n8n";
+import { useEffect, useRef, useState } from "react";
+import { arrayBufferToBase64, opsWorkspace } from "../api/n8n";
 
 const choices: Record<string, "product" | "plan"> = {
   classify_ad_category: "product",
@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["read_sheet", "send_email"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -16,6 +16,9 @@ export function OpsActionInputs({
   action: string;
   onChange: (params: Record<string, string> | null) => void;
 }) {
+  const latestFile = useRef<File | null>(null);
+  useEffect(() => () => { latestFile.current = null }, []);
+  const [fileError, setFileError] = useState("");
   const [mail, setMail] = useState({ to: "", subject: "", body_text: "" });
   const kind = choices[action],
     [query, setQuery] = useState(""),
@@ -50,6 +53,33 @@ export function OpsActionInputs({
       clearTimeout(timer);
     };
   }, [kind, query, attempt]);
+  if (action === "import_yandex_direct_xlsx") {
+    const selectFile = async (file: File | null) => {
+      latestFile.current = file;
+      onChange(null);
+      setFileError("");
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".xlsx") || !file.size) {
+        setFileError("Выберите непустой файл XLSX.");
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        setFileError("Размер файла превышает 15 МБ.");
+        return;
+      }
+      try {
+        const bytes = await file.arrayBuffer();
+        if (latestFile.current !== file) return;
+        onChange({ filename: file.name, content_base64: arrayBufferToBase64(bytes) });
+      } catch {
+        if (latestFile.current === file) setFileError("Не удалось прочитать файл. Выберите его снова.");
+      }
+    };
+    return <label>Файл кампании XLSX
+      <input type="file" accept=".xlsx" onChange={e => void selectFile(e.target.files?.[0] || null)} />
+      {fileError && <span role="alert">{fileError}</span>}
+    </label>;
+  }
   if (action === "send_email") {
     const change = (key: keyof typeof mail, value: string) => {
       const next = { ...mail, [key]: value };

@@ -849,7 +849,7 @@ export async function sendChatMessage(
   return { message: data.message }
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   const chunkSize = 0x8000
   let binary = ''
