@@ -189,6 +189,7 @@ function Editor({
             ×
           </button>
         </div>
+        {entity === "invoices" && <p>{row.source === "payment" ? "Платёжное событие" : row.issued ? "Сформированный счёт" : "Документ"}</p>}
         <div className={styles.form}>
           {Array.isArray(row.details) && row.details.length > 0 && (
             <section>
@@ -219,7 +220,7 @@ function Editor({
             return (
               <label key={f.key}>
                 {f.label}
-                {readonly ? (
+                {readonly || (row.issued && !["title","description"].includes(f.key)) ? (
                   <span>{format(row, f) || "—"}</span>
                 ) : relation[f.type] ? (
                   <CrmLookup
@@ -231,6 +232,7 @@ function Editor({
                   />
                 ) : f.type === "choice" ? (
                   <select
+                    aria-label={f.label}
                     required={f.required}
                     value={raw}
                     onChange={(e) => set(f.key, e.target.value)}

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { getOpsDepartment, getReport, type PeriodPreset } from '../api/n8n'
 import { ScenarioModes } from './ScenarioModes'
-import { Deals } from './Deals'
+import {CrmWorkspace} from './CrmWorkspace'
+import {useRouteParam} from '../hooks/useRouteParam'
 import styles from './SalesView.module.css'
 
 type Row = Record<string, unknown>
@@ -25,7 +26,7 @@ function pickSalesKpis(report: Row, dept: Row): Row[] {
 }
 
 export function SalesView() {
-  const [tab, setTab] = useState<Tab>('operations')
+  const [tab, setTab] = useRouteParam<Tab>('tab','operations',['operations','pipeline'])
   const [report, setReport] = useState<Row>({})
   const [dept, setDept] = useState<Row>({})
   const [loading, setLoading] = useState(true)
@@ -76,7 +77,7 @@ export function SalesView() {
         <ScenarioModes domain="sales" />
       ) : (
         <div className={styles.pipelineWrap}>
-          <Deals />
+          <CrmWorkspace entity="deals" />
         </div>
       )}
     </div>

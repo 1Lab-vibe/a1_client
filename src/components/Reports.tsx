@@ -85,7 +85,7 @@ function friendlyReportError(error: unknown): string {
 }
 
 export function Reports() {
-  const [reportId, setReportId] = useState('sales')
+  const [reportId, setReportId] = useRouteParam<string>('report','sales', REPORTS.map(r=>r.id))
   const [period, setPeriod] = useRouteParam<PeriodPreset>('period', '30d', ['today','7d','30d','90d','month','quarter','custom'])
   const [dateFrom, setDateFrom] = useRouteParam<string>('from','')
   const [dateTo, setDateTo] = useRouteParam<string>('to','')

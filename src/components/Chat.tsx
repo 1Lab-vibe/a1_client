@@ -58,6 +58,8 @@ export function Chat() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [targetFilter, setTargetFilter] = useState<TargetFilter>('all')
+  const historyRequest=useRef(0)
+  const [failedFile,setFailedFile]=useState<File|null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -78,16 +80,18 @@ export function Chat() {
   }
 
   const loadMessages = (target: ChatTarget | null = current) => {
+    const revision=++historyRequest.current
+    setMessages([])
+    setFailedFile(null)
     if (!target) {
-      setMessages([])
       return
     }
     setMessagesLoading(true)
     setError(null)
     fetchChatMessages(target.id, targetType(target))
-      .then((data) => setMessages(data.messages))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения'))
-      .finally(() => setMessagesLoading(false))
+      .then((data) => {if(revision===historyRequest.current)setMessages(data.messages)})
+      .catch((e) => {if(revision===historyRequest.current)setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения')})
+      .finally(() => {if(revision===historyRequest.current)setMessagesLoading(false)})
   }
 
   useEffect(loadData, [])
@@ -119,11 +123,12 @@ export function Chat() {
     const trimmed = text.trim()
     if (!trimmed || !current || sending) return
     setSending(true)
-    setInput('')
+    setError(null)
     setPickerOpen(false)
     try {
       const { message } = await sendChatMessage(targetId(current), targetType(current), trimmed)
       setMessages((prev) => [...prev, message])
+      setInput('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение')
     } finally {
@@ -136,9 +141,11 @@ export function Chat() {
     setSending(true)
     setPickerOpen(false)
     try {
+      setError(null)
       const { message } = await sendChatFile(targetId(current), targetType(current), file)
       setMessages((prev) => [...prev, message])
     } catch (e) {
+      setFailedFile(file)
       setError(e instanceof Error ? e.message : 'Не удалось отправить файл')
     } finally {
       setSending(false)
@@ -183,7 +190,7 @@ export function Chat() {
                 key={`${target.kind}:${target.id}`}
                 type="button"
                 className={styles.dialogItem + (current?.id === target.id && current?.kind === target.kind ? ' ' + styles.dialogItemActive : '')}
-                onClick={() => setCurrent(target)}
+                disabled={sending} onClick={() => setCurrent(target)}
               >
                 <span className={styles.dialogAvatar}>{target.kind === 'channel' ? <Hash aria-hidden /> : <UserRound aria-hidden />}</span>
                 <span className={styles.dialogBody}>
@@ -214,7 +221,7 @@ export function Chat() {
           </button>
         </header>
 
-        {error && <div className={styles.uploadError}>{error}</div>}
+        {error && <div className={styles.uploadError}>{error} {failedFile && <button disabled={sending} onClick={()=>void submitFile(failedFile)}>Повторить отправку файла</button>}</div>}
 
         <div className={styles.messages} ref={listRef}>
           {messagesLoading ? (

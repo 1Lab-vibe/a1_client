@@ -692,12 +692,18 @@ export async function getSettings(): Promise<CompanyConfig> {
 }
 
 export async function updateSettingsSection(section: string, patch: Record<string, unknown>): Promise<CompanyConfig> {
-  const data = await request<ApiEnvelope<{ config?: CompanyConfig } & CompanyConfig>>(buildBody('updateSettingsSection', { section, patch }))
-  const unwrapped = unwrapData(data)
-  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped) && (unwrapped as { config?: CompanyConfig }).config != null) {
-    return (unwrapped as { config: CompanyConfig }).config
+  await request<ApiEnvelope<{ config?: CompanyConfig } & CompanyConfig>>(buildBody('updateSettingsSection', { section, patch }))
+  const persisted = await getSettings()
+  if (!isObjectRecord(persisted[section]) || !matchesPatch(persisted[section],patch)){
+    throw new Error('После сохранения значения раздела отличаются. Введённые данные сохранены в форме.')
   }
-  return (unwrapped as CompanyConfig) || {}
+  return persisted
+}
+
+function matchesPatch(value:unknown, patch:unknown):boolean{
+  if(Array.isArray(patch))return Array.isArray(value) && value.length===patch.length && patch.every((v,i)=>matchesPatch(value[i],v))
+  if(isObjectRecord(patch))return isObjectRecord(value)&&Object.entries(patch).every(([k,v])=>matchesPatch(value[k],v))
+  return value===patch
 }
 
 export interface SettingsCollection {
