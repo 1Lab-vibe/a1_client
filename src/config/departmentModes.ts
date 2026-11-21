@@ -5,7 +5,7 @@
  * результат приходит в окно COO и в Telegram. Тексты — из канонических сценариев a1-dev-ops/knowledge-base.
  */
 
-export type FieldType = 'email' | 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox' | 'account'
+export type FieldType = 'email' | 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox' | 'account' | 'obligation' | 'assignee' | 'datetime-local'
 
 export interface FieldDef {
   name: string
@@ -121,8 +121,10 @@ const FINANCE: DeptMode[] = [
     id: 'mark_obligation_paid', label: 'Отметить оплату обязательства', group: 'ops',
     description: 'Пометить обязательство как оплаченное.',
     fields: [
-      { name: 'obligation', label: 'Обязательство', type: 'text', required: true, placeholder: 'аренда офиса за июнь' },
-      { name: 'amount', label: 'Сумма оплаты, ₽', type: 'number' },
+      { name: 'obligation', label: 'Обязательство', type: 'obligation', required: true },
+      { name: 'account', label: 'Финансовый счёт', type: 'account', required: true },
+      { name: 'date', label: 'Дата оплаты', type: 'date', required: true },
+      { name: 'amount', label: 'Сумма оплаты, ₽', type: 'number', required: true },
     ],
     request: (v) => `Отметь обязательство «${v.obligation}» как оплаченное${v.amount ? ` на сумму ${amt(v)} рублей` : ''}.`,
   },
@@ -192,8 +194,8 @@ const SALES: DeptMode[] = [
     ],
     request: (v, l) => `Переведи лид «${nm(l, v, 'lead')}» в ${v.stage}${v.reason ? `, причина: ${v.reason}` : ''}.`,
   },
-  { id: 'meeting_result', label: 'Зафиксировать встречу', group: 'ops', description: 'Записать итог встречи и договорённости.', fields: [leadField(), { name: 'result', label: 'Итог встречи', type: 'textarea', required: true, placeholder: 'клиенту интересен пилот, просит КП и счёт' }], request: (v, l) => `По лиду «${nm(l, v, 'lead')}» зафиксируй результат встречи: ${v.result}.` },
-  { id: 'follow_up', label: 'Назначить follow-up', group: 'ops', description: 'Поставить задачу-напоминание по лиду в CRM.', fields: [leadField(), { name: 'when', label: 'Когда', type: 'text', required: true, placeholder: 'завтра в 14:00' }, { name: 'owner', label: 'Ответственный', type: 'text', placeholder: 'Иван Трушков' }], request: (v, l) => `Назначь follow-up по лиду «${nm(l, v, 'lead')}» на ${v.when}${v.owner ? ` для ${v.owner}` : ''} и сохрани в CRM.` },
+  { id: 'meeting_result', label: 'Зафиксировать встречу', group: 'ops', description: 'Записать итог встречи и договорённости.', fields: [leadField(), { name: 'when', label: 'Начало встречи', type: 'datetime-local', required: true }, { name: 'minutes', label: 'Продолжительность, минут', type: 'number', required: true, default: '30' }, { name: 'result', label: 'Итог встречи', type: 'textarea', required: true, placeholder: 'клиенту интересен пилот, просит КП и счёт' }], request: (v, l) => `По лиду «${nm(l, v, 'lead')}» зафиксируй результат встречи: ${v.result}.` },
+  { id: 'follow_up', label: 'Назначить follow-up', group: 'ops', description: 'Поставить задачу-напоминание по лиду в CRM.', fields: [leadField(), { name: 'when', label: 'Когда', type: 'datetime-local', required: true }, { name: 'owner', label: 'Ответственный', type: 'assignee' }], request: (v, l) => `Назначь follow-up по лиду «${nm(l, v, 'lead')}» на ${v.when}${v.owner ? ` для ${v.owner}` : ''} и сохрани в CRM.` },
   { id: 'email_draft', label: 'Письмо по лиду (черновик)', group: 'ops', description: 'Подготовить письмо клиенту без отправки.', fields: [leadField(), { name: 'about', label: 'О чём письмо', type: 'textarea', placeholder: 'резюме пользы A1' }], request: (v, l) => `Подготовь письмо клиенту по лиду «${nm(l, v, 'lead')}»: ${v.about || 'краткое резюме пользы A1'}, но не отправляй.` },
   { id: 'email_send', label: 'Сформировать и отправить письмо', group: 'ops', description: 'Составить и отправить письмо клиенту по лиду.', fields: [leadField(), { name: 'about', label: 'О чём письмо', type: 'textarea', placeholder: 'резюме пользы A1 и приглашение на встречу' }], request: (v, l) => `Сформируй и отправь письмо клиенту по лиду «${nm(l, v, 'lead')}»: ${v.about || 'резюме пользы A1 и приглашение на встречу'}.` },
   { id: 'proposal_pdf', label: 'Коммерческое предложение (PDF)', group: 'ops', description: 'Сформировать КП в PDF по лиду.', fields: [leadField(), { name: 'amount', label: 'Сумма, ₽', type: 'number', required: true }], request: (v, l) => `Сформируй коммерческое предложение в PDF по лиду «${nm(l, v, 'lead')}» на внедрение A1 на сумму ${amt(v)} рублей.` },

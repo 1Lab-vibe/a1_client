@@ -182,6 +182,19 @@ export function ScenarioModes({
         setActive(null);
         return;
       }
+      if (["follow_up","meeting_result","mark_obligation_paid"].includes(mode.id)) {
+        const payment = mode.id === "mark_obligation_paid";
+        const params = payment
+          ? { obligation:values.obligation, version:values.obligationVersion, account:values.account, date:values.date, amount:values.amount }
+          : { lead:values.lead, version:selected.lead?.version, when:new Date(values.when).toISOString(), minutes:Number(values.minutes), owner:values.owner, result:values.result };
+        const {record} = await opsWorkspace<{record:{id:string; lead?:string; obligation?:string}}>(mode.id, {id:invoiceId.current,...params});
+        if (record?.id!==invoiceId.current || (payment ? record.obligation!==values.obligation : record.lead!==values.lead))
+          throw new Error("Сервер не подтвердил сохранение.");
+        setNote({ok:true,text:payment ? "Оплата обязательства учтена." : mode.id==="follow_up" ? "Назначен следующий контакт. Создана задача." : "Итог встречи сохранён.",
+          cardUrl:payment ? undefined : "#/crm/leads?stage=all&card="+values.lead});
+        setActive(null);
+        return;
+      }
       if (mode.id === "record_transaction") {
         const { record } = await opsWorkspace<{ record: { id: string; amount: string; currency: string } }>("recordTransaction", {
           id: invoiceId.current, account: values.account, amount: values.amount, category: values.category, date: values.date,
@@ -467,24 +480,27 @@ export function ScenarioModes({
   );
 }
 
-function FinanceAccountSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const [accounts, setAccounts] = useState<{ id: string; label: string }[] | null>(null);
-  const [error, setError] = useState(false);
-  const [attempt, retry] = useState(0);
-  useEffect(() => {
-    let active = true;
+type Choice = {id:string; label:string; version?:string};
+function WorkspaceSelect({kind, value, required, onChange}: {
+  kind:'account'|'obligation'|'assignee'; value:string; required?:boolean; onChange:(id:string,version?:string)=>void;
+}) {
+  const [rows,setRows] = useState<Choice[] | null>(null);
+  const [error,setError] = useState(false);
+  const [attempt,retry] = useState(0);
+  useEffect(()=>{
+    let active=true;
     setError(false);
-    opsWorkspace<{rows: {id: string; label: string}[]}>("rubAccounts").then(r => {
-      if (active) setAccounts(r.rows);
-    }).catch(() => { if (active) setError(true) });
-    return () => { active = false };
-  }, [attempt]);
+    const operation={account:'rubAccounts',obligation:'openObligations',assignee:'assignees'}[kind];
+    opsWorkspace<{rows:Choice[]}>(operation).then(r=>{if(active)setRows(r.rows)}).catch(()=>{if(active)setError(true)});
+    return ()=>{active=false};
+  },[kind,attempt]);
+  const prompt={account:'Выберите счёт',obligation:'Выберите обязательство',assignee:'Я'}[kind];
   return <>
-    <select required value={value} disabled={!accounts?.length} onChange={e => onChange(e.target.value)}>
-      <option value="">{error ? "Счета недоступны" : !accounts ? "Загрузка…" : accounts.length ? "Выберите счёт" : "Нет активных рублёвых счетов"}</option>
-      {accounts?.map(account => <option key={account.id} value={account.id}>{account.label}</option>)}
+    <select required={required} value={value} disabled={!rows?.length} onChange={e=>onChange(e.target.value,rows?.find(row=>row.id===e.target.value)?.version)}>
+      <option value="">{error?'Ошибка загрузки':!rows?'Загрузка…':rows.length?prompt:'Нет доступных записей'}</option>
+      {rows?.map(row=><option key={row.id} value={row.id}>{row.label}</option>)}
     </select>
-    {error && <button type="button" onClick={() => retry(n => n + 1)}>Повторить загрузку счетов</button>}
+    {error && <button type="button" onClick={()=>retry(n=>n+1)}>Повторить загрузку</button>}
   </>;
 }
 
@@ -568,8 +584,11 @@ function ModeForm({
                 {f.label}
                 {f.required && <em> *</em>}
               </span>
-              {f.type === "account" ? (
-                <FinanceAccountSelect value={values[f.name] || ""} onChange={id => set(f.name, id)} />
+              {f.type === "account" || f.type === "obligation" || f.type === "assignee" ? (
+                <WorkspaceSelect kind={f.type} required={f.required} value={values[f.name] || ""} onChange={(id,version) => {
+                  set(f.name,id);
+                  if (f.type==="obligation") set("obligationVersion",version || "");
+                }} />
               ) : f.type === "textarea" ? (
                 <textarea
                   rows={3}
