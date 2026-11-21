@@ -123,7 +123,7 @@ export function ScenarioModes({
         ["lead_create", "lead_stage", "deal_stage", "deal_close"].includes(
           mode.id,
         ) ||
-        (mode.id === "deal_create" && !values.owner?.trim())
+        mode.id === "deal_create"
       ) {
         const creating = mode.id.endsWith("_create");
         const entity = mode.id.startsWith("lead_") ? "leads" : "deals";
@@ -170,7 +170,7 @@ export function ScenarioModes({
         const response = await crm<{ record: Card }>(
           entity,
           creating ? "create" : "update",
-          { id, version: base?.version, changes },
+          { id, version: base?.version, changes, ...(mode.id==="deal_create" && values.owner ? {assignee:values.owner} : {}) },
         );
         if (
           response.record?.id !== id ||
@@ -602,7 +602,7 @@ function WorkspaceSelect({kind, value, required, onChange}: {
     opsWorkspace<{rows:Choice[]}>(operation).then(r=>{if(active)setRows(r.rows)}).catch(()=>{if(active)setError(true)});
     return ()=>{active=false};
   },[kind,attempt]);
-  const prompt={account:'Выберите счёт',obligation:'Выберите обязательство',assignee:'Я'}[kind];
+  const prompt={account:'Выберите счёт',obligation:'Выберите обязательство',assignee:'По умолчанию'}[kind];
   return <>
     <select required={required} value={value} disabled={!rows?.length} onChange={e=>onChange(e.target.value,rows?.find(row=>row.id===e.target.value)?.version)}>
       <option value="">{error?'Ошибка загрузки':!rows?'Загрузка…':rows.length?prompt:'Нет доступных записей'}</option>
