@@ -16,6 +16,7 @@ interface Note {
   ok: boolean;
   text: string;
   paymentUrl?: string;
+  cardUrl?: string;
   report?: { columns: string[]; rows: string[][] };
 }
 
@@ -89,6 +90,7 @@ export function ScenarioModes({
     mode: DeptMode,
     text: string,
     values: Record<string, string>,
+    selected: Record<string, Card>,
   ) => {
     if (runningKey) return;
     if (mode.id === "issue_invoice" && documentId) {
@@ -102,19 +104,111 @@ export function ScenarioModes({
     setRunningKey(mode.id);
     setNote(null);
     try {
-      if (mode.id === "yookassa_payment") {
-        const payment = await crm<{url: string; status: string}>("invoices", "createPayment", {
-          id: invoiceId.current, lead: values.lead, email: values.email.trim(),
-          description: values.description, amount: values.amount
+      if (
+        ["lead_create", "lead_stage", "deal_stage", "deal_close"].includes(
+          mode.id,
+        ) ||
+        (mode.id === "deal_create" && !values.owner?.trim())
+      ) {
+        const creating = mode.id.endsWith("_create");
+        const entity = mode.id.startsWith("lead_") ? "leads" : "deals";
+        const base =
+          entity === "leads" || mode.id === "deal_create"
+            ? selected.lead
+            : selected.deal;
+        const id = creating ? invoiceId.current : base?.id;
+        if (!id || (!creating && !base?.version))
+          throw new Error("Выберите карточку из справочника.");
+        let changes: Record<string, unknown>;
+        if (mode.id === "lead_create")
+          changes = {
+            title: values.company,
+            company_name: values.company,
+            contact_name: values.contact || null,
+            description: values.note || null,
+          };
+        else if (mode.id === "deal_create")
+          changes = {
+            title: base?.title || "Сделка",
+            lead_id: base?.id,
+            customer_id: base?.customer_id || null,
+          };
+        else {
+          const stage =
+            mode.id === "deal_close"
+              ? values.outcome === "проигранную"
+                ? "lost"
+                : "won"
+              : values.stage;
+          changes = { stage };
+          const note = values.reason || values.next || values.result;
+          if (note) {
+            if (stage === "lost")
+              changes[entity === "leads" ? "close_reason" : "loss_reason"] =
+                note;
+            else
+              changes.description = [base?.description, note]
+                .filter(Boolean)
+                .join("\n");
+          }
+        }
+        const response = await crm<{ record: Card }>(
+          entity,
+          creating ? "create" : "update",
+          { id, version: base?.version, changes },
+        );
+        if (
+          response.record?.id !== id ||
+          Object.entries(changes).some(
+            ([k, v]) => (response.record[k] ?? null) !== (v ?? null),
+          )
+        )
+          throw new Error("Сервер не подтвердил сохранение карточки.");
+        setNote({
+          ok: true,
+          text: "Карточка сохранена в CRM.",
+          cardUrl: "#/crm/" + entity + "?stage=all&card=" + id,
         });
-        if (!payment.url || new URL(payment.url).protocol !== "https:") throw new Error("Провайдер не вернул ссылку на оплату.");
-        setNote({ok: true, text: payment.status === "pending" ? "Платёж создан и ожидает оплаты." : "Платёж создан.", paymentUrl: payment.url});
         setActive(null);
         return;
       }
-      if (mode.id === "erp_reconciliation" || (mode.group === "report" && mode.id !== "sales_export" && (domain === "finance" || domain === "sales"))) {
-        const report = await crm<{columns:string[];rows:string[][]}>(domain === "sales" ? "deals" : "invoices", "scenarioReport", {mode:mode.id,period:values.period,owner:values.owner});
-        setNote({ok:true,text:mode.label,report});
+      if (mode.id === "yookassa_payment") {
+        const payment = await crm<{ url: string; status: string }>(
+          "invoices",
+          "createPayment",
+          {
+            id: invoiceId.current,
+            lead: values.lead,
+            email: values.email.trim(),
+            description: values.description,
+            amount: values.amount,
+          },
+        );
+        if (!payment.url || new URL(payment.url).protocol !== "https:")
+          throw new Error("Провайдер не вернул ссылку на оплату.");
+        setNote({
+          ok: true,
+          text:
+            payment.status === "pending"
+              ? "Платёж создан и ожидает оплаты."
+              : "Платёж создан.",
+          paymentUrl: payment.url,
+        });
+        setActive(null);
+        return;
+      }
+      if (
+        mode.id === "erp_reconciliation" ||
+        (mode.group === "report" &&
+          mode.id !== "sales_export" &&
+          (domain === "finance" || domain === "sales"))
+      ) {
+        const report = await crm<{ columns: string[]; rows: string[][] }>(
+          domain === "sales" ? "deals" : "invoices",
+          "scenarioReport",
+          { mode: mode.id, period: values.period, owner: values.owner },
+        );
+        setNote({ ok: true, text: mode.label, report });
         setActive(null);
         return;
       }
@@ -265,7 +359,9 @@ export function ScenarioModes({
           busy={!!runningKey}
           error={note?.ok === false ? note.text : null}
           onClose={() => setActive(null)}
-          onSubmit={(text, values) => void submit(active, text, values)}
+          onSubmit={(text, values, selected) =>
+            void submit(active, text, values, selected)
+          }
         />
       )}
 
@@ -292,8 +388,37 @@ export function ScenarioModes({
             </button>
           </div>
           <p>{note.text}</p>
-          {note.paymentUrl && <a href={note.paymentUrl} target="_blank" rel="noopener noreferrer">Открыть ссылку на оплату</a>}
-          {note.report && (note.report.rows.length ? <div style={{overflowX:"auto"}}><table><thead><tr>{note.report.columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{note.report.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table></div> : <p>За выбранный период данных нет.</p>)}
+          {note.cardUrl && <a href={note.cardUrl}>Открыть карточку</a>}
+          {note.paymentUrl && (
+            <a href={note.paymentUrl} target="_blank" rel="noopener noreferrer">
+              Открыть ссылку на оплату
+            </a>
+          )}
+          {note.report &&
+            (note.report.rows.length ? (
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      {note.report.columns.map((c) => (
+                        <th key={c}>{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {note.report.rows.map((row, i) => (
+                      <tr key={i}>
+                        {row.map((cell, j) => (
+                          <td key={j}>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p>За выбранный период данных нет.</p>
+            ))}
           {documentId && (
             <a
               href={"#/crm/invoices?source=document&card=" + documentId}
@@ -321,7 +446,11 @@ function ModeForm({
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (text: string, values: Record<string, string>) => void;
+  onSubmit: (
+    text: string,
+    values: Record<string, string>,
+    selected: Record<string, Card>,
+  ) => void;
 }) {
   const initial = useMemo(() => {
     const v: Record<string, string> = {};
@@ -329,6 +458,7 @@ function ModeForm({
     return v;
   }, [mode]);
   const [values, setValues] = useState<Record<string, string>>(initial);
+  const [selected, setSelected] = useState<Record<string, Card>>({});
   const [labels, setLabels] = useState<Record<string, string>>({});
   const set = (name: string, value: string) =>
     setValues((v) => ({ ...v, [name]: value }));
@@ -338,10 +468,15 @@ function ModeForm({
 
   const amountInvalid =
     !!values.amount && !(Number(values.amount.replace(",", ".")) > 0);
-  const emailInvalid = mode.fields.some(f => f.type === "email" && values[f.name] && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values[f.name].trim()));
+  const emailInvalid = mode.fields.some(
+    (f) =>
+      f.type === "email" &&
+      values[f.name] &&
+      !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values[f.name].trim()),
+  );
   const submit = () => {
     if (missing.length || busy || amountInvalid || emailInvalid) return;
-    onSubmit(mode.request(values, labels).trim(), values);
+    onSubmit(mode.request(values, labels).trim(), values, selected);
   };
 
   return (
@@ -398,7 +533,13 @@ function ModeForm({
                   initialLabel=""
                   value={values[f.name] || ""}
                   required={f.required}
-                  onChange={(id, label) => {
+                  onChange={(id, label, record) => {
+                    setSelected((r) => {
+                      const next = { ...r };
+                      if (record) next[f.name] = record;
+                      else delete next[f.name];
+                      return next;
+                    });
                     set(f.name, id);
                     setLabels((l) => ({ ...l, [f.name]: label }));
                   }}
@@ -438,7 +579,9 @@ function ModeForm({
             type="button"
             className={styles.btnPrimary}
             onClick={submit}
-            disabled={busy || amountInvalid || emailInvalid || missing.length > 0}
+            disabled={
+              busy || amountInvalid || emailInvalid || missing.length > 0
+            }
             title={missing.length ? `Заполните: ${missing.join(", ")}` : ""}
           >
             {busy

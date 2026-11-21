@@ -186,7 +186,7 @@ const SALES: DeptMode[] = [
     description: 'Перевести лид на новую стадию с указанием причины.',
     fields: [
       leadField(),
-      { name: 'stage', label: 'Новая стадия', type: 'select', default: 'квалификация', options: [{ value: 'квалификация', label: 'Квалификация' }, { value: 'в работу', label: 'В работе' }, { value: 'предложение', label: 'Предложение' }, { value: 'успешный', label: 'Успешный' }, { value: 'отказ', label: 'Отказ' }] },
+      { name: 'stage', label: 'Новая стадия', type: 'select', default: 'qualification', options: [{value:'new',label:'Новый'},{ value: 'qualification', label: 'Квалификация' }, { value: 'in_work', label: 'В работе' }, { value: 'offer', label: 'Предложение' }, { value: 'won', label: 'Успешный' }, { value: 'lost', label: 'Отказ' }] },
       { name: 'reason', label: 'Причина', type: 'text', placeholder: 'клиент подтвердил интерес' },
     ],
     request: (v, l) => `Переведи лид «${nm(l, v, 'lead')}» в ${v.stage}${v.reason ? `, причина: ${v.reason}` : ''}.`,
@@ -199,7 +199,7 @@ const SALES: DeptMode[] = [
   { id: 'deal_create', label: 'Создать сделку из лида', group: 'ops', description: 'Завести сделку из лида и назначить ответственного.', fields: [leadField(), { name: 'owner', label: 'Ответственный', type: 'text', placeholder: 'Иван Трушков' }], request: (v, l) => `Создай сделку из лида «${nm(l, v, 'lead')}»${v.owner ? `, ответственный ${v.owner}` : ''}, проверь синхронизацию с Bitrix.` },
   {
     id: 'deal_stage', label: 'Обновить стадию сделки', group: 'ops', description: 'Сменить стадию сделки и записать следующий шаг.',
-    fields: [dealField(), { name: 'stage', label: 'Новая стадия', type: 'text', required: true, placeholder: 'подготовка предложения' }, { name: 'next', label: 'Следующий шаг', type: 'text' }],
+    fields: [dealField(), { name: 'stage', label: 'Новая стадия', type: 'select', required: true, default:'in_work', options:[{value:'new',label:'Новая'},{value:'qualification',label:'Квалификация'},{value:'in_work',label:'В работе'},{value:'offer',label:'Предложение'},{value:'negotiation',label:'Переговоры'},{value:'contract',label:'Договор'}] }, { name: 'next', label: 'Следующий шаг', type: 'text' }],
     request: (v, l) => `По сделке «${nm(l, v, 'deal')}» обнови стадию на ${v.stage}${v.next ? ` и запиши следующий шаг: ${v.next}` : ''}.`,
   },
   {

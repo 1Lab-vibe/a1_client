@@ -13,7 +13,7 @@ export function CrmLookup({
   initialLabel: string;
   value: string;
   required?: boolean;
-  onChange: (id: string, label: string) => void;
+  onChange: (id: string, label: string, record?: Card) => void;
 }) {
   const [q, setQ] = useState(initialLabel),
     [results, setResults] = useState<Card[]>([]),
@@ -68,7 +68,7 @@ export function CrmLookup({
           onChange={(e) => {
             const r = results.find((x) => x.id === e.target.value);
             const name = String(r?.name || r?.title || "");
-            onChange(r?.id || "", name);
+            onChange(r?.id || "", name, r);
             setQ(name);
             setEditing(false);
           }}

@@ -40,7 +40,10 @@ function targetMeta(target: ChatTarget): string {
 function deliveryLabel(status?: string): string {
   if (!status) return 'Локально'
   if (status === 'queued') return 'В очереди'
-  if (status === 'sent' || status === 'delivered') return 'Доставлено'
+  if (status === 'sent') return 'Принято Telegram'
+  if (status === 'delivered') return 'Доставлено'
+  if (status === 'logged') return 'Сохранено'
+  if (status === 'sending') return 'Отправляется'
   if (status === 'failed' || status === 'error') return 'Ошибка'
   return status
 }
@@ -128,6 +131,7 @@ export function Chat() {
     try {
       const { message } = await sendChatMessage(targetId(current), targetType(current), trimmed)
       setMessages((prev) => [...prev, message])
+      if (message.deliveryStatus === 'failed') throw new Error(message.deliveryError || 'Не удалось доставить сообщение')
       setInput('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение')
@@ -144,6 +148,8 @@ export function Chat() {
       setError(null)
       const { message } = await sendChatFile(targetId(current), targetType(current), file)
       setMessages((prev) => [...prev, message])
+      if (message.deliveryStatus === 'failed') throw new Error(message.deliveryError || 'Не удалось доставить файл')
+      setFailedFile(null)
     } catch (e) {
       setFailedFile(file)
       setError(e instanceof Error ? e.message : 'Не удалось отправить файл')
