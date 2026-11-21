@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["growth_leadgen_report","yandex_direct_report","landing_watchdog","ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["yd_build_budget_limited_launch_pack","agent_yandex_direct_marketer","yandex_direct","growth_leadgen_report","yandex_direct_report","landing_watchdog","ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -62,6 +62,16 @@ export function OpsActionInputs({
       .then(r=>{if(active){setTemplates(r.rows);setError('')}}).catch(()=>{if(active)setError('Не удалось получить список шаблонов')});
     return ()=>{active=false};
   },[action,attempt]);
+  if(action==='agent_yandex_direct_marketer' || action==='yandex_direct'){
+    return <label>Действие<select value={query} onChange={e=>{setQuery(e.target.value);onChange(e.target.value?{view:e.target.value}:null)}}>
+      <option value="">Выберите действие</option><option value="overview">Открыть текущий медиаплан</option><option value="draft">Подготовить новый черновик медиаплана</option>
+    </select></label>;
+  }
+  if(action==='yd_build_budget_limited_launch_pack'){
+    return <label>Месячный лимит, ₽<input type="number" min="0.01" step="0.01" value={query} onChange={e=>{
+      const value=e.target.value;setQuery(value);onChange(Number(value)>0 && e.target.validity.valid?{budget_limit_month:value}:null);
+    }}/></label>;
+  }
   if (action==='growth_leadgen_report' || action==='yandex_direct_report' || action==='landing_watchdog') {
     return <label>Период<select value={query} onChange={e=>{setQuery(e.target.value);onChange(e.target.value?{period:e.target.value}:null)}}>
       <option value="">Выберите период</option><option value="today">Сегодня</option><option value="7d">7 дней</option><option value="30d">30 дней</option><option value="90d">90 дней</option>

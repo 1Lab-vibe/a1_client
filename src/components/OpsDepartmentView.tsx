@@ -193,11 +193,15 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
       finally {setChecking(false)}
       return;
     }
+    const direct=['yandex_direct','agent_yandex_direct_marketer'].includes(meta.action_key);
+    const draftPlan=direct && formParams?.view==='draft';
+    const target=draftPlan?actions.find(action=>action.action_key==='marketing_media_plan'):null;
+    if(draftPlan && !target?.workflow_id){setError('В компании не настроен сборщик медиаплана.');return;}
     const result = await run({
-      action_key: meta.action_key,
-      workflow_id: meta.workflow_id,
+      action_key: draftPlan?'marketing_media_plan':meta.action_key,
+      workflow_id: draftPlan?String(target?.workflow_id):meta.workflow_id,
       department: meta.department,
-      params: meta.action_key === 'send_email' ? { ...formParams, dedupe_key: meta.requestId } : hasOpsInputs(meta.action_key) ? formParams || {} : {},
+      params: draftPlan ? {approval_required:true,publish:false,site_audit_enabled:false} : direct || meta.action_key==='yandex_direct_site_audit' ? {web_direct_view:true} : meta.action_key === 'send_email' ? { ...formParams, dedupe_key: meta.requestId } : hasOpsInputs(meta.action_key) ? formParams || {} : {},
       idempotency_key: meta.requestId,
       confirmed: meta.requires_approval || meta.risk_level === 'high',
     })
