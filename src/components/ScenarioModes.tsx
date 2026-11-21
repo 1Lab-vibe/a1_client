@@ -213,6 +213,26 @@ export function ScenarioModes({
         else {setNote({ok:true,text:subject+"\n\n"+body});setActive(null)}
         return;
       }
+      if (mode.id==="leadgen_launch") {
+        const count=Number(values.count || 5);
+        if(!Number.isInteger(count) || count<1 || count>500) throw new Error("Укажите от 1 до 500 клиентов.");
+        const id=invoiceId.current;
+        const read=async()=>(await opsWorkspace<{record:{id:string;status:string;candidates:number;leads:number}|null}>("leadgenResult",{id})).record;
+        let record=await read();
+        if(!record){
+          const dept=await getOpsDepartment("marketing");
+          const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key==="growth_leadgen");
+          if (!handler?.workflow_id)throw new Error("Обработчик подбора клиентов недоступен.");
+          const result=await runAction({action_key:"growth_leadgen",department:"marketing",workflow_id:handler.workflow_id,idempotency_key:id,params:{
+            form:"crm_research",mode:"research",target_count:count,scout_query:values.similar_to || "Компании, похожие на клиентов компании",
+            autonomy_level:"research_only",auto_prepare_outreach:false,
+          }}).catch(()=>null);
+          record=await read();
+          if(!record)throw new Error(result?.error || "Подбор ещё не подтверждён. Повторите проверку.");
+        }
+        if(record.status!=="completed") throw new Error("Подбор ещё не завершён.");
+        setNote({ok:true,text:"Подбор завершён. Кандидатов: "+record.candidates+", связанных лидов: "+record.leads+"."});setActive(null);return;
+      }
       if (mode.id==="billing_event") {
         const dept=await getOpsDepartment("accounting");
         const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key==="ops_billing_executor");

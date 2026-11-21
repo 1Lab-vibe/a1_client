@@ -137,6 +137,16 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   }
 
   const doRun = async (meta: PendingAction) => {
+    if(['yandex_direct_report','landing_watchdog'].includes(meta.action_key)){
+      if(checking || !formParams)return;
+      setChecking(true);setError(null);
+      try{
+        const res=await opsWorkspace<{text:string}>(meta.action_key==='landing_watchdog'?'landingChecks':'directReport',{period:formParams.period});
+        setAccountResult(res.text);setPending(null);
+      }catch(e){setError(e instanceof Error?e.message:'Не удалось загрузить отчёт')}
+      finally{setChecking(false)}
+      return;
+    }
     if(meta.action_key==='create_task') {
       if(checking || !formParams) return;
       setChecking(true);setError(null);
@@ -197,7 +207,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
         </div>
       </div>
 
-      {accountResult && <p role="status">{accountResult}</p>}
+      {accountResult && <p role="status" style={{whiteSpace:"pre-line"}}>{accountResult}</p>}
       {error && <div className={styles.error}>{error}</div>}
       {loading && <div className={styles.state}>Загружаем данные отдела...</div>}
 
@@ -219,6 +229,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
 
           <section className={styles.actionGrid}>
             {actions.length > 0 ? actions.map((action) => {
+              if(action.action_key==="growth_leadgen" && !isTruthy(action.requires_human_approval) && action.risk_level!=="high")return <ScenarioModes key="growth_leadgen" domain="sales" only="leadgen_launch"/>;
               const shared = ({ops_billing_executor:"billing_event",issue_invoice:"issue_invoice", ms_integration_yookassa:"yookassa_payment",ops_erp_reconciliation:"erp_reconciliation"} as Record<string,string>)[String(action.action_key)];
               if (shared && !isTruthy(action.requires_human_approval) && action.risk_level !== "high") return <ScenarioModes key={shared} domain="finance" only={shared} />;
               return (

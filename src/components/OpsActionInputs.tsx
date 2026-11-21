@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["yandex_direct_report","landing_watchdog","ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -62,6 +62,11 @@ export function OpsActionInputs({
       .then(r=>{if(active){setTemplates(r.rows);setError('')}}).catch(()=>{if(active)setError('Не удалось получить список шаблонов')});
     return ()=>{active=false};
   },[action,attempt]);
+  if (action==='yandex_direct_report' || action==='landing_watchdog') {
+    return <label>Период<select value={query} onChange={e=>{setQuery(e.target.value);onChange(e.target.value?{period:e.target.value}:null)}}>
+      <option value="">Выберите период</option><option value="today">Сегодня</option><option value="7d">7 дней</option><option value="30d">30 дней</option><option value="90d">90 дней</option>
+    </select></label>;
+  }
   if (action === 'create_task') {
     const change = (key:keyof typeof task,value:string)=>{
       const next={...task,[key]:value};
@@ -93,7 +98,7 @@ export function OpsActionInputs({
   if(['compose_email','product_packaging','delivery_ops','ops_finance'].includes(action)){
     const fieldLabels:Record<string,string>={compose_email:'Кому и о чём написать',product_packaging:'Продукт, аудитория и задача',delivery_ops:'Что подготовить по доставке',ops_finance:'Финансовый запрос'};
     return <label>{fieldLabels[action]}<textarea required value={query} onChange={e=>{
-      setQuery(e.target.value);onChange(e.target.value.trim()?{user_message:e.target.value.trim()}:null);
+      setQuery(e.target.value);onChange(e.target.value.trim()?(action==='product_packaging'?{user_message:e.target.value.trim(),research_mode:'internal'}:{user_message:e.target.value.trim()}):null);
     }}/></label>;
   }
   if (action==='ops_hr_lpr' || action==='ops_legal_lpr') {
