@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { fetchClients, updateClient } from '../api/n8n'
+import { fetchClientPage, updateClient, type ClientPage } from '../api/n8n'
 import { useColumnVisibility } from '../hooks/useColumnVisibility'
 import { ColumnVisibilityPopover } from './ColumnVisibilityPopover'
 import { SectionErrorState } from './SectionErrorState'
@@ -155,77 +155,62 @@ function getAllKeysForEditor(client: Client): string[] {
 
 
 export function Clients() {
-  const [list, setList] = useState<Client[]>([])
+  const [result, setResult] = useState<ClientPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Client | null>(null)
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
-  const [stageFilter, setStageFilter] = useState('all')
-
-  const stages = useMemo(() => Array.from(new Set(list.map((item) => String(item.customer_stage ?? item.outreach_status ?? 'unknown')).filter(Boolean))).sort(), [list])
-  const filteredList = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return list.filter((item) => {
-      const stage = String(item.customer_stage ?? item.outreach_status ?? 'unknown')
-      const stageOk = stageFilter === 'all' || stage === stageFilter
-      if (!stageOk) return false
-      if (!q) return true
-      return [item.name, item.legal_name, item.primary_email, item.primary_phone, item.website, item.industry, item.city]
-        .some((value) => String(value ?? '').toLowerCase().includes(q))
-    })
-  }, [list, query, stageFilter])
-  const kpis = useMemo(() => [
-    { label: 'Всего', value: list.length },
-    { label: 'Клиенты', value: list.filter((item) => item.is_customer).length },
-    { label: 'С email', value: list.filter((item) => isNotEmpty(item.primary_email)).length },
-    { label: 'Без активности', value: list.filter((item) => !isNotEmpty(item.last_contacted_at)).length },
-  ], [list])
-
-  const availableColumns = useMemo(() => getTableColumns(filteredList), [filteredList])
+  const [selectedStage, setSelectedStage] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [revision, setRevision] = useState(0)
+  const term = query.trim()
+  const stage = selectedStage ?? (term ? 'all' : '@leads')
+  const pages = result ? Math.max(1, Math.ceil(result.total / result.pageSize)) : 1
+  const kpis = [
+    { label: 'Всего', value: result?.stats.total },
+    { label: 'Клиенты', value: result?.stats.customers },
+    { label: 'С email', value: result?.stats.email },
+    { label: 'Без активности', value: result?.stats.inactive },
+  ]
+  const availableColumns = useMemo(() => getTableColumns(result?.clients ?? []), [result])
   const { visibleColumns, toggle, isVisible } = useColumnVisibility('clients', availableColumns)
 
-  const load = () => {
+  useEffect(() => {
+    const controller = new AbortController()
+    let current = true
+    let timeout: ReturnType<typeof setTimeout>
     setLoading(true)
     setError(null)
-    fetchClients()
-      .then((data) => {
-        const raw = Array.isArray(data) ? data : (data?.clients ?? [])
-        const list = Array.isArray(raw)
-          ? raw.filter((c): c is Client => c != null && typeof c === 'object' && !Array.isArray(c))
-          : []
-        setList(list)
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+    const timer = setTimeout(async () => {
+      timeout = setTimeout(() => controller.abort(), 20000)
+      try {
+        const data = await fetchClientPage({ query: term, stage, page }, controller.signal)
+        if (current) setResult(data)
+      } catch (e) {
+        if (current) setError(controller.signal.aborted ? 'Сервер не ответил вовремя.' : e instanceof Error ? e.message : 'Ошибка загрузки')
+      } finally {
+        clearTimeout(timeout)
+        if (current) setLoading(false)
+      }
+    }, term ? 250 : 0)
+    return () => {
+      current = false
+      clearTimeout(timer)
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [term, stage, page, revision])
 
   const handleSave = (client: Client) => {
     setSaving(true)
     updateClient(client)
       .then((data) => {
-        setList((prev) => prev.map((c) => (String(c.id) === String(data.client.id) ? data.client : c)))
+        setRevision(value => value + 1)
         setSelected(data.client)
       })
       .catch((e) => alert(e instanceof Error ? e.message : 'Ошибка сохранения'))
       .finally(() => setSaving(false))
-  }
-
-  if (loading) {
-    return (
-      <div className={styles.wrap}>
-        <h1 className={styles.title}>Клиенты</h1>
-        <div className={styles.loading}>Загрузка...</div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return <SectionErrorState title="Клиенты" message={error} onRetry={load} />
   }
 
   return (
@@ -244,18 +229,20 @@ export function Clients() {
         {kpis.map((item) => (
           <article key={item.label}>
             <span>{item.label}</span>
-            <strong>{item.value.toLocaleString('ru-RU')}</strong>
+            <strong>{item.value?.toLocaleString('ru-RU') ?? '—'}</strong>
           </article>
         ))}
       </div>
       <div className={styles.filters}>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по клиентам" />
-        <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+        <input type="search" aria-label="Поиск по клиентам" maxLength={256} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="Имя, компания, телефон, email или ИНН" />
+        <select aria-label="Статус клиента" value={stage} onChange={(event) => { setSelectedStage(event.target.value); setPage(1) }}>
+          <option value="@leads">С открытым лидом</option>
           <option value="all">Все статусы</option>
-          {stages.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+          {result?.stages.map(value => <option key={value} value={value}>{({ new: 'Новые', prospect: 'Потенциальные', active: 'Активные', unknown: 'Без статуса' } as Record<string,string>)[value] ?? value}</option>)}
         </select>
       </div>
-      <div className={styles.tableWrap}>
+      {error && <SectionErrorState title="Клиенты" message={error} onRetry={() => setRevision(value => value + 1)} />}
+      <div className={styles.tableWrap} aria-busy={loading}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -265,14 +252,14 @@ export function Clients() {
             </tr>
           </thead>
           <tbody>
-            {filteredList.length === 0 ? (
+            {loading || !result?.clients.length || error ? (
               <tr>
                 <td colSpan={visibleColumns.length || 1} className={styles.empty}>
-                  Клиенты не найдены по текущим фильтрам
+                  {loading ? 'Загрузка…' : error ? 'Не удалось загрузить страницу' : 'Клиенты не найдены по текущим фильтрам'}
                 </td>
               </tr>
             ) : (
-              filteredList.map((c, idx) => (
+              result.clients.map((c, idx) => (
                 <tr
                   key={String(c.id) || idx}
                   onClick={() => setSelected(c)}
@@ -289,6 +276,12 @@ export function Clients() {
           </tbody>
         </table>
       </div>
+      {result && !error && <nav className={styles.pager} aria-label="Страницы клиентов">
+        <span>Найдено: {result.total.toLocaleString('ru-RU')}</span>
+        <button disabled={loading || result.page <= 1} onClick={() => setPage(result.page - 1)}>Назад</button>
+        <span>{result.page} из {pages}</span>
+        <button disabled={loading || result.page >= pages} onClick={() => setPage(result.page + 1)}>Далее</button>
+      </nav>}
       {selected && (
         <ClientEditor
           client={selected}

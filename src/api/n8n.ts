@@ -81,11 +81,12 @@ function buildBody(action: string, payload?: object): object {
   return base
 }
 
-async function request<T = unknown>(body: object): Promise<T> {
+async function request<T = unknown>(body: object, signal?: AbortSignal): Promise<T> {
   await ensureConfigLoaded()
   const url = getWebhookUrl()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const res = await fetch(url, {
+    signal,
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -254,7 +255,7 @@ function pickBestClientsArray(raw: unknown): Client[] {
 }
 
 export async function fetchClients(): Promise<{ clients: Client[] }> {
-  const raw = await request<unknown>(buildBody('getClients'))
+  const raw = await request<unknown>(buildBody('getClients', { stage: 'all', pageSize: 200 }))
   const clients = pickBestClientsArray(raw)
 
   if (import.meta.env.DEV) {
@@ -267,6 +268,25 @@ export async function fetchClients(): Promise<{ clients: Client[] }> {
   }
 
   return { clients }
+}
+
+export interface ClientPage {
+  clients: Client[]
+  page: number
+  pageSize: number
+  total: number
+  stages: string[]
+  stats: { total: number; customers: number; email: number; inactive: number }
+}
+
+export async function fetchClientPage(filters: { query: string; stage: string; page: number }, signal: AbortSignal): Promise<ClientPage> {
+  const response = await request<ApiEnvelope<ClientPage>>(buildBody('getClients', { ...filters, pageSize: 50 }), signal)
+  const data = unwrapData(response)
+  if (!data || !Array.isArray(data.clients) || !Array.isArray(data.stages) || !data.stats ||
+      !Number.isInteger(data.page) || !(data.pageSize > 0) || !Number.isInteger(data.total)) {
+    throw new Error('Сервер не вернул страницу клиентов.')
+  }
+  return data
 }
 
 export async function updateClient(client: Client): Promise<{ client: Client }> {

@@ -84,6 +84,26 @@
   border: 1px solid var(--grid-line);
 }
 
+.pager {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  color: var(--text-muted);
+}
+
+.pager span:first-child { margin-right: auto; }
+.pager button {
+  padding: 6px 12px;
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+}
+.pager button:disabled { opacity: 0.45; cursor: default; }
+
 .table {
   width: 100%;
   border-collapse: collapse;
