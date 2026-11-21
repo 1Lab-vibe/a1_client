@@ -201,10 +201,19 @@ export function ScenarioModes({
         setActive(null);
         return;
       }
+      if (mode.id === "sales_export") {
+        const report = await crm<{ attachments: N8nAttachment[] }>("deals", "scenarioReport", {
+          mode: mode.id, period: values.period,
+        });
+        if (report.attachments?.length !== 2)
+          throw new Error("Сервер не вернул оба файла отчёта.");
+        setNote({ ok: true, text: "Отчёт по продажам готов.", attachments: report.attachments });
+        setActive(null);
+        return;
+      }
       if (
         mode.id === "erp_reconciliation" ||
         (mode.group === "report" &&
-          mode.id !== "sales_export" &&
           (domain === "finance" || domain === "sales"))
       ) {
         const report = await crm<{ columns: string[]; rows: string[][] }>(
