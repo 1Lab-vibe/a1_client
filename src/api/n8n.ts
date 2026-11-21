@@ -531,6 +531,12 @@ export async function getMisDashboard(period?: PeriodFilter): Promise<MisDashboa
 }
 
 // ——— Запуск действий отдела (action handlers) через workflow a1_action_runner ———
+export async function opsWorkspace<T>(operation:string, params:Record<string,unknown>={}):Promise<T> {
+  const result = await request<{ok:boolean;data:T}>(buildBody('opsWorkspace',{operation,...params}));
+  if(result.ok!==true || !result.data) throw new Error('Сервер не подтвердил ответ.');
+  return result.data;
+}
+
 export interface ActionRunInput {
   /** Ключ действия из action handlers (например, ops_finance, issue_invoice) */
   action_key: string

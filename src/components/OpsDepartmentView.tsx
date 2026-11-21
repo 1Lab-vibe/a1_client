@@ -1,9 +1,11 @@
+import {MessageList} from './MessageList'
+import {OpsActionInputs,hasOpsInputs} from './OpsActionInputs'
 import { ScenarioModes } from './ScenarioModes'
 import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw, Table2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { getOpsDepartment, type PeriodPreset } from '../api/n8n'
+import { getOpsDepartment, opsWorkspace, type PeriodPreset } from '../api/n8n'
 import { useActionRunner } from '../hooks/useActionRunner'
 import { actionName, actionDescription } from '../config/actionLabels'
 import styles from './OpsDepartmentView.module.css'
@@ -81,6 +83,9 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<PendingAction | null>(null)
+  const [formParams,setFormParams]=useState<Record<string,string>|null>(null);
+  const [accountResult,setAccountResult]=useState("");
+  const [checking,setChecking]=useState(false);
   const { runningKey, lastResult, run, clearResult } = useActionRunner()
 
   const load = () => {
@@ -115,8 +120,14 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
       requires_approval: requiresApproval,
     }
     if (!meta.action_key) return
+    setAccountResult('');setError(null);clearResult();setFormParams(null);
+    if(meta.action_key==='yandex_direct_validate' && !requiresApproval && riskLevel!=='high') {
+      setChecking(true);
+      void opsWorkspace<{login:string|null;currency:string|null}>('checkDirect').then(a=>setAccountResult('Доступ к Яндекс Директу подтверждён'+(a.login?' · '+a.login:'')+(a.currency?' · '+a.currency:''))).catch(e=>setError(e.message)).finally(()=>setChecking(false));
+      return;
+    }
     // Подтверждение для действий с approval или высоким риском
-    if (requiresApproval || riskLevel === 'high') {
+    if (requiresApproval || riskLevel === 'high' || hasOpsInputs(meta.action_key)) {
       setPending(meta)
       return
     }
@@ -124,15 +135,16 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   }
 
   const doRun = async (meta: PendingAction) => {
-    setPending(null)
     const result = await run({
       action_key: meta.action_key,
       workflow_id: meta.workflow_id,
       department: meta.department,
+      params: hasOpsInputs(meta.action_key) ? formParams || {} : {},
       confirmed: meta.requires_approval || meta.risk_level === 'high',
     })
     // После успешного выполнения обновляем данные отдела
-    if (result.status === 'done') load()
+    if (result.status === 'done') {setPending(null);load()}
+    else if (!hasOpsInputs(meta.action_key)) setPending(null)
   }
 
   return (
@@ -169,6 +181,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
         </div>
       </div>
 
+      {accountResult && <p role="status">{accountResult}</p>}
       {error && <div className={styles.error}>{error}</div>}
       {loading && <div className={styles.state}>Загружаем данные отдела...</div>}
 
@@ -206,7 +219,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
                   type="button"
                   className={styles.runBtn}
                   onClick={() => launch(action)}
-                  disabled={runningKey != null}
+                  disabled={checking || runningKey != null}
                   title={isTruthy(action.requires_human_approval) ? 'Требует подтверждения перед запуском' : 'Запустить действие'}
                 >
                   {runningKey === display(action.action_key ?? action.id) ? <Loader2 className={styles.spin} aria-hidden /> : <PlayCircle aria-hidden />}
@@ -288,16 +301,18 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHead}>
               <AlertTriangle aria-hidden />
-              <h3>Подтвердите запуск</h3>
+              <h3>{hasOpsInputs(pending.action_key)?pending.action_name:'Подтвердите запуск'}</h3>
             </div>
             <p>
               Действие <strong>{pending.action_name}</strong> будет выполнено на проде.
               {pending.requires_approval && ' Оно отмечено как требующее подтверждения человеком.'}
               {pending.risk_level === 'high' && ` Уровень риска: ${RISK_LABELS[pending.risk_level] ?? pending.risk_level}.`}
             </p>
+            {hasOpsInputs(pending.action_key) && <OpsActionInputs key={pending.action_key} action={pending.action_key} onChange={setFormParams}/>}
+            {lastResult?.status==='error' && <p role="alert">{lastResult.error}</p>}
             <div className={styles.modalActions}>
               <button type="button" className={styles.btnGhost} onClick={() => setPending(null)}>Отмена</button>
-              <button type="button" className={styles.btnPrimary} onClick={() => void doRun(pending)}>Запустить</button>
+              <button type="button" className={styles.btnPrimary} disabled={runningKey!=null || (hasOpsInputs(pending.action_key) && !formParams)} onClick={() => void doRun(pending)}>Запустить</button>
             </div>
           </div>
         </div>
@@ -310,6 +325,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
               ? (lastResult.error ?? 'Не удалось выполнить действие')
               : lastResult.status === 'needs_approval' ? 'Для запуска требуется подтверждение' : lastResult.status === 'processing' ? 'Запрос в обработке' : (lastResult.text ?? 'Действие выполнено')}
           </span>
+          {!!lastResult.attachments?.length && <MessageList messages={[{id:"result",role:"assistant",content:"",attachments:lastResult.attachments,timestamp:Date.now()}]} isLoading={false}/>}
           <button type="button" onClick={clearResult} aria-label="Закрыть"><X aria-hidden /></button>
         </div>
       )}

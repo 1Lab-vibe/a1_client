@@ -1,3 +1,5 @@
+import {MessageList} from './MessageList';
+import type {N8nAttachment} from '../types';
 import { useEffect, useMemo, useState, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Play, X } from "lucide-react";
 import { getOpsDepartment, runAction, sendIntakeMessage } from "../api/n8n";
@@ -16,6 +18,7 @@ interface Note {
   ok: boolean;
   text: string;
   paymentUrl?: string;
+  attachments?: N8nAttachment[];
   cardUrl?: string;
   report?: { columns: string[]; rows: string[][] };
 }
@@ -70,7 +73,8 @@ export function ScenarioModes({
       pending.current = null;
       setNote({
         ok: true,
-        text: result.text || "Результат с вложением доступен в COO.",
+        text: result.text || "Файлы готовы.",
+        attachments:result.attachments,
       });
       setActive(null);
     } catch (e) {
@@ -388,6 +392,7 @@ export function ScenarioModes({
             </button>
           </div>
           <p>{note.text}</p>
+          {!!note.attachments?.length && <MessageList messages={[{id:"result", role:"assistant", content:"",attachments:note.attachments,timestamp:Date.now()}]} isLoading={false}/>}
           {note.cardUrl && <a href={note.cardUrl}>Открыть карточку</a>}
           {note.paymentUrl && (
             <a href={note.paymentUrl} target="_blank" rel="noopener noreferrer">
