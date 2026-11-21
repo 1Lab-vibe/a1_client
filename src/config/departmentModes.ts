@@ -5,7 +5,7 @@
  * результат приходит в окно COO и в Telegram. Тексты — из канонических сценариев a1-dev-ops/knowledge-base.
  */
 
-export type FieldType = 'email' | 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox'
+export type FieldType = 'email' | 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox' | 'account'
 
 export interface FieldDef {
   name: string
@@ -89,10 +89,11 @@ const FINANCE: DeptMode[] = [
     id: 'record_transaction', label: 'Записать операцию', group: 'ops',
     description: 'Зафиксировать доход или расход по счёту компании.',
     fields: [
+      { name: 'account', label: 'Финансовый счёт', type: 'account', required: true },
       { name: 'direction', label: 'Тип', type: 'select', default: 'расход', options: [{ value: 'расход', label: 'Расход' }, { value: 'доход', label: 'Доход' }] },
       { name: 'amount', label: 'Сумма, ₽', type: 'number', required: true },
       { name: 'category', label: 'Категория', type: 'text', required: true, placeholder: 'аренда / реклама / зарплата' },
-      { name: 'date', label: 'Дата', type: 'date' },
+      { name: 'date', label: 'Дата', type: 'date', required: true },
     ],
     request: (v) => {
       let s = `Запиши ${v.direction || 'расход'} на ${amt(v)} рублей, категория ${v.category}`

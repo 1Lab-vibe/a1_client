@@ -2,7 +2,7 @@ import {MessageList} from './MessageList';
 import type {N8nAttachment} from '../types';
 import { useEffect, useMemo, useState, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Play, X } from "lucide-react";
-import { getOpsDepartment, runAction, sendIntakeMessage } from "../api/n8n";
+import { getOpsDepartment, opsWorkspace, runAction, sendIntakeMessage } from "../api/n8n";
 import { crm, type Card } from "../api/crm";
 import { waitForIntake } from "../hooks/useN8n";
 import { CrmLookup } from "./CrmLookup";
@@ -173,6 +173,17 @@ export function ScenarioModes({
           text: "Карточка сохранена в CRM.",
           cardUrl: "#/crm/" + entity + "?stage=all&card=" + id,
         });
+        setActive(null);
+        return;
+      }
+      if (mode.id === "record_transaction") {
+        const { record } = await opsWorkspace<{ record: { id: string; amount: string; currency: string } }>("recordTransaction", {
+          id: invoiceId.current, account: values.account, amount: values.amount, category: values.category, date: values.date,
+          direction: values.direction === "расход" ? "expense" : "income",
+        });
+        if (record?.id !== invoiceId.current || Number(record.amount) !== Number(values.amount.replace(",", ".")))
+          throw new Error("Сервер не подтвердил запись операции.");
+        setNote({ ok: true, text: "Операция сохранена · " + Number(record.amount).toLocaleString("ru-RU") + " ₽" });
         setActive(null);
         return;
       }
@@ -447,6 +458,27 @@ export function ScenarioModes({
   );
 }
 
+function FinanceAccountSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [accounts, setAccounts] = useState<{ id: string; label: string }[] | null>(null);
+  const [error, setError] = useState(false);
+  const [attempt, retry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError(false);
+    opsWorkspace<{rows: {id: string; label: string}[]}>("rubAccounts").then(r => {
+      if (active) setAccounts(r.rows);
+    }).catch(() => { if (active) setError(true) });
+    return () => { active = false };
+  }, [attempt]);
+  return <>
+    <select required value={value} disabled={!accounts?.length} onChange={e => onChange(e.target.value)}>
+      <option value="">{error ? "Счета недоступны" : !accounts ? "Загрузка…" : accounts.length ? "Выберите счёт" : "Нет активных рублёвых счетов"}</option>
+      {accounts?.map(account => <option key={account.id} value={account.id}>{account.label}</option>)}
+    </select>
+    {error && <button type="button" onClick={() => retry(n => n + 1)}>Повторить загрузку счетов</button>}
+  </>;
+}
+
 function ModeForm({
   mode,
   pending,
@@ -522,7 +554,9 @@ function ModeForm({
                 {f.label}
                 {f.required && <em> *</em>}
               </span>
-              {f.type === "textarea" ? (
+              {f.type === "account" ? (
+                <FinanceAccountSelect value={values[f.name] || ""} onChange={id => set(f.name, id)} />
+              ) : f.type === "textarea" ? (
                 <textarea
                   rows={3}
                   value={values[f.name] ?? ""}
