@@ -107,7 +107,7 @@ const FINANCE: DeptMode[] = [
     fields: [
       { name: 'counterparty', label: 'Контрагент', type: 'text', required: true, placeholder: 'Арендодатель' },
       { name: 'amount', label: 'Сумма, ₽', type: 'number', required: true },
-      { name: 'due_date', label: 'Срок оплаты', type: 'date' },
+      { name: 'due_date', label: 'Срок оплаты', type: 'date', required:true },
       { name: 'recurrence', label: 'Периодичность', type: 'select', default: 'разовое', options: [{ value: 'разовое', label: 'Разовое' }, { value: 'ежемесячно', label: 'Ежемесячно' }, { value: 'ежеквартально', label: 'Ежеквартально' }] },
     ],
     request: (v) => {

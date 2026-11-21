@@ -289,6 +289,15 @@ export function ScenarioModes({
         rows.push(["Следующий шаг",next]);
         setNote({ok:true,text:mode.label,report:{columns:["Поле","Значение"],rows}});setActive(null);return;
       }
+      if(mode.id==="create_obligation"){
+        const cadence=({"разовое":"once","ежемесячно":"monthly","ежеквартально":"quarterly"} as Record<string,string>)[values.recurrence || "разовое"];
+        const {record}=await opsWorkspace<{record:{id:string;amount:string;title:string;date:string;cadence:string}}>("create_obligation",{
+          id:invoiceId.current,counterparty:values.counterparty,amount:values.amount,date:values.due_date,cadence
+        });
+        if(record?.id!==invoiceId.current || record.date!==values.due_date || Number(record.amount)!==Number(values.amount.replace(",",".")) || record.cadence!==cadence)
+          throw new Error("Сервер не подтвердил создание обязательства.");
+        setNote({ok:true,text:"Обязательство сохранено · "+record.title+" · "+record.amount+" ₽"});setActive(null);return;
+      }
       if (["follow_up","meeting_result","mark_obligation_paid"].includes(mode.id)) {
         const payment = mode.id === "mark_obligation_paid";
         const params = payment
