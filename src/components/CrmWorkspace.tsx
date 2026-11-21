@@ -248,6 +248,7 @@ function Editor({
                   </select>
                 ) : f.type === "long" ? (
                   <textarea
+                    aria-label={f.label}
                     value={raw}
                     onChange={(e) => set(f.key, e.target.value)}
                   />

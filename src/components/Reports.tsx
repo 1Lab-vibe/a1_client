@@ -6,7 +6,7 @@ import { getReport, type PeriodFilter, type PeriodPreset } from '../api/n8n'
 import styles from './Reports.module.css'
 
 const REPORTS = [
-  { id: 'sales', label: 'Продажи', metric: 'Выручка / сделки' },
+  { id: 'sales', label: 'Продажи', metric: 'Количество сделок' },
   { id: 'crm', label: 'CRM', metric: 'Лиды / клиенты' },
   { id: 'coo', label: 'COO', metric: 'Сообщения / вложения' },
   { id: 'ops', label: 'Операции', metric: 'Задачи / SLA' },
@@ -173,7 +173,7 @@ export function Reports() {
 
         {kpis.length > 0 && (
           <div className={styles.kpiStrip}>
-            {kpis.slice(0, 8).map((kpi) => (
+            {kpis.map((kpi) => (
               <article key={kpi.id}>
                 <span>{kpi.label}</span>
                 <strong>{kpi.value.toLocaleString('ru-RU')}</strong>
