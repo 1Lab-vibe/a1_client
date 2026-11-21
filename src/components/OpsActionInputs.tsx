@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -20,6 +20,8 @@ export function OpsActionInputs({
   useEffect(() => () => { latestFile.current = null }, []);
   const [fileError, setFileError] = useState("");
   const [mail, setMail] = useState({ to: "", subject: "", body_text: "" });
+  const [templates,setTemplates]=useState<{key:string;name:string;type:string}[]|null>(null);
+  const [document,setDocument]=useState({template_key:'',title:'',brief:''});
   const [task,setTask]=useState({title:"",priority:"medium",due:""});
   const kind = choices[action],
     [query, setQuery] = useState(""),
@@ -54,6 +56,12 @@ export function OpsActionInputs({
       clearTimeout(timer);
     };
   }, [kind, query, attempt]);
+  useEffect(()=>{
+    let active=true;
+    if(action==='ops_documents') opsWorkspace<{rows:{key:string;name:string;type:string}[]}>('documentTemplates')
+      .then(r=>{if(active){setTemplates(r.rows);setError('')}}).catch(()=>{if(active)setError('Не удалось получить список шаблонов')});
+    return ()=>{active=false};
+  },[action,attempt]);
   if (action === 'create_task') {
     const change = (key:keyof typeof task,value:string)=>{
       const next={...task,[key]:value};
@@ -66,6 +74,27 @@ export function OpsActionInputs({
       </select></label>
       <label>Срок задачи<input type="datetime-local" value={task.due} onChange={e=>change('due',e.target.value)}/></label>
     </div>;
+  }
+  if(action==='ops_documents') {
+    const update=(key:keyof typeof document,value:string)=>{
+      const next={...document,[key]:value};setDocument(next);
+      const type=templates?.find(t=>t.key===next.template_key)?.type || 'memo';
+      onChange(next.title.trim() && next.brief.trim()?{...next,doc_type:type,user_message:next.brief}:null);
+    };
+    return <div>
+      <label>Шаблон<select value={document.template_key} onChange={e=>update('template_key',e.target.value)}>
+        <option value="">Свободная форма</option>{templates?.map(t=><option key={t.key} value={t.key}>{t.name}</option>)}
+      </select></label>
+      {error && <p role="alert">{error} <button type="button" onClick={()=>retry(n=>n+1)}>Повторить</button></p>}
+      <label>Название документа<input required value={document.title} onChange={e=>update('title',e.target.value)}/></label>
+      <label>Содержание<textarea required value={document.brief} onChange={e=>update('brief',e.target.value)}/></label>
+    </div>;
+  }
+  if(['compose_email','product_packaging','delivery_ops','ops_finance'].includes(action)){
+    const fieldLabels:Record<string,string>={compose_email:'Кому и о чём написать',product_packaging:'Продукт, аудитория и задача',delivery_ops:'Что подготовить по доставке',ops_finance:'Финансовый запрос'};
+    return <label>{fieldLabels[action]}<textarea required value={query} onChange={e=>{
+      setQuery(e.target.value);onChange(e.target.value.trim()?{user_message:e.target.value.trim()}:null);
+    }}/></label>;
   }
   if (action==='ops_hr_lpr' || action==='ops_legal_lpr') {
     return <label>Вопрос для рассмотрения<textarea required value={query} onChange={e=>{

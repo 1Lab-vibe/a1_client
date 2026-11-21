@@ -182,6 +182,11 @@ export function ScenarioModes({
         setActive(null);
         return;
       }
+      if (mode.id==="dadata") {
+        const report=await opsWorkspace<{columns:string[];rows:string[][]}>('lookupInn',{inn:values.inn});
+        setNote({ok:true,text:report.rows.length?'Реквизиты из DaData':'По этому ИНН организации не найдены.',report:report.rows.length?report:undefined});
+        setActive(null);return;
+      }
       if (mode.id==="sales_profile" || mode.id==="next_step") {
         const profile=mode.id==="sales_profile";
         const {record}=await crm<{record:Card}>(profile?"clients":"leads","get",{id:profile?values.client:values.lead});
