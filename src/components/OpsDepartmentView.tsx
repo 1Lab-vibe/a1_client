@@ -5,7 +5,7 @@ import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw, Table2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { getOpsDepartment, opsWorkspace, type PeriodPreset } from '../api/n8n'
+import { arrayBufferToBase64, getOpsDepartment, opsWorkspace, type PeriodPreset } from '../api/n8n'
 import { useActionRunner } from '../hooks/useActionRunner'
 import { actionName, actionDescription } from '../config/actionLabels'
 import styles from './OpsDepartmentView.module.css'
@@ -86,6 +86,8 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [formParams,setFormParams]=useState<Record<string,string>|null>(null);
   const [accountResult,setAccountResult]=useState("");
+  const [importFiles,setImportFiles]=useState<File[]>([]);
+  const [preparedFile,setPreparedFile]=useState<{filename:string;url:string}|null>(null);
   const [checking,setChecking]=useState(false);
   const { runningKey, lastResult, run, clearResult } = useActionRunner()
 
@@ -122,14 +124,14 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
       requestId: crypto.randomUUID(),
     }
     if (!meta.action_key) return
-    setAccountResult('');setError(null);clearResult();setFormParams(null);
+    setImportFiles([]);setPreparedFile(null);setAccountResult('');setError(null);clearResult();setFormParams(null);
     if(meta.action_key==='yandex_direct_validate' && !requiresApproval && riskLevel!=='high') {
       setChecking(true);
       void opsWorkspace<{login:string|null;currency:string|null}>('checkDirect').then(a=>setAccountResult('Доступ к Яндекс Директу подтверждён'+(a.login?' · '+a.login:'')+(a.currency?' · '+a.currency:''))).catch(e=>setError(e.message)).finally(()=>setChecking(false));
       return;
     }
     // Подтверждение для действий с approval или высоким риском
-    if (requiresApproval || riskLevel === 'high' || hasOpsInputs(meta.action_key)) {
+    if (requiresApproval || riskLevel === 'high' || meta.action_key==='prepare_multi_file_import' || hasOpsInputs(meta.action_key)) {
       setPending(meta)
       return
     }
@@ -137,6 +139,19 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   }
 
   const doRun = async (meta: PendingAction) => {
+    if(meta.action_key==='prepare_multi_file_import'){
+      if(checking || !importFiles.length) return;
+      setChecking(true);setError(null);
+      try {
+        if(importFiles.length>10 || importFiles.reduce((size,file)=>size+file.size,0)>4*1024*1024) throw new Error('Выберите до десяти файлов общим размером до 4 МБ.');
+        const files=await Promise.all(importFiles.map(async file=>({name:file.name,content:arrayBufferToBase64(await file.arrayBuffer())})));
+        const report=await opsWorkspace<{filename:string;url:string;rows:number;sheets:number}>('prepareImportWorkbook',{files});
+        if(!report.rows || !report.url)throw new Error('Сервер не вернул подготовленный файл.');
+        setPreparedFile(report);setAccountResult('Подготовлено строк: '+report.rows+'. Листов обработано: '+report.sheets+'.');setPending(null);
+      } catch(e){setError(e instanceof Error ? e.message : 'Не удалось подготовить файл.')}
+      finally{setChecking(false)}
+      return;
+    }
     if(['yandex_direct_report','landing_watchdog'].includes(meta.action_key)){
       if(checking || !formParams)return;
       setChecking(true);setError(null);
@@ -207,6 +222,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
         </div>
       </div>
 
+      {preparedFile && <a href={preparedFile.url} download={preparedFile.filename}>{preparedFile.filename}</a>}
       {accountResult && <p role="status" style={{whiteSpace:"pre-line"}}>{accountResult}</p>}
       {error && <div className={styles.error}>{error}</div>}
       {loading && <div className={styles.state}>Загружаем данные отдела...</div>}
@@ -335,12 +351,13 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
               {pending.requires_approval && ' Оно отмечено как требующее подтверждения человеком.'}
               {pending.risk_level === 'high' && ` Уровень риска: ${RISK_LABELS[pending.risk_level] ?? pending.risk_level}.`}
             </p>
+            {pending.action_key==='prepare_multi_file_import' && <label>Файлы XLSX или CSV<input type="file" accept=".xlsx,.csv" multiple onChange={e=>setImportFiles(Array.from(e.target.files || []))}/></label>}
             {hasOpsInputs(pending.action_key) && <OpsActionInputs key={pending.action_key} action={pending.action_key} onChange={setFormParams}/>}
             {error && <p role="alert">{error}</p>}
             {lastResult?.status==='error' && <p role="alert">{lastResult.error}</p>}
             <div className={styles.modalActions}>
               <button type="button" className={styles.btnGhost} onClick={() => setPending(null)}>Отмена</button>
-              <button type="button" className={styles.btnPrimary} disabled={checking || runningKey!=null || (hasOpsInputs(pending.action_key) && !formParams)} onClick={() => void doRun(pending)}>Запустить</button>
+              <button type="button" className={styles.btnPrimary} disabled={checking || runningKey!=null || (pending.action_key==='prepare_multi_file_import' && !importFiles.length) || (hasOpsInputs(pending.action_key) && !formParams)} onClick={() => void doRun(pending)}>Запустить</button>
             </div>
           </div>
         </div>

@@ -654,8 +654,8 @@ export async function runAction(input: ActionRunInput): Promise<ActionRunResult>
 }
 
 /** Опрос результата отложенного действия по request_id. */
-export async function getActionResult(requestId: string): Promise<ActionRunResult> {
-  const raw = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getActionResult', { request_id: requestId }))
+export async function getActionResult(requestId: string, actionKey?: string): Promise<ActionRunResult> {
+  const raw = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('getActionResult', { request_id: requestId, action_key: actionKey }))
   return toActionRunResult(raw)
 }
 
@@ -1026,10 +1026,8 @@ export async function requestPasswordReset(email: string): Promise<{ sent: boole
     action: 'requestPasswordReset',
     payload: { email },
   })
-  return {
-    sent: res.sent ?? res.ok ?? true,
-    message: res.message,
-  }
+  if (res.ok !== true || res.sent !== true) throw new Error('Сервер не подтвердил запрос на восстановление доступа.')
+  return { sent: true, message: res.message }
 }
 
 export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; message?: string }> {

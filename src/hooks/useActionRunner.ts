@@ -50,7 +50,7 @@ export function useActionRunner() {
         for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
           await delay(POLL_INTERVAL_MS)
           if (!mounted.current) return result
-          const next = await getActionResult(requestId)
+          const next = await getActionResult(requestId, input.action_key)
           if (next.request_id && next.request_id !== requestId) throw new Error('Получен ответ на другой запрос')
           if (next.status !== 'processing') {
             result = next

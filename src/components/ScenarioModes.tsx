@@ -58,8 +58,9 @@ export function ScenarioModes({
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [note, setNote] = useState<Note | null>(null);
 
-  const {run:runMail} = useActionRunner();
+  const {run:runDepartmentAction} = useActionRunner();
   const [draft,setDraft] = useState<{key:string;to:string;subject:string;body:string}|null>(null);
+  const [researchRequest,setResearchRequest]=useState<string>();
   const [mailRequest,setMailRequest] = useState<string>();
   const submittedText = useRef("");
   const pending = useRef<{ id: string; mode: string } | null>(null);
@@ -199,7 +200,7 @@ export function ScenarioModes({
         const params=sending && draft ? {to,subject:draft.subject,body_text:draft.body,dedupe_key:invoiceId.current}
           : {customer_name:String(lead.company_name || lead.title || ""),contact_name:String(lead.contact_name || ""),
              user_message:values.about?.trim() || "Пригласить клиента обсудить его задачу на встрече."};
-        const result=await runMail({action_key:action,department:"tasks",workflow_id:handler.workflow_id,confirmed:true,params,
+        const result=await runDepartmentAction({action_key:action,department:"tasks",workflow_id:handler.workflow_id,confirmed:true,params,
           idempotency_key:sending?invoiceId.current:undefined},mailRequest);
         setMailRequest(result.status==="processing" || result.status==="error" ? result.request_id : undefined);
         if(result.status!=="done")throw new Error(result.error || "Письмо ещё в обработке. Проверьте результат.");
@@ -223,10 +224,11 @@ export function ScenarioModes({
           const dept=await getOpsDepartment("marketing");
           const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key==="growth_leadgen");
           if (!handler?.workflow_id)throw new Error("Обработчик подбора клиентов недоступен.");
-          const result=await runAction({action_key:"growth_leadgen",department:"marketing",workflow_id:handler.workflow_id,idempotency_key:id,params:{
+          const result=await runDepartmentAction({action_key:"growth_leadgen",department:"marketing",workflow_id:handler.workflow_id,idempotency_key:id,params:{
             form:"crm_research",mode:"research",target_count:count,scout_query:values.similar_to || "Компании, похожие на клиентов компании",
             autonomy_level:"research_only",auto_prepare_outreach:false,
-          }}).catch(()=>null);
+          }},researchRequest);
+          setResearchRequest(result.status==="processing" || result.status==="error" ? result.request_id : undefined);
           record=await read();
           if(!record)throw new Error(result?.error || "Подбор ещё не подтверждён. Повторите проверку.");
         }
@@ -466,7 +468,7 @@ export function ScenarioModes({
                       setNote(null);
                       pending.current = null;
                       invoiceId.current = crypto.randomUUID();
-                      setDocumentId("");setDraft(null);setMailRequest(undefined);
+                      setDocumentId("");setResearchRequest(undefined);setDraft(null);setMailRequest(undefined);
                       setActive(mode);
                     }}
                     disabled={runningKey != null}
