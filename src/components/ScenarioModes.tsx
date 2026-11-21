@@ -187,6 +187,23 @@ export function ScenarioModes({
         setActive(null);
         return;
       }
+      if (mode.id==="proposal_pdf") {
+        const amount=Number(values.amount.replace(",","."));
+        if(!Number.isFinite(amount) || amount<=0 || !/^\d+(?:[.,]\d{1,2})?$/.test(values.amount.trim())) throw new Error("Укажите положительную сумму с точностью до копеек.");
+        const {record:lead}=await crm<{record:Card}>("leads","get",{id:values.lead});
+        const recipient=String(lead.company_name || lead.title || "").trim();
+        if(!recipient) throw new Error("В карточке лида не заполнено название.");
+        const dept=await getOpsDepartment("tasks");
+        const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key==="ops_documents");
+        if(!handler?.workflow_id)throw new Error("В компании не настроена генерация документов.");
+        const title="Коммерческое предложение для "+recipient;
+        const brief=["Получатель: "+recipient,lead.contact_name?"Контакт: "+lead.contact_name:"","Предмет предложения: внедрение A1.","Стоимость: "+amount.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" ₽."].filter(Boolean).join("\n");
+        const result=await runDepartmentAction({action_key:"ops_documents",workflow_id:handler.workflow_id,department:"tasks",confirmed:true,idempotency_key:invoiceId.current,
+          params:{title,brief,user_message:brief,doc_type:"commercial_proposal",lead_id:lead.id,amount,currency:"RUB"}},mailRequest);
+        setMailRequest(result.status==="processing" || result.status==="error" ? result.request_id : undefined);
+        if(result.status!=="done" || !result.attachments?.some(file=>/\.pdf$/i.test(file.filename || file.name || ""))) throw new Error(result.error || "Сервер не подтвердил формирование PDF.");
+        setNote({ok:true,text:"Коммерческое предложение готово.",attachments:result.attachments});setActive(null);return;
+      }
       if (mode.id==="email_draft" || mode.id==="email_send") {
         const {record:lead}=await crm<{record:Card}>("leads","get",{id:values.lead});
         const to=String(lead.contact_email || "").trim();
