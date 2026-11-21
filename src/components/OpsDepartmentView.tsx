@@ -114,7 +114,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
     const riskLevel = display(action.risk_level).toLowerCase()
     const meta: PendingAction = {
       action_key: String(action.action_key ?? action.id ?? ''),
-      action_name: display(action.action_name ?? action.action_key),
+      action_name: actionName(String(action.action_key), display(action.action_name ?? action.action_key)),
       workflow_id: action.workflow_id != null ? String(action.workflow_id) : undefined,
       department,
       risk_level: riskLevel,
@@ -137,6 +137,19 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   }
 
   const doRun = async (meta: PendingAction) => {
+    if(meta.action_key==='create_task') {
+      if(checking || !formParams) return;
+      setChecking(true);setError(null);
+      try {
+        const {record}=await opsWorkspace<{record:{id:string;title:string}}>('createManualTask',{
+          ...formParams,id:meta.requestId,due:formParams.due ? new Date(formParams.due).toISOString() : null,
+        });
+        if(record?.id!==meta.requestId || record.title!==formParams.title.trim()) throw new Error('Сервер не подтвердил создание задачи');
+        setAccountResult('Задача создана · '+record.title);setPending(null);load();
+      } catch(e) {setError(e instanceof Error ? e.message : 'Не удалось создать задачу')}
+      finally {setChecking(false)}
+      return;
+    }
     const result = await run({
       action_key: meta.action_key,
       workflow_id: meta.workflow_id,
@@ -312,10 +325,11 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
               {pending.risk_level === 'high' && ` Уровень риска: ${RISK_LABELS[pending.risk_level] ?? pending.risk_level}.`}
             </p>
             {hasOpsInputs(pending.action_key) && <OpsActionInputs key={pending.action_key} action={pending.action_key} onChange={setFormParams}/>}
+            {error && <p role="alert">{error}</p>}
             {lastResult?.status==='error' && <p role="alert">{lastResult.error}</p>}
             <div className={styles.modalActions}>
               <button type="button" className={styles.btnGhost} onClick={() => setPending(null)}>Отмена</button>
-              <button type="button" className={styles.btnPrimary} disabled={runningKey!=null || (hasOpsInputs(pending.action_key) && !formParams)} onClick={() => void doRun(pending)}>Запустить</button>
+              <button type="button" className={styles.btnPrimary} disabled={checking || runningKey!=null || (hasOpsInputs(pending.action_key) && !formParams)} onClick={() => void doRun(pending)}>Запустить</button>
             </div>
           </div>
         </div>

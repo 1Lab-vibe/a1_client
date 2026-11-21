@@ -182,6 +182,27 @@ export function ScenarioModes({
         setActive(null);
         return;
       }
+      if (mode.id==="sales_profile" || mode.id==="next_step") {
+        const profile=mode.id==="sales_profile";
+        const {record}=await crm<{record:Card}>(profile?"clients":"leads","get",{id:profile?values.client:values.lead});
+        const due=String((profile?record.next_followup_at:record.next_follow_up_at) || "");
+        const date=due ? new Date(due).toLocaleString("ru-RU") : "";
+        let next="Назначить дату следующего контакта.";
+        const email=String((profile?record.primary_email:record.contact_email) || "");
+        const phone=String((profile?record.primary_phone:record.contact_phone) || "");
+        if(!email && !phone) next="Уточнить контактные данные.";
+        else if (date) next=(Date.parse(due)<Date.now()?"Связаться по просроченному контакту · ":"Связаться в назначенное время · ")+date;
+        if (!profile && record.stage==="lost") next="Лид провален. Уточнить причину перед возвратом в работу.";
+        if (!profile && record.stage==="won") next="Лид успешно завершён. Проверить связанную сделку.";
+        const rows=profile ? [
+          ["Клиент",String(record.name || "")],["Email",email || "Не указан"],["Телефон",phone || "Не указан"],
+          ["Подписант",[record.signer_name,record.signer_title].filter(Boolean).join(", ") || "Не указан"],
+          ["Что уточнить",[!record.signer_name && "Кто принимает решение",!email && "Email",!phone && "Телефон",!due && "Дата следующего контакта"].filter(Boolean).join(", ") || "Основные поля заполнены"],
+          ["Риск",!email && !phone?"Отсутствуют каналы связи":due && Date.parse(due)<Date.now()?"Следующий контакт просрочен":"По контактным данным явных рисков не обнаружено"],
+        ] : [["Лид",String(record.title || "")],["Контакт",[record.contact_name,email,phone].filter(Boolean).join(" · ") || "Не указан"]];
+        rows.push(["Следующий шаг",next]);
+        setNote({ok:true,text:mode.label,report:{columns:["Поле","Значение"],rows}});setActive(null);return;
+      }
       if (["follow_up","meeting_result","mark_obligation_paid"].includes(mode.id)) {
         const payment = mode.id === "mark_obligation_paid";
         const params = payment

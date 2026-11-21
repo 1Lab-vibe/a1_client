@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -20,6 +20,7 @@ export function OpsActionInputs({
   useEffect(() => () => { latestFile.current = null }, []);
   const [fileError, setFileError] = useState("");
   const [mail, setMail] = useState({ to: "", subject: "", body_text: "" });
+  const [task,setTask]=useState({title:"",priority:"medium",due:""});
   const kind = choices[action],
     [query, setQuery] = useState(""),
     [rows, setRows] = useState<{ id: string; label: string }[]>([]),
@@ -53,6 +54,24 @@ export function OpsActionInputs({
       clearTimeout(timer);
     };
   }, [kind, query, attempt]);
+  if (action === 'create_task') {
+    const change = (key:keyof typeof task,value:string)=>{
+      const next={...task,[key]:value};
+      setTask(next);onChange(next.title.trim()?next:null);
+    };
+    return <div>
+      <label>Название задачи<input required maxLength={500} value={task.title} onChange={e=>change('title',e.target.value)}/></label>
+      <label>Приоритет<select value={task.priority} onChange={e=>change('priority',e.target.value)}>
+        <option value="low">Низкий</option><option value="medium">Обычный</option><option value="high">Высокий</option><option value="critical">Критический</option>
+      </select></label>
+      <label>Срок задачи<input type="datetime-local" value={task.due} onChange={e=>change('due',e.target.value)}/></label>
+    </div>;
+  }
+  if (action==='ops_hr_lpr' || action==='ops_legal_lpr') {
+    return <label>Вопрос для рассмотрения<textarea required value={query} onChange={e=>{
+      setQuery(e.target.value);onChange(e.target.value.trim()?{summary:e.target.value.trim()}:null);
+    }}/></label>;
+  }
   if (action === "import_yandex_direct_xlsx") {
     const selectFile = async (file: File | null) => {
       latestFile.current = file;
