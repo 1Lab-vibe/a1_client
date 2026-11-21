@@ -30,6 +30,7 @@ interface PendingAction {
   department: string
   risk_level: string
   requires_approval: boolean
+  requestId: string
 }
 
 const PERIODS: Array<{ id: PeriodPreset; label: string }> = [
@@ -118,6 +119,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
       department,
       risk_level: riskLevel,
       requires_approval: requiresApproval,
+      requestId: crypto.randomUUID(),
     }
     if (!meta.action_key) return
     setAccountResult('');setError(null);clearResult();setFormParams(null);
@@ -139,7 +141,8 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
       action_key: meta.action_key,
       workflow_id: meta.workflow_id,
       department: meta.department,
-      params: hasOpsInputs(meta.action_key) ? formParams || {} : {},
+      params: meta.action_key === 'send_email' ? { ...formParams, dedupe_key: meta.requestId } : hasOpsInputs(meta.action_key) ? formParams || {} : {},
+      idempotency_key: meta.requestId,
       confirmed: meta.requires_approval || meta.risk_level === 'high',
     })
     // После успешного выполнения обновляем данные отдела

@@ -16,7 +16,7 @@ function fmt(value: number, unit?: string): string {
   const n = Number(value) || 0
   if (unit === 'RUB') return n.toLocaleString('ru-RU') + ' ₽'
   if (unit === 'pct') return n.toLocaleString('ru-RU') + '%'
-  return n.toLocaleString('ru-RU')
+  return n.toLocaleString('ru-RU') + (unit && unit !== 'count' ? ' ' + unit : '')
 }
 
 function KpiCard({ kpi }: { kpi: MisKpi }) {
@@ -37,7 +37,7 @@ function DeviationCard({ d, positive }: { d: MisDeviation; positive: boolean }) 
         <span className={styles.devDay}>{d.day}</span>
         {d.severity && <span className={styles.badge}>{d.severity}</span>}
       </div>
-      <p className={styles.devNarr}>{d.narrative ?? `${d.metric}: Δ ${Math.round(d.delta ?? 0).toLocaleString('ru-RU')} (z=${d.z ?? '—'})`}</p>
+      <p className={styles.devNarr}>{d.narrative ?? `${d.metric}: Δ ${(d.delta ?? 0).toLocaleString('ru-RU')} (z=${d.z ?? '—'})`}</p>
       {(d.drivers ?? []).length > 0 && (
         <ul className={styles.drivers}>
           {(d.drivers ?? []).slice(0, 3).map((dr, i) => (
@@ -59,15 +59,18 @@ export function MISView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const load = () => {
+  const [attempt, retry] = useState(0)
+  useEffect(() => {
+    let current = true
     setLoading(true)
+    setData(null)
     setError(null)
     getMisDashboard({ preset: period })
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить MIS'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [period])
+      .then(next => { if (current) setData(next) })
+      .catch((e) => { if (current) setError(e instanceof Error ? e.message : 'Не удалось загрузить MIS') })
+      .finally(() => { if (current) setLoading(false) })
+    return () => { current = false }
+  }, [period, attempt])
 
   const chart = useMemo(() => (data?.cash_series ?? []).map((p) => ({ label: p.d.slice(5), value: p.v, baseline: p.b ?? 0 })), [data])
   const pos = data?.events_positive ?? []
@@ -86,7 +89,7 @@ export function MISView() {
               <button key={p.label} type="button" className={period === p.id ? styles.periodActive : ''} onClick={() => setPeriod(p.id)}>{p.label}</button>
             ))}
           </div>
-          <button type="button" className={styles.refresh} onClick={load} disabled={loading}><RefreshCw aria-hidden /></button>
+          <button type="button" className={styles.refresh} onClick={() => retry(n => n + 1)} disabled={loading}><RefreshCw aria-hidden /></button>
         </div>
       </div>
 
@@ -101,7 +104,7 @@ export function MISView() {
 
           <section className={styles.chartPanel}>
             <div className={styles.panelHead}><h3>Приход денег (cash&nbsp;in)</h3><span>{data.period_days} дн.</span></div>
-            {chart.some((c) => c.value > 0) ? (
+            {chart.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={chart}>
                   <defs>

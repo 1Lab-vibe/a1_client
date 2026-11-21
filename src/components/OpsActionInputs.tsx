@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || key === "read_sheet";
+  Object.prototype.hasOwnProperty.call(choices, key) || ["read_sheet", "send_email"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -16,6 +16,7 @@ export function OpsActionInputs({
   action: string;
   onChange: (params: Record<string, string> | null) => void;
 }) {
+  const [mail, setMail] = useState({ to: "", subject: "", body_text: "" });
   const kind = choices[action],
     [query, setQuery] = useState(""),
     [rows, setRows] = useState<{ id: string; label: string }[]>([]),
@@ -49,6 +50,19 @@ export function OpsActionInputs({
       clearTimeout(timer);
     };
   }, [kind, query, attempt]);
+  if (action === "send_email") {
+    const change = (key: keyof typeof mail, value: string) => {
+      const next = { ...mail, [key]: value };
+      setMail(next);
+      onChange(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next.to.trim()) && next.subject.trim() && next.body_text.trim()
+        ? { to: next.to.trim(), subject: next.subject.trim(), body_text: next.body_text } : null);
+    };
+    return <div>
+      <label>Кому<input type="email" value={mail.to} onChange={e => change("to", e.target.value)} /></label>
+      <label>Тема<input value={mail.subject} onChange={e => change("subject", e.target.value)} /></label>
+      <label>Текст письма<textarea value={mail.body_text} onChange={e => change("body_text", e.target.value)} /></label>
+    </div>;
+  }
   if (action === "read_sheet")
     return (
       <label>
