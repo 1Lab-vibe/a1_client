@@ -8,7 +8,7 @@ const choices: Record<string, "product" | "plan"> = {
   export_yandex_direct_xlsx: "plan",
 };
 export const hasOpsInputs = (key: string) =>
-  Object.prototype.hasOwnProperty.call(choices, key) || ["yandex_direct_report","landing_watchdog","ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
+  Object.prototype.hasOwnProperty.call(choices, key) || ["growth_leadgen_report","yandex_direct_report","landing_watchdog","ops_documents","compose_email","product_packaging","delivery_ops","ops_finance","create_task","ops_legal_lpr","ops_hr_lpr","read_sheet", "send_email", "import_yandex_direct_xlsx"].includes(key);
 export function OpsActionInputs({
   action,
   onChange,
@@ -62,7 +62,7 @@ export function OpsActionInputs({
       .then(r=>{if(active){setTemplates(r.rows);setError('')}}).catch(()=>{if(active)setError('Не удалось получить список шаблонов')});
     return ()=>{active=false};
   },[action,attempt]);
-  if (action==='yandex_direct_report' || action==='landing_watchdog') {
+  if (action==='growth_leadgen_report' || action==='yandex_direct_report' || action==='landing_watchdog') {
     return <label>Период<select value={query} onChange={e=>{setQuery(e.target.value);onChange(e.target.value?{period:e.target.value}:null)}}>
       <option value="">Выберите период</option><option value="today">Сегодня</option><option value="7d">7 дней</option><option value="30d">30 дней</option><option value="90d">90 дней</option>
     </select></label>;

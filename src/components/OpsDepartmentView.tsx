@@ -139,6 +139,24 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
   }
 
   const doRun = async (meta: PendingAction) => {
+    if(meta.action_key==='generate_ad_variants' || meta.action_key==='growth_leadgen_report'){
+      if(checking || !formParams)return;
+      setChecking(true);setError(null);
+      try {
+        if(meta.action_key==='generate_ad_variants'){
+          const res=await opsWorkspace<{text:string}>('creativeVariants',formParams);
+          if(!res.text)throw new Error('В медиаплане нет сохранённых вариантов.');
+          setAccountResult(res.text);
+        } else {
+          const res=await opsWorkspace<{filename:string;url:string;runs:number;candidates:number;leads:number}>('leadgenPdf',formParams);
+          if(!res.url)throw new Error('Сервер не вернул PDF.');
+          setPreparedFile(res);setAccountResult('Запусков: '+res.runs+'. Кандидатов: '+res.candidates+'. Связанных лидов: '+res.leads+'.');
+        }
+        setPending(null);
+      } catch(e){setError(e instanceof Error ? e.message : 'Не удалось подготовить результат.')}
+      finally{setChecking(false)}
+      return;
+    }
     if(meta.action_key==='prepare_multi_file_import'){
       if(checking || !importFiles.length) return;
       setChecking(true);setError(null);
