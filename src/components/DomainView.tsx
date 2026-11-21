@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Database, RefreshCw, Table2 } from 'lucide-react'
+import { Database, RefreshCw, Table2 } from 'lucide-react'
 import { getBlockData } from '../api/n8n'
 import styles from './DomainView.module.css'
 
@@ -32,14 +32,12 @@ function displayValue(value: unknown): string {
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (message.includes('No item to return') || message.includes('(500)')) {
-    return 'Данные раздела сейчас недоступны. Проверьте workflow-контракт getBlockData и повторите обновление.'
+    return 'Данные раздела сейчас недоступны. Повторите обновление.'
   }
   return message || 'Не удалось загрузить данные раздела.'
 }
 
-function viewDomain(viewId: string): string {
-  return viewId.split('/')[0] || viewId
-}
+const labels:Record<string,string>={name:'Название',title:'Название',description:'Описание',status:'Статус',stage:'Стадия',amount:'Сумма',currency:'Валюта',email:'Email',phone:'Телефон',due_date:'Срок',created_at:'Дата создания'};
 
 export function DomainView({ viewId, title }: DomainViewProps) {
   const [data, setData] = useState<Record<string, unknown> | null>(null)
@@ -59,21 +57,14 @@ export function DomainView({ viewId, title }: DomainViewProps) {
 
   const rows = useMemo(() => findRows(data), [data])
   const keys = useMemo(() => {
-    const collected = new Set<string>()
-    rows.slice(0, 20).forEach((row) => Object.keys(row).slice(0, 8).forEach((key) => collected.add(key)))
-    return Array.from(collected).slice(0, 8)
+    return Object.keys(labels).filter(key=>rows.some(row=>row[key]!=null && typeof row[key]!=='object'))
   }, [rows])
-  const meta = data && typeof data.meta === 'object' && !Array.isArray(data.meta) ? data.meta as Record<string, unknown> : {}
-  const domain = displayValue(data?.domain ?? meta.domain ?? viewDomain(viewId))
-  const resolvedView = displayValue(data?.view_id ?? data?.viewId ?? meta.view_id ?? viewId)
-  const source = displayValue(data?.source ?? meta.source ?? 'n8n')
 
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
         <div>
           <h2>{title}</h2>
-          <p>Операционный раздел компании: реальные строки из backend-контракта, фильтрация по выбранной компании и безопасные пустые состояния.</p>
         </div>
         <button type="button" onClick={load} disabled={loading} title="Обновить">
           <RefreshCw aria-hidden />
@@ -93,22 +84,12 @@ export function DomainView({ viewId, title }: DomainViewProps) {
               <span>Строк</span>
               <strong>{rows.length}</strong>
             </div>
-            <div>
-              <BarChart3 aria-hidden />
-              <span>Домен</span>
-              <strong>{domain}</strong>
-            </div>
-            <div>
-              <Database aria-hidden />
-              <span>Источник</span>
-              <strong>{source}</strong>
-            </div>
           </div>
           <div className={styles.tableWrap}>
             <table>
               <thead>
                 <tr>
-                  {keys.map((key) => <th key={key}>{key}</th>)}
+                  {keys.map((key) => <th key={key}>{labels[key]}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -125,7 +106,6 @@ export function DomainView({ viewId, title }: DomainViewProps) {
         <div className={styles.empty}>
           <Database aria-hidden />
           <strong>Для выбранной компании нет строк</strong>
-          <span>Раздел подключен к backend и готов к данным. Когда в prod n8n появятся записи для {resolvedView}, они отобразятся здесь без изменения фронта.</span>
         </div>
       )}
     </div>

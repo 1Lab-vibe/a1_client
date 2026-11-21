@@ -5,7 +5,7 @@
  * результат приходит в окно COO и в Telegram. Тексты — из канонических сценариев a1-dev-ops/knowledge-base.
  */
 
-export type FieldType = 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox'
+export type FieldType = 'email' | 'text' | 'number' | 'textarea' | 'date' | 'select' | 'db-select' | 'checkbox'
 
 export interface FieldDef {
   name: string
@@ -74,9 +74,10 @@ const FINANCE: DeptMode[] = [
     id: 'yookassa_payment', label: 'Платёж YooKassa', group: 'ops',
     description: 'Создать онлайн-платёж в ЮKassa и получить ссылку на оплату.',
     fields: [
+      leadField(),
       { name: 'amount', label: 'Сумма, ₽', type: 'number', required: true },
       { name: 'description', label: 'Назначение', type: 'text', required: true, placeholder: 'подписка A1' },
-      { name: 'email', label: 'Email клиента', type: 'text', placeholder: 'client@example.com' },
+      { name: 'email', label: 'Email клиента', type: 'email', required: true, placeholder: 'client@example.com' },
     ],
     request: (v) => {
       let s = `Создай платёж в ЮKassa на ${amt(v)} рублей за ${v.description}`
@@ -137,10 +138,10 @@ const FINANCE: DeptMode[] = [
     request: (v) => `Проверь банковскую выписку и поступления на расчётный счёт за ${v.period || 'вчера'}.`,
   },
   {
-    id: 'erp_reconciliation', label: 'Сверка с ERP', group: 'ops',
-    description: 'Сверить биллинг с учётной системой, найти расхождения.',
-    fields: [PERIOD],
-    request: (v) => `Сверь биллинг с учётной системой за ${v.period} и покажи расхождения между оплатами и актами.`,
+    id: 'erp_reconciliation', label: 'Сводка по платежам А1', group: 'ops',
+    description: 'Платежи за последние 90 дней по провайдерам, статусам и валютам.',
+    fields: [],
+    request: () => 'Покажи сводку по платежам А1 за последние 90 дней.',
   },
   // ——— Отчёты ———
   { id: 'finance_morning_brief', label: 'Утренняя финансовая сводка', group: 'report', description: 'Краткая сводка состояния финансов на сегодня.', fields: [], request: () => 'Сделай утреннюю финансовую сводку.' },

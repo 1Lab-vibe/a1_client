@@ -1109,6 +1109,7 @@ function valueToInput(value: unknown, type?: RealFieldType): string {
 function parseRealValue(raw: string | boolean, field: RealFieldDef): unknown {
   if (field.type === 'toggle') return Boolean(raw)
   if (field.type === 'number') {
+    if(String(raw).trim()==='')return null
     const n = Number(String(raw).replace(',', '.'))
     return Number.isFinite(n) ? n : null
   }
@@ -1487,7 +1488,7 @@ function DomainCollectionsPanel({
   }, [domain])
 
   const collectionDef = defs.find((def) => def.key === activeCollection) ?? defs[0]
-  const rows = collectionDef ? realRows(data, collectionDef.key) : []
+  const rows = useMemo(()=>collectionDef ? realRows(data, collectionDef.key) : [],[data,collectionDef])
   const selected = useMemo(() => {
     if (!collectionDef) return null
     if (selectedId === '__new__') return collectionDef.emptyItem ? { ...collectionDef.emptyItem } : {}
@@ -1510,7 +1511,9 @@ function DomainCollectionsPanel({
   }
 
   const saveRecord = () => {
-    if (!collectionDef || !canEdit) return
+    if (!collectionDef || !canEdit || savingRecord) return
+    const missing = realVisibleFields(collectionDef).find(f=>f.required && !String(form[f.key]??'').trim())
+    if(missing){setRecordError('Заполните поле «'+missing.label+'»');return}
     setSavingRecord(true)
     setRecordError(null)
     const id = selectedId === '__new__' ? undefined : String(form.id ?? selected?.id ?? '')

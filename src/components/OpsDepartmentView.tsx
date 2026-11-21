@@ -1,3 +1,4 @@
+import { ScenarioModes } from './ScenarioModes'
 import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw, Table2, X } from 'lucide-react'
@@ -188,7 +189,10 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
           </section>
 
           <section className={styles.actionGrid}>
-            {actions.length > 0 ? actions.map((action) => (
+            {actions.length > 0 ? actions.map((action) => {
+              const shared = ({issue_invoice:"issue_invoice", ms_integration_yookassa:"yookassa_payment",ops_erp_reconciliation:"erp_reconciliation"} as Record<string,string>)[String(action.action_key)];
+              if (shared && !isTruthy(action.requires_human_approval) && action.risk_level !== "high") return <ScenarioModes key={shared} domain="finance" only={shared} />;
+              return (
               <article key={display(action.id ?? action.action_key)} className={styles.actionCard}>
                 <div>
                   <strong>{actionName(String(action.action_key ?? ''), display(action.action_name ?? action.action_key))}</strong>
@@ -209,7 +213,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
                   {runningKey === display(action.action_key ?? action.id) ? 'Выполняется…' : 'Запуск'}
                 </button>
               </article>
-            )) : (
+            )}) : (
               <div className={styles.empty}>Для отдела пока нет включенных action handlers.</div>
             )}
           </section>
@@ -304,7 +308,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
           <span>
             {lastResult.status === 'error'
               ? (lastResult.error ?? 'Не удалось выполнить действие')
-              : (lastResult.text ?? 'Действие выполнено')}
+              : lastResult.status === 'needs_approval' ? 'Для запуска требуется подтверждение' : lastResult.status === 'processing' ? 'Запрос в обработке' : (lastResult.text ?? 'Действие выполнено')}
           </span>
           <button type="button" onClick={clearResult} aria-label="Закрыть"><X aria-hidden /></button>
         </div>

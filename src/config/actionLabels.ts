@@ -30,7 +30,7 @@ export const ACTION_LABELS: Record<string, ActionLabel> = {
   ms_integration_sber_business: { name: 'Сбер Бизнес', description: 'Банковские выписки и платежи.' },
   ms_integration_yookassa: { name: 'YooKassa', description: 'Онлайн-платежи и счета.' },
   ops_billing_executor: { name: 'Биллинг', description: 'Занести события биллинга по оплатам/подпискам.' },
-  ops_erp_reconciliation: { name: 'Сверка с ERP', description: 'Сверить биллинг с учётной системой, найти расхождения.' },
+  ops_erp_reconciliation: { name: 'Сводка по платежам А1', description: 'Количество и суммы за последние 90 дней по провайдерам, статусам и валютам.' },
   ops_finance: { name: 'Финансовые операции', description: 'Транзакции, обязательства, cash flow, план/факт, отчёты.' },
   // general
   answer_question: { name: 'Ответ на вопрос', description: 'Поиск в интернете и краткий ответ.' },

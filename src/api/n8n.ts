@@ -81,6 +81,7 @@ function buildBody(action: string, payload?: object): object {
   return base
 }
 
+class HttpFailure extends Error {constructor(public status:number,message:string){super(message)}}
 async function request<T = unknown>(body: object, signal?: AbortSignal): Promise<T> {
   await ensureConfigLoaded()
   const url = getWebhookUrl()
@@ -94,7 +95,7 @@ async function request<T = unknown>(body: object, signal?: AbortSignal): Promise
   if (!res.ok) {
     const body = await res.json().catch(()=>null)
     const message = body?.error?.message
-    throw new Error(typeof message==='string' && !message.trim().startsWith('{') ? message : 'Не удалось выполнить запрос ('+res.status+').')
+    throw new HttpFailure(res.status,typeof message==='string' && !message.trim().startsWith('{') ? message : 'Не удалось выполнить запрос ('+res.status+').')
   }
 
   const text = await res.text()
@@ -609,8 +610,12 @@ export async function sendIntakeMessage(text: string, requestId = crypto.randomU
     body.token = session.token
     body.user_id = session.user_id
   }
-  const raw = await request<Record<string, unknown>>(body)
-  const data = unwrapData(raw as ApiEnvelope<Record<string, unknown>>)
+  let raw:Record<string,unknown>
+  try {raw = await request<Record<string, unknown>>(body)}catch(e){
+    if(e instanceof TypeError || (e instanceof HttpFailure && [502,503,504].includes(e.status)))return {request_id:requestId,status:'processing'}
+    throw e
+  }
+  const data = unwrapData((Array.isArray(raw)?raw[0]:raw) as ApiEnvelope<Record<string, unknown>>)
   const obj = isObjectRecord(data) ? data : {}
   const event = isObjectRecord(obj.event) ? obj.event : {}
   const meta = isObjectRecord(event.meta) ? event.meta : {}
@@ -620,7 +625,7 @@ export async function sendIntakeMessage(text: string, requestId = crypto.randomU
   const immediate = [obj.text, obj.message, obj.output, obj.final_response]
     .map((v) => (typeof v === 'string' ? v : ''))
     .find((v) => v.trim().length > 0)
-  return { request_id, status, text: immediate }
+  return {request_id:request_id || (!immediate ? requestId : undefined),status:!request_id && !immediate ? 'processing' : status,text:immediate}
 }
 
 /** Запустить действие отдела. Поддерживает синхронный и отложенный (processing + request_id) ответ. */
@@ -834,7 +839,7 @@ export async function sendChatMessage(
 ): Promise<{ message: ChatMessage }> {
   const raw = await request<ApiEnvelope<{ message?: ChatMessage }>>(buildBody('sendChatMessage', { chatId, chatType, text, attachments }))
   const data = unwrapData(raw)
-  if (!data?.message) throw new Error('Не удалось отправить сообщение')
+  if (!data?.message?.id) throw new Error('Не удалось отправить сообщение')
   return { message: data.message }
 }
 
@@ -864,7 +869,7 @@ export async function sendChatFile(
     contentBase64: base64,
   }))
   const data = unwrapData(raw)
-  if (!data?.message) throw new Error('Не удалось отправить файл')
+  if (!data?.message?.id) throw new Error('Не удалось отправить файл')
   return { message: data.message }
 }
 

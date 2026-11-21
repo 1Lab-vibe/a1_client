@@ -15,6 +15,8 @@ import styles from "./ActionModes.module.css";
 interface Note {
   ok: boolean;
   text: string;
+  paymentUrl?: string;
+  report?: { columns: string[]; rows: string[][] };
 }
 
 /** Отделы без курируемого каталога — берём автокаталог: без полей, шлём канонический текст как есть. */
@@ -100,6 +102,22 @@ export function ScenarioModes({
     setRunningKey(mode.id);
     setNote(null);
     try {
+      if (mode.id === "yookassa_payment") {
+        const payment = await crm<{url: string; status: string}>("invoices", "createPayment", {
+          id: invoiceId.current, lead: values.lead, email: values.email.trim(),
+          description: values.description, amount: values.amount
+        });
+        if (!payment.url || new URL(payment.url).protocol !== "https:") throw new Error("Провайдер не вернул ссылку на оплату.");
+        setNote({ok: true, text: payment.status === "pending" ? "Платёж создан и ожидает оплаты." : "Платёж создан.", paymentUrl: payment.url});
+        setActive(null);
+        return;
+      }
+      if (mode.id === "erp_reconciliation" || (mode.group === "report" && mode.id !== "sales_export" && (domain === "finance" || domain === "sales"))) {
+        const report = await crm<{columns:string[];rows:string[][]}>(domain === "sales" ? "deals" : "invoices", "scenarioReport", {mode:mode.id,period:values.period,owner:values.owner});
+        setNote({ok:true,text:mode.label,report});
+        setActive(null);
+        return;
+      }
       if (mode.id === "issue_invoice") {
         const department = await getOpsDepartment("finances");
         const handler = (
@@ -274,6 +292,8 @@ export function ScenarioModes({
             </button>
           </div>
           <p>{note.text}</p>
+          {note.paymentUrl && <a href={note.paymentUrl} target="_blank" rel="noopener noreferrer">Открыть ссылку на оплату</a>}
+          {note.report && (note.report.rows.length ? <div style={{overflowX:"auto"}}><table><thead><tr>{note.report.columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{note.report.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>)}</tbody></table></div> : <p>За выбранный период данных нет.</p>)}
           {documentId && (
             <a
               href={"#/crm/invoices?source=document&card=" + documentId}
@@ -318,8 +338,9 @@ function ModeForm({
 
   const amountInvalid =
     !!values.amount && !(Number(values.amount.replace(",", ".")) > 0);
+  const emailInvalid = mode.fields.some(f => f.type === "email" && values[f.name] && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values[f.name].trim()));
   const submit = () => {
-    if (missing.length || busy || amountInvalid) return;
+    if (missing.length || busy || amountInvalid || emailInvalid) return;
     onSubmit(mode.request(values, labels).trim(), values);
   };
 
@@ -390,13 +411,8 @@ function ModeForm({
                 />
               ) : (
                 <input
-                  type={
-                    f.type === "number"
-                      ? "number"
-                      : f.type === "date"
-                        ? "date"
-                        : "text"
-                  }
+                  type={f.type}
+                  step={f.type === "number" ? "any" : undefined}
                   value={values[f.name] ?? ""}
                   onChange={(e) => set(f.name, e.target.value)}
                   placeholder={f.placeholder}
@@ -406,12 +422,9 @@ function ModeForm({
             </label>
           ))}
         </fieldset>
+        {emailInvalid && <p role="alert">Проверьте адрес электронной почты.</p>}
         {amountInvalid && <p role="alert">Сумма должна быть больше нуля.</p>}
         {error && <p role="alert">{error}</p>}
-        <div className={styles.confirmNote}>
-          <AlertTriangle aria-hidden /> Ответ придёт в раздел COO и в Telegram
-          отправителю.
-        </div>
         <div className={styles.modalActions}>
           <button
             type="button"
@@ -425,7 +438,7 @@ function ModeForm({
             type="button"
             className={styles.btnPrimary}
             onClick={submit}
-            disabled={busy || amountInvalid || missing.length > 0}
+            disabled={busy || amountInvalid || emailInvalid || missing.length > 0}
             title={missing.length ? `Заполните: ${missing.join(", ")}` : ""}
           >
             {busy

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import {useRouteParam} from '../hooks/useRouteParam'
 import { CheckCircle2, Circle, Rocket, Save } from 'lucide-react'
 import {
   completeOnboarding,
@@ -6,7 +7,6 @@ import {
   getOnboardingState,
   getSettings,
   saveOnboardingStep,
-  updateSettingsSection,
   type CompanyConfig,
 } from '../api/n8n'
 import styles from './Onboarding.module.css'
@@ -178,7 +178,7 @@ function completion(config: CompanyConfig, paths: string[]): number {
 }
 
 export function Onboarding() {
-  const [active, setActive] = useState(STEPS[0].id)
+  const [active, setActive] = useRouteParam<string>('step',STEPS[0].id,STEPS.map(step=>step.id))
   const [config, setConfig] = useState<CompanyConfig>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -213,14 +213,12 @@ export function Onboarding() {
     setSaving(true)
     setMessage(null)
     saveOnboardingStep(activeStep.id, patch)
-      .then((res) => {
-        const nextConfig = res.config && typeof res.config === 'object' && !Array.isArray(res.config) ? res.config as CompanyConfig : null
-        return nextConfig || updateSettingsSection(activeStep.section, patch)
-      })
-
-      .then((updated) => {
-        setConfig(updated && Object.keys(updated).length > 0 ? updated : config)
-        setMessage('Онбординг сохранен')
+      .then(()=>getSettings())
+      .then(updated=>{
+        const saved=sectionValue(updated,activeStep.section)
+        if(!Object.keys(patch).every(key=>JSON.stringify(saved[key])===JSON.stringify(patch[key])))throw new Error('Изменения не подтверждены')
+        setConfig(updated)
+        setMessage('Онбординг сохранён')
       })
       .catch(() => setMessage('Не удалось сохранить онбординг'))
       .finally(() => setSaving(false))
@@ -229,8 +227,9 @@ export function Onboarding() {
   const complete = () => {
     setSaving(true)
     setMessage(null)
-    completeOnboarding()
-      .then(() => {
+    completeOnboarding().then(()=>getOnboardingState())
+      .then(state => {
+        if(state.completed!==true)throw new Error('Завершение не подтверждено')
         setConfig((current) => setPath(current, 'onboarding.completed', true))
         setMessage('Онбординг завершен')
       })
