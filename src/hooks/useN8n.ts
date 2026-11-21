@@ -39,8 +39,8 @@ export function useN8n() {
       ["processing", "pending", "queued", "accepted"].includes(r.status || "")
     )
       return waitForIntake(r.request_id);
-    if (r.text && !["failed", "error"].includes(r.status || ""))
-      return { text: r.text };
+    if ((r.text || r.attachments?.length) && !["failed", "error"].includes(r.status || ""))
+      return { text: r.text, attachments: r.attachments };
     throw new Error(r.text || "Сервер не подтвердил приём сообщения");
   }
   return { sendToN8n };

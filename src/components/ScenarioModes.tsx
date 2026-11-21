@@ -15,6 +15,7 @@ import { HANDLER_SCENARIOS } from "../config/handlerScenarios";
 import styles from "./ActionModes.module.css";
 
 interface Note {
+  reply?: boolean;
   ok: boolean;
   text: string;
   paymentUrl?: string;
@@ -35,6 +36,9 @@ function fallbackModes(domain: string): DeptMode[] {
   }));
 }
 
+const needsWriteReceipt = (mode: DeptMode) =>
+  ["meeting_result","follow_up","email_send","create_obligation","mark_obligation_paid","billing_event","deal_create"].includes(mode.id);
+
 export function ScenarioModes({
   domain,
   only,
@@ -53,6 +57,7 @@ export function ScenarioModes({
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [note, setNote] = useState<Note | null>(null);
 
+  const submittedText = useRef("");
   const pending = useRef<{ id: string; mode: string } | null>(null);
   const watch = useRef<AbortController | null>(null);
   useEffect(
@@ -73,10 +78,11 @@ export function ScenarioModes({
       pending.current = null;
       setNote({
         ok: true,
+        reply: true,
         text: result.text || "Файлы готовы.",
         attachments:result.attachments,
       });
-      setActive(null);
+      if (!needsWriteReceipt(mode)) setActive(null);
     } catch (e) {
       if (!controller.signal.aborted)
         setNote({
@@ -298,11 +304,12 @@ export function ScenarioModes({
         });
         return;
       }
+      submittedText.current = text;
       const res = await sendIntakeMessage(text);
       if (
         res.status === "error" ||
         res.status === "failed" ||
-        (!res.text && !res.request_id)
+        (!res.text && !res.request_id && !res.attachments?.length)
       )
         throw new Error(res.text || "Сервер не подтвердил приём запроса");
       if (
@@ -313,9 +320,9 @@ export function ScenarioModes({
       ) {
         pending.current = { id: res.request_id, mode: mode.id };
         await check(res.request_id, mode);
-      } else if (res.text) {
-        setActive(null);
-        setNote({ ok: true, text: res.text });
+      } else if (res.text || res.attachments?.length) {
+        if (!needsWriteReceipt(mode)) setActive(null);
+        setNote({ ok: true, reply: true, text: res.text || "Файлы готовы.", attachments: res.attachments });
       } else throw new Error("Сервер не подтвердил результат");
     } catch (e) {
       setNote({
@@ -382,6 +389,8 @@ export function ScenarioModes({
           pending={!!pending.current}
           busy={!!runningKey}
           error={note?.ok === false ? note.text : null}
+          reply={note?.reply ? note.text : null}
+          submittedText={submittedText.current}
           onClose={() => setActive(null)}
           onSubmit={(text, values, selected) =>
             void submit(active, text, values, selected)
@@ -401,7 +410,7 @@ export function ScenarioModes({
               <AlertTriangle aria-hidden />
             )}
             <strong>
-              {runningKey ? "В обработке" : note.ok ? "Готово" : "Ошибка"}
+              {runningKey ? "В обработке" : note.reply ? "Ответ А1" : note.ok ? "Готово" : "Ошибка"}
             </strong>
             <button
               type="button"
@@ -484,6 +493,8 @@ function ModeForm({
   pending,
   busy,
   error,
+  reply,
+  submittedText,
   onClose,
   onSubmit,
 }: {
@@ -491,6 +502,8 @@ function ModeForm({
   pending: boolean;
   busy: boolean;
   error: string | null;
+  reply: string | null;
+  submittedText: string;
   onClose: () => void;
   onSubmit: (
     text: string,
@@ -520,8 +533,9 @@ function ModeForm({
       values[f.name] &&
       !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values[f.name].trim()),
   );
+  const sameRequestAnswered = Boolean(reply && mode.request(values, labels).trim() === submittedText);
   const submit = () => {
-    if (missing.length || busy || amountInvalid || emailInvalid) return;
+    if (missing.length || busy || amountInvalid || emailInvalid || sameRequestAnswered) return;
     onSubmit(mode.request(values, labels).trim(), values, selected);
   };
 
@@ -614,6 +628,7 @@ function ModeForm({
         {emailInvalid && <p role="alert">Проверьте адрес электронной почты.</p>}
         {amountInvalid && <p role="alert">Сумма должна быть больше нуля.</p>}
         {error && <p role="alert">{error}</p>}
+        {reply && <div role="status"><strong>Ответ А1</strong><p>{reply}</p></div>}
         <div className={styles.modalActions}>
           <button
             type="button"
@@ -621,14 +636,14 @@ function ModeForm({
             disabled={busy}
             onClick={onClose}
           >
-            Отмена
+            {reply ? "Закрыть" : "Отмена"}
           </button>
           <button
             type="button"
             className={styles.btnPrimary}
             onClick={submit}
             disabled={
-              busy || amountInvalid || emailInvalid || missing.length > 0
+              busy || sameRequestAnswered || amountInvalid || emailInvalid || missing.length > 0
             }
             title={missing.length ? `Заполните: ${missing.join(", ")}` : ""}
           >

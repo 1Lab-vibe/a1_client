@@ -597,6 +597,7 @@ function toActionRunResult(raw: unknown): ActionRunResult {
 }
 
 export interface IntakeSubmitResult {
+  attachments?: N8nAttachment[]
   request_id?: string
   status?: string
   /** немедленный текст ответа, если пайплайн ответил сразу */
@@ -631,7 +632,10 @@ export async function sendIntakeMessage(text: string, requestId = crypto.randomU
   const immediate = [obj.text, obj.message, obj.output, obj.final_response]
     .map((v) => (typeof v === 'string' ? v : ''))
     .find((v) => v.trim().length > 0)
-  return {request_id:request_id || (!immediate ? requestId : undefined),status:!request_id && !immediate ? 'processing' : status,text:immediate}
+  const files = obj.attachments ?? obj.files
+  const attachments = Array.isArray(files) ? files.filter(isObjectRecord) as N8nAttachment[] : undefined
+  const hasOutput = !!immediate || !!attachments?.length
+  return { request_id: request_id || (!hasOutput ? requestId : undefined), status: !request_id && !hasOutput ? 'processing' : status, text: immediate, attachments }
 }
 
 /** Запустить действие отдела. Поддерживает синхронный и отложенный (processing + request_id) ответ. */
