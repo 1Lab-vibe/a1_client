@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Play, X } from "lucide-react";
 import { getOpsDepartment, opsWorkspace, runAction, sendIntakeMessage } from "../api/n8n";
 import { crm, type Card } from "../api/crm";
+import { useActionRunner } from '../hooks/useActionRunner';
 import { waitForIntake } from "../hooks/useN8n";
 import { CrmLookup } from "./CrmLookup";
 import {
@@ -57,6 +58,9 @@ export function ScenarioModes({
   const [runningKey, setRunningKey] = useState<string | null>(null);
   const [note, setNote] = useState<Note | null>(null);
 
+  const {run:runMail} = useActionRunner();
+  const [draft,setDraft] = useState<{key:string;to:string;subject:string;body:string}|null>(null);
+  const [mailRequest,setMailRequest] = useState<string>();
   const submittedText = useRef("");
   const pending = useRef<{ id: string; mode: string } | null>(null);
   const watch = useRef<AbortController | null>(null);
@@ -181,6 +185,44 @@ export function ScenarioModes({
         });
         setActive(null);
         return;
+      }
+      if (mode.id==="email_draft" || mode.id==="email_send") {
+        const {record:lead}=await crm<{record:Card}>("leads","get",{id:values.lead});
+        const to=String(lead.contact_email || "").trim();
+        if (mode.id==="email_send" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw new Error("Сохраните email в карточке лида.");
+        const key=JSON.stringify([values.lead,values.about || "",to]);
+        const sending=mode.id==="email_send" && draft?.key===key;
+        const action=sending?"send_email":"compose_email";
+        const dept=await getOpsDepartment("tasks");
+        const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key===action);
+        if(!handler?.workflow_id)throw new Error("В компании не настроен обработчик письма.");
+        const params=sending && draft ? {to,subject:draft.subject,body_text:draft.body,dedupe_key:invoiceId.current}
+          : {customer_name:String(lead.company_name || lead.title || ""),contact_name:String(lead.contact_name || ""),
+             user_message:values.about?.trim() || "Пригласить клиента обсудить его задачу на встрече."};
+        const result=await runMail({action_key:action,department:"tasks",workflow_id:handler.workflow_id,confirmed:true,params,
+          idempotency_key:sending?invoiceId.current:undefined},mailRequest);
+        setMailRequest(result.status==="processing" || result.status==="error" ? result.request_id : undefined);
+        if(result.status!=="done")throw new Error(result.error || "Письмо ещё в обработке. Проверьте результат.");
+        if(sending) {
+          if(!result.result?.external_message_id)throw new Error("Почтовый сервер не подтвердил отправку.");
+          setNote({ok:true,text:"Почтовый сервер принял письмо для "+to+"."});setActive(null);return;
+        }
+        const subject=result.result?.subject,body=result.result?.body_text;
+        if(typeof subject!=="string" || !subject.trim() || typeof body!=="string" || !body.trim())throw new Error("Не удалось сформировать тему и текст письма.");
+        if(mode.id==="email_send")setDraft({key,to,subject,body});
+        else {setNote({ok:true,text:subject+"\n\n"+body});setActive(null)}
+        return;
+      }
+      if (mode.id==="billing_event") {
+        const dept=await getOpsDepartment("accounting");
+        const handler=(Array.isArray(dept.actions)?dept.actions:[]).find(row=>row.action_key==="ops_billing_executor");
+        if (!handler?.workflow_id) throw new Error("Обработчик биллинга недоступен.");
+        const id=invoiceId.current,amount=Number(values.amount.replace(",","."));
+        const result=await runAction({action_key:"ops_billing_executor",workflow_id:handler.workflow_id,department:"accounting",confirmed:true,idempotency_key:id,
+          params:{form:"crm_billing",operation:"record_event",customer_id:values.client,amount,external_event_id:id}});
+        const saved=result.result?.receipt as {external_event_id?:string;customer_id?:string;amount?:string}|undefined;
+        if(result.status!=="done" || saved?.external_event_id!==id || saved.customer_id!==values.client || Number(saved.amount)!==amount)throw new Error(result.error || "Сервер не подтвердил запись события.");
+        setNote({ok:true,text:"Событие биллинга зарегистрировано · "+amount.toLocaleString("ru-RU")+" ₽"});setActive(null);return;
       }
       if (mode.id==="dadata") {
         const report=await opsWorkspace<{columns:string[];rows:string[][]}>('lookupInn',{inn:values.inn});
@@ -404,7 +446,7 @@ export function ScenarioModes({
                       setNote(null);
                       pending.current = null;
                       invoiceId.current = crypto.randomUUID();
-                      setDocumentId("");
+                      setDocumentId("");setDraft(null);setMailRequest(undefined);
                       setActive(mode);
                     }}
                     disabled={runningKey != null}
@@ -425,7 +467,8 @@ export function ScenarioModes({
       {active && (
         <ModeForm
           mode={active}
-          pending={!!pending.current}
+          pending={!!pending.current || !!mailRequest}
+          draft={draft}
           busy={!!runningKey}
           error={note?.ok === false ? note.text : null}
           reply={note?.reply ? note.text : null}
@@ -537,6 +580,7 @@ function ModeForm({
   error,
   reply,
   submittedText,
+  draft,
   onClose,
   onSubmit,
 }: {
@@ -546,6 +590,7 @@ function ModeForm({
   error: string | null;
   reply: string | null;
   submittedText: string;
+  draft: {key:string;to:string;subject:string;body:string}|null;
   onClose: () => void;
   onSubmit: (
     text: string,
@@ -575,6 +620,7 @@ function ModeForm({
       values[f.name] &&
       !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values[f.name].trim()),
   );
+  const preview=draft && draft.key===JSON.stringify([values.lead,values.about || "",draft.to]) ? draft : null;
   const sameRequestAnswered = Boolean(reply && mode.request(values, labels).trim() === submittedText);
   const submit = () => {
     if (missing.length || busy || amountInvalid || emailInvalid || sameRequestAnswered) return;
@@ -670,6 +716,7 @@ function ModeForm({
             </label>
           ))}
         </fieldset>
+        {preview && <section aria-label="Предпросмотр письма"><p>Кому · {preview.to}</p><strong>{preview.subject}</strong><p style={{whiteSpace:"pre-wrap"}}>{preview.body}</p></section>}
         {emailInvalid && <p role="alert">Проверьте адрес электронной почты.</p>}
         {amountInvalid && <p role="alert">Сумма должна быть больше нуля.</p>}
         {error && <p role="alert">{error}</p>}
@@ -696,7 +743,7 @@ function ModeForm({
               ? "В обработке…"
               : pending
                 ? "Проверить результат"
-                : "Отправить"}
+                : preview ? "Отправить письмо" : ["email_draft","email_send"].includes(mode.id) ? "Составить письмо" : "Отправить"}
           </button>
         </div>
       </div>

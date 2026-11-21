@@ -219,7 +219,7 @@ export function OpsDepartmentView({ viewId, title }: { viewId: string; title: st
 
           <section className={styles.actionGrid}>
             {actions.length > 0 ? actions.map((action) => {
-              const shared = ({issue_invoice:"issue_invoice", ms_integration_yookassa:"yookassa_payment",ops_erp_reconciliation:"erp_reconciliation"} as Record<string,string>)[String(action.action_key)];
+              const shared = ({ops_billing_executor:"billing_event",issue_invoice:"issue_invoice", ms_integration_yookassa:"yookassa_payment",ops_erp_reconciliation:"erp_reconciliation"} as Record<string,string>)[String(action.action_key)];
               if (shared && !isTruthy(action.requires_human_approval) && action.risk_level !== "high") return <ScenarioModes key={shared} domain="finance" only={shared} />;
               return (
               <article key={display(action.id ?? action.action_key)} className={styles.actionCard}>
