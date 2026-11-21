@@ -750,6 +750,19 @@ export async function startIntegrationConnect(provider: string): Promise<Record<
   return unwrapData(data) || {}
 }
 
+export async function disconnectIntegration(provider: string): Promise<Record<string, unknown>> {
+  const response = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('disconnectIntegration', { provider }))
+  const result = unwrapData(response)
+  // Older backends may return an empty response or the integration list for an unknown action.
+  // Only an explicit acknowledgement counts as a successful disconnect.
+  const envelopeFailed = isObjectRecord(response) && (response.ok === false || Boolean(response.error))
+  if (envelopeFailed || !isObjectRecord(result) || result.ok === false || result.error
+    || (result.status ?? result.connection_status) !== 'disconnected') {
+    throw new Error('Сервер не подтвердил отключение синхронизации. Обновите список и повторите попытку; если ошибка сохраняется, требуется обновление серверного обработчика.')
+  }
+  return result
+}
+
 export async function testIntegration(provider: string): Promise<Record<string, unknown>> {
   const data = await request<ApiEnvelope<Record<string, unknown>>>(buildBody('testIntegration', { provider }))
   return unwrapData(data) || {}

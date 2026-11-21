@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BarChart3, Bell, Bot, Building2, CheckCircle2, CreditCard, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users, XCircle } from 'lucide-react'
 import {
   changeOwnPassword,
+  disconnectIntegration,
   getConfig,
   getIntegrations,
   getSettings,
@@ -1011,12 +1012,12 @@ function normalizeIntegrations(data: Record<string, unknown> | null, config: Com
   const rows = asRows(data, ['integrations', 'items', 'rows', 'data'])
   if (rows.length > 0) {
     return rows.map((row) => {
-      const provider = cell(row.provider ?? row.id ?? row.code ?? row.name).toLowerCase().replace(/\s+/g, '_')
+      const provider = cell(row.provider ?? row.provider_key ?? row.id ?? row.code ?? row.name).toLowerCase().replace(/\s+/g, '_')
       return {
         provider,
         name: cell(row.title ?? row.name ?? PROVIDER_LABELS[provider] ?? provider),
         family: cell(row.family ?? row.provider_family),
-        status: cell(row.status ?? row.connection_status ?? 'unknown'),
+        status: cell(row.status ?? row.connection_status ?? 'unknown').trim().toLowerCase(),
         health: cell(row.health ?? row.health_status ?? row.ok),
         authMode: cell(row.auth_mode ?? row.authMode ?? (Array.isArray(row.auth_modes) ? row.auth_modes[0] : undefined)),
         entities: Array.isArray(row.supported_entities) ? row.supported_entities.join(', ') : cell(row.supported_entities ?? row.entities),
@@ -1036,7 +1037,7 @@ function normalizeIntegrations(data: Record<string, unknown> | null, config: Com
       provider,
       name: PROVIDER_LABELS[provider] ?? provider,
       family: cell(record.family ?? record.provider_family ?? 'custom'),
-      status: cell(record.status ?? 'unknown'),
+      status: cell(record.status ?? 'unknown').trim().toLowerCase(),
       health: cell(record.health ?? record.ok ?? '-'),
       authMode: cell(record.auth_mode ?? record.authMode ?? '-'),
       entities: cell(record.supported_entities ?? record.entities ?? '-'),
@@ -1672,7 +1673,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   const loadIntegrations = () => {
     setIntegrationsLoading(true)
     setIntegrationsError(null)
-    getIntegrations()
+    return getIntegrations()
       .then((res) => setIntegrationsData(res || {}))
       .catch((e) => setIntegrationsError(e instanceof Error ? e.message : 'Ошибка загрузки интеграций'))
       .finally(() => setIntegrationsLoading(false))
@@ -1740,13 +1741,16 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       .finally(() => setSaving(false))
   }
 
-  const runIntegrationAction = (provider: string, mode: 'connect' | 'test') => {
+  const runIntegrationAction = (provider: string, mode: 'connect' | 'test' | 'disconnect') => {
+    if (integrationAction || integrationsLoading) return
     setIntegrationAction(`${mode}:${provider}`)
     setIntegrationsError(null)
-    const action = mode === 'connect' ? startIntegrationConnect(provider) : testIntegration(provider)
+    const action = mode === 'disconnect'
+      ? disconnectIntegration(provider)
+      : mode === 'connect' ? startIntegrationConnect(provider) : testIntegration(provider)
     action
       .then(() => loadIntegrations())
-      .catch((e) => setIntegrationsError(e instanceof Error ? e.message : 'Ошибка проверки интеграции'))
+      .catch((e) => setIntegrationsError(e instanceof Error ? e.message : 'Ошибка изменения интеграции'))
       .finally(() => setIntegrationAction(null))
   }
 
@@ -1963,7 +1967,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
                 <h3>Подключения и health-check</h3>
                 <p>Статусы приходят из backend, секреты и токены в интерфейс не выводятся.</p>
               </div>
-              <button type="button" onClick={loadIntegrations} disabled={integrationsLoading}>
+              <button type="button" onClick={loadIntegrations} disabled={integrationsLoading || integrationAction !== null}>
                 <RefreshCw aria-hidden />
                 Обновить
               </button>
@@ -1991,16 +1995,18 @@ export function Settings({ initialSection }: SettingsProps = {}) {
                     <button
                       type="button"
                       onClick={() => runIntegrationAction(item.provider, 'test')}
-                      disabled={integrationAction === `test:${item.provider}`}
+                      disabled={integrationsLoading || integrationAction !== null}
                     >
-                      Проверить
+                      {integrationAction === `test:${item.provider}` ? 'Проверяем...' : 'Проверить'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => runIntegrationAction(item.provider, 'connect')}
-                      disabled={integrationAction === `connect:${item.provider}`}
+                      onClick={() => runIntegrationAction(item.provider, item.status === 'connected' ? 'disconnect' : 'connect')}
+                      disabled={integrationsLoading || integrationAction !== null}
                     >
-                      Подключить
+                      {integrationAction === `disconnect:${item.provider}` ? 'Отключаем...'
+                        : integrationAction === `connect:${item.provider}` ? 'Подключаем...'
+                          : item.status === 'connected' ? 'Отключить синхронизацию' : 'Подключить'}
                     </button>
                   </div>
                 </article>
