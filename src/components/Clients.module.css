@@ -5,6 +5,13 @@
   min-height: 0;
   padding: 24px;
 }
+.crmDialog { position:fixed; inset:0; margin:auto; padding:0; width:min(580px,94vw); max-height:88vh; background:var(--bg-card); color:var(--text); border:1px solid var(--grid-line); border-radius:var(--radius); }
+.crmDialog::backdrop {background:#0009}
+.crmDialog .form {max-height:55vh}
+.crmBoard {display:flex;overflow:auto;gap:1rem;align-items:flex-start}
+.crmBoard section {min-width:230px;max-width:310px}
+.crmBoard button {display:grid;width:100%;gap:.4rem;text-align:left;margin:.5rem 0;padding:.8rem;background:var(--bg-card);border:1px solid var(--grid-line);color:var(--text);border-radius:var(--radius-sm)}
+
 
 .header {
   display: flex;

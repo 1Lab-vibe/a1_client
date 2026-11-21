@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, Play, X } from 'lucide-react'
-import { fetchClients, fetchDeals, fetchLeads, sendIntakeMessage } from '../api/n8n'
-import { DEPARTMENT_MODES, GROUP_LABELS, type DeptMode, type FieldDef } from '../config/departmentModes'
+import {sendIntakeMessage} from '../api/n8n'
+import {waitForIntake} from '../hooks/useN8n'
+import {CrmLookup} from './CrmLookup'
+import { DEPARTMENT_MODES, GROUP_LABELS, type DeptMode } from '../config/departmentModes'
 import { HANDLER_SCENARIOS } from '../config/handlerScenarios'
 import styles from './ActionModes.module.css'
 
-type Row = Record<string, unknown>
-type Option = { value: string; label: string }
 interface Note { ok: boolean; text: string }
 
 /** Отделы без курируемого каталога — берём автокаталог: без полей, шлём канонический текст как есть. */
@@ -21,40 +21,46 @@ function fallbackModes(domain: string): DeptMode[] {
   }))
 }
 
-function useDbOptions() {
-  const [cache, setCache] = useState<Record<string, Option[]>>({})
-  const ensure = async (field: FieldDef): Promise<Option[]> => {
-    const src = field.source
-    if (!src) return []
-    if (cache[src]) return cache[src]
-    const toOpt = (items: Row[]) => items.map((r) => ({
-      value: String(r[field.optionValue ?? 'id'] ?? r.id ?? ''),
-      label: String(r[field.optionLabel ?? 'name'] ?? r.name ?? r.title ?? r.id ?? '—'),
-    })).filter((o) => o.value)
-    let opts: Option[] = []
-    if (src === 'clients') opts = toOpt((await fetchClients()).clients as Row[])
-    else if (src === 'deals') opts = toOpt((await fetchDeals()).deals as Row[])
-    else if (src === 'leads') opts = toOpt((await fetchLeads()).leads as Row[])
-    setCache((prev) => ({ ...prev, [src]: opts }))
-    return opts
-  }
-  return { ensure }
-}
-
-export function ScenarioModes({ domain }: { domain: string }) {
-  const modes = useMemo(() => DEPARTMENT_MODES[domain] ?? fallbackModes(domain), [domain])
+export function ScenarioModes({ domain, only }: { domain: string; only?: string }) {
+  const modes = useMemo(() => (DEPARTMENT_MODES[domain] ?? fallbackModes(domain)).filter(m=>!only||m.id===only), [domain,only])
   const [active, setActive] = useState<DeptMode | null>(null)
   const [runningKey, setRunningKey] = useState<string | null>(null)
   const [note, setNote] = useState<Note | null>(null)
 
+  const pending = useRef<{id:string;mode:string}|null>(null)
+  const watch = useRef<AbortController|null>(null)
+  useEffect(()=>()=>{watch.current?.abort()},[])
+  const check = async (id:string, mode:DeptMode) => {
+    watch.current?.abort()
+    const controller = new AbortController()
+    watch.current=controller
+    setRunningKey(mode.id)
+    setNote({ok:true,text:'В обработке…'})
+    try{
+      const result=await waitForIntake(id,controller.signal)
+      if(controller.signal.aborted)return
+      pending.current=null
+      setNote({ok:true,text:result.text || 'Результат с вложением доступен в COO.'})
+      setActive(null)
+    }catch(e){
+      if(!controller.signal.aborted)setNote({ok:false,text:e instanceof Error ? e.message : 'Не удалось проверить результат'})
+    }finally{if(!controller.signal.aborted)setRunningKey(null)}
+  }
   const submit = async (mode: DeptMode, text: string) => {
-    setActive(null)
+    if(runningKey)return
+    if(pending.current){await check(pending.current.id,mode);return}
     setRunningKey(mode.id)
     setNote(null)
     try {
       const res = await sendIntakeMessage(text)
-      const extra = res.text ? ` ${res.text}` : ''
-      setNote({ ok: true, text: `Запрос «${mode.label}» отправлен в обработку. Ответ придёт в раздел COO и в Telegram.${extra}` })
+      if (res.status==='error'||res.status==='failed'||(!res.text&&!res.request_id)) throw new Error(res.text||'Сервер не подтвердил приём запроса')
+      if(res.request_id && ['processing','queued','pending','accepted'].includes(res.status || '')){
+        pending.current={id:res.request_id,mode:mode.id}
+        await check(res.request_id,mode)
+      }else if(res.text){
+        setActive(null)
+        setNote({ok:true,text:res.text})
+      }else throw new Error('Сервер не подтвердил результат')
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : 'Не удалось отправить запрос' })
     } finally {
@@ -78,7 +84,7 @@ export function ScenarioModes({ domain }: { domain: string }) {
                   <strong>{mode.label}</strong>
                   <p>{mode.description}</p>
                 </div>
-                <button type="button" onClick={() => { setNote(null); setActive(mode) }} disabled={runningKey != null}>
+                <button type="button" onClick={() => { setNote(null); pending.current=null; setActive(mode) }} disabled={runningKey != null}>
                   {runningKey === mode.id ? <Loader2 className={styles.spin} aria-hidden /> : <Play aria-hidden />}
                   {runningKey === mode.id ? 'Отправка…' : 'Открыть'}
                 </button>
@@ -89,14 +95,14 @@ export function ScenarioModes({ domain }: { domain: string }) {
       ))}
 
       {active && (
-        <ModeForm mode={active} onClose={() => setActive(null)} onSubmit={(text) => void submit(active, text)} />
+        <ModeForm mode={active} pending={!!pending.current} busy={!!runningKey} error={note?.ok===false?note.text:null} onClose={() => setActive(null)} onSubmit={(text) => void submit(active, text)} />
       )}
 
       {note && (
         <div className={`${styles.resultPanel} ${note.ok ? styles.resultOk : styles.resultError}`} role="status">
           <div className={styles.resultHead}>
             {note.ok ? <CheckCircle2 aria-hidden /> : <AlertTriangle aria-hidden />}
-            <strong>{note.ok ? 'Отправлено' : 'Ошибка'}</strong>
+            <strong>{runningKey ? 'В обработке' : note.ok ? 'Готово' : 'Ошибка'}</strong>
             <button type="button" onClick={() => setNote(null)} aria-label="Закрыть"><X aria-hidden /></button>
           </div>
           <p>{note.text}</p>
@@ -106,7 +112,7 @@ export function ScenarioModes({ domain }: { domain: string }) {
   )
 }
 
-function ModeForm({ mode, onClose, onSubmit }: { mode: DeptMode; onClose: () => void; onSubmit: (text: string) => void }) {
+function ModeForm({ mode, pending, busy, error, onClose, onSubmit }: { mode: DeptMode; pending:boolean; busy:boolean; error:string|null; onClose: () => void; onSubmit: (text: string) => void }) {
   const initial = useMemo(() => {
     const v: Record<string, string> = {}
     for (const f of mode.fields) v[f.name] = f.default ?? ''
@@ -114,52 +120,24 @@ function ModeForm({ mode, onClose, onSubmit }: { mode: DeptMode; onClose: () => 
   }, [mode])
   const [values, setValues] = useState<Record<string, string>>(initial)
   const [labels, setLabels] = useState<Record<string, string>>({})
-  const [dbOptions, setDbOptions] = useState<Record<string, Option[]>>({})
-  const [loadingField, setLoadingField] = useState<string | null>(null)
-  const { ensure } = useDbOptions()
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      for (const f of mode.fields) {
-        if (f.type === 'db-select' && f.source) {
-          setLoadingField(f.name)
-          try {
-            const opts = await ensure(f)
-            if (!cancelled) setDbOptions((prev) => ({ ...prev, [f.name]: opts }))
-          } catch {
-            if (!cancelled) setDbOptions((prev) => ({ ...prev, [f.name]: [] }))
-          } finally {
-            if (!cancelled) setLoadingField(null)
-          }
-        }
-      }
-    })()
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
-
-  const set = (name: string, value: string) => setValues((v) => ({ ...v, [name]: value }))
-  const setDb = (name: string, value: string, opts: Option[]) => {
-    set(name, value)
-    setLabels((l) => ({ ...l, [name]: opts.find((o) => o.value === value)?.label ?? value }))
-  }
+  const set = (name: string, value: string) => setValues(v => ({ ...v, [name]: value }))
   const missing = mode.fields.filter((f) => f.required && !String(values[f.name] ?? '').trim()).map((f) => f.label)
 
+  const amountInvalid = !!values.amount && !(Number(values.amount.replace(',', '.')) > 0)
   const submit = () => {
-    if (missing.length) return
+    if (missing.length || busy || amountInvalid) return
     onSubmit(mode.request(values, labels).trim())
   }
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
+    <div className={styles.modalOverlay} onClick={busy ? undefined : onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.modalHead}>
           <h3>{mode.label}</h3>
-          <button type="button" onClick={onClose} aria-label="Закрыть"><X aria-hidden /></button>
+          <button type="button" disabled={busy} onClick={onClose} aria-label="Закрыть"><X aria-hidden /></button>
         </div>
         {mode.description && <p className={styles.modalDesc}>{mode.description}</p>}
-        <div className={styles.formBody}>
+        <fieldset disabled={busy || pending} className={styles.formBody}>
           {mode.fields.length === 0 && <div className={styles.noFields}>Параметры не нужны — нажмите «Отправить».</div>}
           {mode.fields.map((f) => (
             <label key={f.name} className={styles.field}>
@@ -171,10 +149,7 @@ function ModeForm({ mode, onClose, onSubmit }: { mode: DeptMode; onClose: () => 
                   {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : f.type === 'db-select' ? (
-                <select value={values[f.name] ?? ''} onChange={(e) => setDb(f.name, e.target.value, dbOptions[f.name] ?? [])} disabled={loadingField === f.name}>
-                  <option value="">{loadingField === f.name ? 'Загрузка…' : '— не выбрано —'}</option>
-                  {(dbOptions[f.name] ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <CrmLookup entity={f.source!} label={f.label} initialLabel="" value={values[f.name] || ''} required={f.required} onChange={(id,label)=>{set(f.name,id);setLabels(l=>({...l,[f.name]:label}))}}/>
               ) : f.type === 'checkbox' ? (
                 <input type="checkbox" checked={values[f.name] === 'on'} onChange={(e) => set(f.name, e.target.checked ? 'on' : '')} />
               ) : (
@@ -183,14 +158,15 @@ function ModeForm({ mode, onClose, onSubmit }: { mode: DeptMode; onClose: () => 
               {f.help && <small>{f.help}</small>}
             </label>
           ))}
-        </div>
+        </fieldset>
+        {amountInvalid && <p role="alert">Сумма должна быть больше нуля.</p>}{error&&<p role="alert">{error}</p>}
         <div className={styles.confirmNote}>
           <AlertTriangle aria-hidden /> Ответ придёт в раздел COO и в Telegram отправителю.
         </div>
         <div className={styles.modalActions}>
-          <button type="button" className={styles.btnGhost} onClick={onClose}>Отмена</button>
-          <button type="button" className={styles.btnPrimary} onClick={submit} disabled={missing.length > 0} title={missing.length ? `Заполните: ${missing.join(', ')}` : ''}>
-            Отправить
+          <button type="button" className={styles.btnGhost} disabled={busy} onClick={onClose}>Отмена</button>
+          <button type="button" className={styles.btnPrimary} onClick={submit} disabled={busy || amountInvalid || missing.length > 0} title={missing.length ? `Заполните: ${missing.join(', ')}` : ''}>
+            {busy ? "В обработке…" : pending ? "Проверить результат" : "Отправить"}
           </button>
         </div>
       </div>

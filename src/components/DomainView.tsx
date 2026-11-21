@@ -25,7 +25,7 @@ function findRows(data: Record<string, unknown> | null): Record<string, unknown>
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'boolean') return value ? 'да' : 'нет'
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (typeof value === 'object') return Array.isArray(value) ? value.filter(v=>typeof v==='string').join(', ') : '—'
   return String(value)
 }
 

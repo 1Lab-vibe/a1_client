@@ -1,3 +1,4 @@
+import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ArrowDownRight, ArrowUpRight, RefreshCw, TrendingUp } from 'lucide-react'
@@ -53,7 +54,7 @@ function DeviationCard({ d, positive }: { d: MisDeviation; positive: boolean }) 
 }
 
 export function MISView() {
-  const [period, setPeriod] = useState<PeriodPreset>('90d' as PeriodPreset)
+  const [period, setPeriod] = useRouteParam<PeriodPreset>('period', '90d' as PeriodPreset, ['today','7d','30d','90d','month','quarter','custom'])
   const [data, setData] = useState<MisDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

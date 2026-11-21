@@ -92,14 +92,9 @@ async function request<T = unknown>(body: object, signal?: AbortSignal): Promise
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    // Попробуем добавить хвост ответа, чтобы понять причину 4xx/5xx в консоли
-    let extra = ''
-    try {
-      extra = (await res.text())?.slice(0, 300) ?? ''
-    } catch {
-      // ignore
-    }
-    throw new Error(`Ошибка связи с сервером (${res.status}). ${extra}`)
+    const body = await res.json().catch(()=>null)
+    const message = body?.error?.message
+    throw new Error(typeof message==='string' && !message.trim().startsWith('{') ? message : 'Не удалось выполнить запрос ('+res.status+').')
   }
 
   const text = await res.text()
@@ -107,7 +102,7 @@ async function request<T = unknown>(body: object, signal?: AbortSignal): Promise
   try {
     data = text ? JSON.parse(text) : {}
   } catch {
-    return {} as T
+    throw new Error('Некорректный ответ сервера')
   }
 
   if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -573,15 +568,13 @@ export interface ActionRunResult {
 function toActionRunResult(raw: unknown): ActionRunResult {
   const data = unwrapData(raw as ApiEnvelope<Record<string, unknown>>)
   const obj = isObjectRecord(data) ? data : {}
-  const statusRaw = String(obj.status ?? (obj.ok === false ? 'error' : 'done')).toLowerCase()
+  const statusRaw = String(obj.status ?? '').toLowerCase()
   const status: ActionRunStatus =
-    statusRaw === 'processing' || statusRaw === 'pending' || statusRaw === 'queued'
+    ['processing','pending','queued','running','proccessing'].includes(statusRaw) && !!obj.request_id
       ? 'processing'
       : statusRaw === 'needs_approval' || statusRaw === 'approval_required'
         ? 'needs_approval'
-        : statusRaw === 'error' || statusRaw === 'failed' || obj.ok === false
-          ? 'error'
-          : 'done'
+        : obj.ok !== false && ['ready','completed','success','succeeded','done'].includes(statusRaw) ? 'done' : 'error'
   const text = [obj.text, obj.message, obj.output]
     .map((v) => (typeof v === 'string' ? v : ''))
     .find((v) => v.trim().length > 0)
@@ -592,7 +585,7 @@ function toActionRunResult(raw: unknown): ActionRunResult {
     text: status === 'error' ? undefined : text,
     attachments: Array.isArray(obj.attachments) ? (obj.attachments as N8nAttachment[]) : Array.isArray(obj.files) ? (obj.files as N8nAttachment[]) : undefined,
     message: typeof obj.message === 'string' ? obj.message : undefined,
-    error: status === 'error' ? String(obj.error ?? obj.message ?? text ?? 'Не удалось выполнить действие') : undefined,
+    error: status === 'error' ? [obj.error,obj.message,text].find((v):v is string=>typeof v==='string' && !!v.trim()) ?? 'Сервер не подтвердил результат действия' : undefined,
   }
 }
 
@@ -608,9 +601,9 @@ export interface IntakeSubmitResult {
  * Пайплайн исполняет с полным контекстом и доставляет результат в окно COO (getCOOIncomingMessages)
  * и в Telegram отправителю. Это правильный способ запускать действия отделов (в отличие от прямого вызова workflow).
  */
-export async function sendIntakeMessage(text: string): Promise<IntakeSubmitResult> {
+export async function sendIntakeMessage(text: string, requestId = crypto.randomUUID()): Promise<IntakeSubmitResult> {
   const session = getSession()
-  const body: Record<string, unknown> = { message: text, timestamp: Date.now() }
+  const body: Record<string, unknown> = { message: text, request_id: requestId, timestamp: Date.now() }
   if (session) {
     body.company_id = session.company_id
     body.token = session.token
@@ -622,7 +615,8 @@ export async function sendIntakeMessage(text: string): Promise<IntakeSubmitResul
   const event = isObjectRecord(obj.event) ? obj.event : {}
   const meta = isObjectRecord(event.meta) ? event.meta : {}
   const request_id = String(event.request_id ?? meta.request_id ?? obj.request_id ?? '') || undefined
-  const status = String(meta.status ?? obj.status ?? 'processing')
+  if (obj.ok===false || obj.blocked===true) throw new Error(typeof obj.message==='string' ? obj.message : 'Запрос отклонён')
+  const status = String(meta.status ?? obj.status ?? (request_id ? 'processing' : 'ready')).toLowerCase().replace('proccessing','processing')
   const immediate = [obj.text, obj.message, obj.output, obj.final_response]
     .map((v) => (typeof v === 'string' ? v : ''))
     .find((v) => v.trim().length > 0)

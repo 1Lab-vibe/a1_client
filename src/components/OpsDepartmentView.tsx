@@ -1,3 +1,4 @@
+import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BarChart3, CheckCircle2, Loader2, PlayCircle, RefreshCw, Table2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -51,7 +52,7 @@ const DEPARTMENT_LABELS: Record<string, string> = {
 function display(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'boolean') return value ? 'да' : 'нет'
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (typeof value === 'object') return Array.isArray(value) ? value.filter(v=>typeof v==='string').join(', ') : '—'
   return String(value)
 }
 
@@ -73,8 +74,8 @@ function taskTitle(row: Row): string {
 
 export function OpsDepartmentView({ viewId, title }: { viewId: string; title: string }) {
   const department = viewId.split('/')[1] || 'tasks'
-  const [tab, setTab] = useState<OpsTab>('main')
-  const [period, setPeriod] = useState<PeriodPreset>('30d')
+  const [tab, setTab] = useRouteParam<OpsTab>('tab','main',['main','reports','tasks'])
+  const [period, setPeriod] = useRouteParam<PeriodPreset>('period', '30d', ['today','7d','30d','90d','month','quarter','custom'])
   const [data, setData] = useState<Row>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

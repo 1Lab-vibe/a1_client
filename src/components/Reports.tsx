@@ -1,3 +1,4 @@
+import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CalendarDays, Download, RefreshCw } from 'lucide-react'
@@ -85,9 +86,9 @@ function friendlyReportError(error: unknown): string {
 
 export function Reports() {
   const [reportId, setReportId] = useState('sales')
-  const [period, setPeriod] = useState<PeriodPreset>('30d')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [period, setPeriod] = useRouteParam<PeriodPreset>('period', '30d', ['today','7d','30d','90d','month','quarter','custom'])
+  const [dateFrom, setDateFrom] = useRouteParam<string>('from','')
+  const [dateTo, setDateTo] = useRouteParam<string>('to','')
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

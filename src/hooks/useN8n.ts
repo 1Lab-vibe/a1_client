@@ -1,105 +1,47 @@
-/**
- * Хук для отправки сообщений в n8n и получения ответов.
- * Все запросы идут через same-origin server proxy; HMAC-secret в браузер не передаётся.
- * Поддерживает два режима:
- * 1) Сразу ответ: n8n возвращает { text, attachments }.
- * 2) Отложенный ответ: n8n возвращает { status: "processing", request_id }. Клиент опрашивает
- *    тот же webhook с action "getCOOResponse" и request_id, пока не придёт { status: "ready", text, attachments }.
- */
-
-import { getSession } from '../session'
-import { requestWebhook } from '../api/n8n'
+import { getSession } from "../session";
+import { requestWebhook, sendIntakeMessage } from "../api/n8n";
+import type { N8nAttachment } from "../types";
 
 export interface N8nResponse {
-  text?: string
-  attachments?: Array<{ type: 'image' | 'file' | 'chart'; url: string; name?: string }>
+  text?: string;
+  attachments?: N8nAttachment[];
+  message_id?: string;
 }
-
-const POLL_INTERVAL_MS = 1500
-const POLL_MAX_ATTEMPTS = 60 // ~90 сек
-
-interface PollResponse {
-  ready: boolean
-  text?: string
-  attachments?: N8nResponse['attachments']
+export async function waitForIntake(
+  requestId: string,
+  signal?: AbortSignal,
+): Promise<N8nResponse> {
+  const session = getSession();
+  for (let n = 0; n < 60; n++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (
+      signal?.aborted ||
+      getSession()?.company_id !== session?.company_id ||
+      getSession()?.user_id !== session?.user_id
+    )
+      throw new Error("Просмотр запроса завершён");
+    const r = await requestWebhook<
+      N8nResponse & { status: string; request_id: string }
+    >({ ...session, action: "getIntakeResult", request_id: requestId });
+    if (r.request_id !== requestId)
+      throw new Error("Сервер вернул ответ на другой запрос");
+    if (r.status === "ready" && (r.text || r.attachments?.length)) return r;
+    if (r.status !== "processing")
+      throw new Error("Не удалось получить результат");
+  }
+  throw new Error("Ответ ещё не получен. Проверьте результат позже.");
 }
-
-async function getCOOResponse(requestId: string): Promise<PollResponse> {
-  const session = getSession()
-  const body: Record<string, unknown> = {
-    action: 'getCOOResponse',
-    request_id: requestId,
-  }
-  if (session) {
-    body.company_id = session.company_id
-    body.token = session.token
-    body.user_id = session.user_id
-  }
-  const data = await requestWebhook<{
-    status?: string
-    text?: string
-    message?: string
-    output?: string
-    attachments?: N8nResponse['attachments']
-    files?: N8nResponse['attachments']
-  }>(body)
-  if (data?.status === 'ready') {
-    return {
-      ready: true,
-      text: data.text ?? data.message ?? data.output ?? '',
-      attachments: data.attachments ?? data.files ?? undefined,
-    }
-  }
-  return { ready: false }
-}
-
 export function useN8n() {
-  const sendToN8n = async (message: string): Promise<N8nResponse> => {
-    const session = getSession()
-    const body: Record<string, unknown> = {
-      message,
-      timestamp: Date.now(),
-    }
-    if (session) {
-      body.company_id = session.company_id
-      body.token = session.token
-      body.user_id = session.user_id
-    }
-    const data = await requestWebhook<{
-      status?: string
-      request_id?: string
-      text?: string
-      message?: string
-      output?: string
-      attachments?: N8nResponse['attachments']
-      files?: N8nResponse['attachments']
-    }>(body)
-
-    // Ответ сразу
-    if (data?.text !== undefined || data?.message !== undefined || data?.output !== undefined) {
-      return {
-        text: data.text ?? data.message ?? data.output ?? '',
-        attachments: data.attachments ?? data.files ?? undefined,
-      }
-    }
-
-    // Отложенный ответ: опрашиваем по request_id
-    if (data?.status === 'processing' && data?.request_id) {
-      for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
-        const next = await getCOOResponse(data.request_id)
-        if (next.ready) {
-          return { text: next.text ?? '', attachments: next.attachments }
-        }
-      }
-      return { text: 'Ответ не получен. Попробуйте позже.' }
-    }
-
-    return {
-      text: data?.text ?? data?.message ?? data?.output ?? '',
-      attachments: data?.attachments ?? data?.files ?? undefined,
-    }
+  async function sendToN8n(message: string): Promise<N8nResponse> {
+    const r = await sendIntakeMessage(message);
+    if (
+      r.request_id &&
+      ["processing", "pending", "queued", "accepted"].includes(r.status || "")
+    )
+      return waitForIntake(r.request_id);
+    if (r.text && !["failed", "error"].includes(r.status || ""))
+      return { text: r.text };
+    throw new Error(r.text || "Сервер не подтвердил приём сообщения");
   }
-
-  return { sendToN8n }
+  return { sendToN8n };
 }

@@ -306,22 +306,26 @@ export function COO() {
     setInputValue('')
     setIsLoading(true)
 
+    const sender = getSession()
     try {
       const response = await sendToN8n(trimmed)
+      if (sender?.company_id !== getSession()?.company_id) return
       const assistantMsg: N8nMessage = {
-        id: `assistant-${Date.now()}`,
+        id: response.message_id ?? `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.text ?? '',
         attachments: response.attachments,
         timestamp: Date.now(),
       }
-      setFullHistory((prev) => [...prev, assistantMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))
+      setFullHistory((prev) => [...prev.filter(m => m.id !== assistantMsg.id), assistantMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))
       playIncomingMessageSound()
     } catch (e) {
+      if (sender?.company_id !== getSession()?.company_id) return
+      setInputValue(current => current || trimmed)
       const errMsg: N8nMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',
-        content: 'Ошибка связи с сервером. Проверьте настройки и webhook.',
+        content: e instanceof Error ? e.message : 'Не удалось получить ответ.',
         timestamp: Date.now(),
       }
       setFullHistory((prev) => [...prev, errMsg].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)))

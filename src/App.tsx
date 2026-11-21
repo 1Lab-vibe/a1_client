@@ -1,14 +1,12 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useSyncExternalStore } from 'react'
 import { useAuth } from './context/AuthContext'
 import { LoginScreen } from './components/LoginScreen'
+import { CrmWorkspace } from './components/CrmWorkspace'
+import { DEFAULT_SECTIONS, toViewId } from './config/sections'
 import { Desktop } from './components/Desktop'
 import { AppHeader, getViewTitle } from './components/AppHeader'
 import { COO } from './components/COO'
-import { Clients } from './components/Clients'
 import { Settings } from './components/Settings'
-import { Leads } from './components/Leads'
-import { Deals } from './components/Deals'
-import { Invoices } from './components/Invoices'
 import { Chat } from './components/Chat'
 import { Dashboard } from './components/Dashboard'
 import { Reports } from './components/Reports'
@@ -46,13 +44,17 @@ const SETTINGS_VIEW_SECTIONS: Record<string, string> = {
   'settings/letter_templates': 'letter_templates',
 }
 
+const views = new Set(DEFAULT_SECTIONS.flatMap(s=>s.children ? s.children.map(c=>toViewId(s.id,c.id)) : [s.id]))
+function subscribe(fn:()=>void){window.addEventListener('hashchange',fn);return ()=>window.removeEventListener('hashchange',fn)}
+function currentView(): ViewId {
+  const path=location.hash.slice(2).split('?')[0]
+  if (/^crm\/deals\/[a-f0-9-]{36}$/i.test(path)) return 'crm/deals'
+  if(path==='ops/supply')return 'supply'
+  return views.has(path)?path as ViewId:'coo'
+}
 function App() {
   const { isLoggedIn, company_id } = useAuth()
-  const [viewId, setViewId] = useState<ViewId>(() =>
-    /^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
-      ? 'supply'
-      : 'coo',
-  )
+  const viewId = useSyncExternalStore(subscribe,currentView)
 
   if (!isLoggedIn) {
     return <LoginScreen />
@@ -70,16 +72,16 @@ function App() {
       content = <Dashboard />
       break
     case 'crm/leads':
-      content = <Leads />
+      content = <CrmWorkspace key="Leads" entity="leads"/>
       break
     case 'crm/deals':
-      content = <Deals />
+      content = <CrmWorkspace key="Deals" entity="deals"/>
       break
     case 'crm/clients':
-      content = <Clients />
+      content = <CrmWorkspace key="Clients" entity="clients"/>
       break
     case 'crm/invoices':
-      content = <Invoices />
+      content = <CrmWorkspace key="Invoices" entity="invoices"/>
       break
     case 'reports':
       content = <Reports />
@@ -128,23 +130,7 @@ function App() {
     <div className="app">
       <Desktop
         currentViewId={viewId}
-        onSelectView={(id) => {
-          setViewId(id)
-          if (
-            id === 'supply' &&
-            !/^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
-          )
-            window.history.replaceState(null, '', '#/supply')
-          else if (
-            id !== 'supply' &&
-            /^#\/(?:ops\/)?supply(?:\?|$)/.test(window.location.hash)
-          )
-            window.history.replaceState(
-              null,
-              '',
-              window.location.pathname + window.location.search,
-            )
-        }}
+        onSelectView={id=>{location.hash='/'+id}}
       />
       <section className="shell-main" key={company_id ?? 'no-company'}>
         <AppHeader viewId={viewId} />

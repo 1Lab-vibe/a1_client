@@ -30,7 +30,8 @@ function saveStored(section: string, visible: string[]) {
  */
 export function useColumnVisibility(
   section: string,
-  availableColumns: string[]
+  availableColumns: string[],
+  defaultColumns = availableColumns
 ): {
   visibleColumns: string[]
   toggle: (key: string) => void
@@ -44,7 +45,7 @@ export function useColumnVisibility(
   }, [section])
 
   const visibleSet = stored === null
-    ? new Set(availableColumns)
+    ? new Set(availableColumns.filter(key=>defaultColumns.includes(key)))
     : new Set(availableColumns.filter((k) => stored.has(k)))
 
   if (visibleSet.size === 0 && availableColumns.length > 0) {

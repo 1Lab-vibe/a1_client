@@ -1,3 +1,5 @@
+import {useRouteParam} from '../hooks/useRouteParam'
+import { SalesbotStudioLink } from './SalesbotStudioLink'
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart3, Bell, Bot, Building2, CheckCircle2, CreditCard, KeyRound, Link2, Megaphone, Package, PlugZap, RefreshCw, Save, ShieldCheck, Target, Users, XCircle } from 'lucide-react'
 import {
@@ -11,7 +13,6 @@ import {
   inviteUser,
   startIntegrationConnect,
   testIntegration,
-  updateConfig,
   updateSettingsRecord,
   updateSettingsSection,
   updateUserRole,
@@ -620,7 +621,7 @@ const MANAGED_COLLECTIONS: Record<string, ManagedCollectionDef[]> = {
     fields: [
       { key: 'domain', label: 'Домен', type: 'select', options: ['sales', 'marketing', 'finance', 'legal', 'hr', 'it', 'ops'] },
       { key: 'enabled', label: 'Статус', type: 'select', options: ['enabled', 'disabled'] },
-      { key: 'workflow_key', label: 'Workflow key' },
+
       { key: 'fallback_owner', label: 'Ответственный' },
     ],
     emptyItem: { domain: 'sales', enabled: 'enabled', workflow_key: '', fallback_owner: '' },
@@ -904,7 +905,7 @@ const SECTIONS: SettingsSection[] = [
       { path: 'integrations.telegram.status', label: 'Telegram', type: 'select', options: ['connected', 'disconnected', 'error'] },
       { path: 'integrations.email.status', label: 'Email', type: 'select', options: ['connected', 'disconnected', 'error'] },
       { path: 'integrations.yandex_direct.status', label: 'Yandex Direct', type: 'select', options: ['connected', 'disconnected', 'error'] },
-      { path: 'integrations.last_sync_at', label: 'Последний sync', type: 'text' },
+
     ],
   },
   {
@@ -953,8 +954,8 @@ function setPath(obj: CompanyConfig, path: string, value: unknown): CompanyConfi
 
 function stringifyValue(value: unknown): string {
   if (value === null || value === undefined) return ''
-  if (Array.isArray(value)) return value.join(', ')
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return value.filter(v => typeof v === 'string' || typeof v === 'number').join(', ')
+  if (typeof value === 'object') return ''
   return String(value)
 }
 
@@ -995,7 +996,7 @@ function asRows(value: unknown, keys: string[]): DataRow[] {
 function cell(value: unknown): string {
   if (value === null || value === undefined || value === '') return '-'
   if (typeof value === 'boolean') return value ? 'да' : 'нет'
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (typeof value === 'object') return ''
   return String(value)
 }
 
@@ -1090,7 +1091,7 @@ function realVisibleFields(def: RealCollectionDef): RealFieldDef[] {
 }
 
 function realLabel(row: DataRow, def: RealCollectionDef): string {
-  return cell(row[def.labelKey] ?? row.name ?? row.title ?? row.id ?? 'Новая запись')
+  return cell(row[def.labelKey] ?? row.name ?? row.title ?? 'Новая запись')
 }
 
 function realSubLabel(row: DataRow, def: RealCollectionDef): string {
@@ -1101,7 +1102,7 @@ function valueToInput(value: unknown, type?: RealFieldType): string {
   if (value === null || value === undefined) return ''
   if (type === 'tags' && Array.isArray(value)) return value.join('\n')
   if (type === 'json') return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-  if (typeof value === 'object') return JSON.stringify(value, null, 2)
+  if (typeof value === 'object') return ''
   return String(value)
 }
 
@@ -1627,7 +1628,8 @@ function DomainCollectionsPanel({
 }
 
 export function Settings({ initialSection }: SettingsProps = {}) {
-  const [activeSection, setActiveSection] = useState(() => normalizeSectionId(initialSection))
+  const [selectedSubsection] = useRouteParam<string>('section','',['security','notifications','coo'])
+  const activeSection = selectedSubsection || normalizeSectionId(initialSection)
   const [config, setConfig] = useState<CompanyConfig>({})
   const [draft, setDraft] = useState<CompanyConfig>({})
   const [loading, setLoading] = useState(true)
@@ -1666,9 +1668,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    setActiveSection(normalizeSectionId(initialSection))
-  }, [initialSection])
+
 
   const loadIntegrations = () => {
     setIntegrationsLoading(true)
@@ -1721,7 +1721,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
       ? value
       : field.type === 'slider'
         ? Number(value)
-        : parseTextValue(String(value))
+        : Array.isArray(getPath(draft, field.path)) ? parseTextValue(String(value)) : String(value)
     setDraft((current) => setPath(current, field.path, parsed))
   }
 
@@ -1730,7 +1730,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
     setSaving(true)
     setError(null)
     updateSettingsSection(section.id, patch)
-      .catch(() => updateConfig(draft))
+
       .then((updated) => {
         const next = updated && Object.keys(updated).length > 0 ? updated : setPath(config, section.id, patch)
         setConfig(next)
@@ -1859,6 +1859,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
   return (
     <div className={styles.wrap}>
       <aside className={styles.nav}>
+        <SalesbotStudioLink />
         {SECTIONS.map((item) => {
           const Icon = item.icon
           return (
@@ -1866,7 +1867,7 @@ export function Settings({ initialSection }: SettingsProps = {}) {
               key={item.id}
               type="button"
               className={item.id === activeSection ? styles.active : ''}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => {location.hash = ['security','notifications','coo'].includes(item.id) ? '/settings/configuration?section='+item.id : '/settings/'+(item.id==='access'?'users':item.id)}}
             >
               <Icon aria-hidden />
               <span>{item.title}</span>

@@ -6,7 +6,6 @@ import {
   getOnboardingState,
   getSettings,
   saveOnboardingStep,
-  updateConfig,
   updateSettingsSection,
   type CompanyConfig,
 } from '../api/n8n'
@@ -218,7 +217,7 @@ export function Onboarding() {
         const nextConfig = res.config && typeof res.config === 'object' && !Array.isArray(res.config) ? res.config as CompanyConfig : null
         return nextConfig || updateSettingsSection(activeStep.section, patch)
       })
-      .catch(() => updateConfig(config))
+
       .then((updated) => {
         setConfig(updated && Object.keys(updated).length > 0 ? updated : config)
         setMessage('Онбординг сохранен')

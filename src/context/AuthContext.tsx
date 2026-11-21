@@ -123,7 +123,7 @@ function getClientDataForFailedLogin(): { userAgent: string; language: string; s
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [stored, setStored] = useState<StoredAuth | null>(loadStored)
+  const [stored, setStored] = useState<StoredAuth | null>(()=>{const auth=loadStored();if(auth)setSession(auth.company_id,auth.token,auth.email); return auth})
   const [pendingAuth, setPendingAuth] = useState<{ email: string; companies: AuthCompany[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [blockedUntil, setBlockedUntilState] = useState<number | null>(() => getBlockedUntil())
@@ -136,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await getAuthCompanies()
     if (res.companies.length === 0) return
     setStored((current) => {
-      const base = current ?? currentStored
+      if (!current || current.company_id !== currentStored.company_id || current.token !== currentStored.token || current.email !== currentStored.email) return current
+      const base = current
       const selected =
         res.companies.find((company) => company.company_id === base.company_id) ??
         res.companies.find((company) => company.is_default) ??
@@ -284,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const companies = normalizeCompanies(current.companies, current.company_id, current.token)
       const company = companies.find((c) => c.company_id === companyId)
       if (!company) return current
+      if (company.company_id !== current.company_id && location.hash.startsWith('#/crm/')) history.replaceState(null,'',location.hash.split('?')[0].replace(/^(#\/crm\/deals)\/[\da-f-]{36}$/i,'$1'))
       const token = company.token ?? current.token
       const next = { ...current, token, company_id: company.company_id, companies }
       saveStored(next)

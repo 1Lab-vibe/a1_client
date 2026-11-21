@@ -1,3 +1,4 @@
+import {useRouteParam} from '../hooks/useRouteParam'
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Activity, BriefcaseBusiness, Building2, CheckCircle2, FileText, MessageSquareText, RefreshCw, Target, TriangleAlert } from 'lucide-react'
@@ -141,9 +142,9 @@ function friendlyDashboardError(error: unknown): string {
 
 export function Dashboard() {
   const [template, setTemplate] = useState('default')
-  const [period, setPeriod] = useState<PeriodPreset>('30d')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [period, setPeriod] = useRouteParam<PeriodPreset>('period', '30d', ['today','7d','30d','90d','month','quarter','custom'])
+  const [dateFrom, setDateFrom] = useRouteParam<string>('from','')
+  const [dateTo, setDateTo] = useRouteParam<string>('to','')
   const [data, setData] = useState<DataRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
